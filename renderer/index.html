@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; media-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'">
   <title>Respect des Lieux PRO</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
@@ -22,13 +22,14 @@
         <button class="nav" data-view="signalements">Signalements</button>
         <button class="nav" data-view="reparations">Réparations</button>
         <button class="nav" data-view="sauvegardes">Sauvegardes</button>
+        <button class="nav" data-view="confidentialite">Protection des données</button>
         <button class="nav" data-view="systeme">Système local</button>
       </nav>
       <div class="local-seal">
         <span class="dot"></span>
         <div>
           <strong>100 % local</strong>
-          <small>Aucun Supabase · aucun cloud</small>
+          <small>Aucun backend cloud · réseau métier bloqué</small>
         </div>
       </div>
     </aside>
@@ -40,6 +41,7 @@
           <h1 id="page-title">Tableau de bord</h1>
         </div>
         <div class="top-actions">
+          <button id="privacy-toggle" class="btn secondary" aria-pressed="false">Afficher les identités</button>
           <span id="health-pill" class="health neutral">Vérification…</span>
           <button id="backup-now" class="btn secondary">Sauvegarder</button>
           <button id="new-signalement" class="btn primary">Nouveau signalement</button>
@@ -49,9 +51,9 @@
       <section id="view-dashboard" class="view active">
         <div class="hero">
           <div>
-            <p class="eyebrow">V5.0 · Local-first</p>
+            <p class="eyebrow">V5.0.1 · Privacy-by-design</p>
             <h2>Les données restent sur ce PC.</h2>
-            <p>SQLite, photos locales et sauvegardes automatiques. La version Supabase précédente reste indépendante et active.</p>
+            <p>SQLite, photos locales assainies de leurs métadonnées et sauvegardes automatiques. La version Supabase précédente reste indépendante et active.</p>
           </div>
           <div class="hero-badge">SQLite<br><strong>LOCAL</strong></div>
         </div>
@@ -72,7 +74,7 @@
               <div><dt>Base</dt><dd id="fact-db">—</dd></div>
               <div><dt>Intégrité</dt><dd id="fact-integrity">—</dd></div>
               <div><dt>Version</dt><dd id="fact-version">—</dd></div>
-              <div><dt>Réseau métier</dt><dd>désactivé</dd></div>
+              <div><dt>Réseau métier</dt><dd>bloqué</dd></div>
             </dl>
           </article>
         </div>
@@ -82,7 +84,7 @@
         <div class="panel">
           <div class="panel-head">
             <div><p class="eyebrow">Registre local</p><h3>Signalements</h3></div>
-            <input id="signal-search" class="search" type="search" placeholder="Rechercher…">
+            <input id="signal-search" class="search" type="search" placeholder="Rechercher…" autocomplete="off">
           </div>
           <div class="table-wrap">
             <table>
@@ -110,7 +112,7 @@
           <article class="panel large-action">
             <div class="icon">⤓</div>
             <h3>Sauvegarde locale</h3>
-            <p>Crée une copie cohérente de la base SQLite, des photos et d’un manifeste de contrôle.</p>
+            <p>Crée une copie cohérente de la base SQLite, des photos assainies et d’un manifeste de contrôle.</p>
             <button id="backup-view-action" class="btn primary">Créer une sauvegarde maintenant</button>
           </article>
           <article class="panel large-action">
@@ -120,7 +122,35 @@
             <button id="open-backups" class="btn secondary">Ouvrir le dossier</button>
           </article>
         </div>
-        <article class="notice warning"><strong>V5.0 alpha :</strong> la restauration guidée sera ajoutée après l’épreuve de fiabilité. Les sauvegardes créées dès maintenant sont exploitables.</article>
+        <article class="notice warning"><strong>Protection :</strong> les sauvegardes sont locales mais pas encore chiffrées par l’application. Le poste Windows doit être protégé et la stratégie de sauvegarde externe sera ajoutée avant la version de production.</article>
+      </section>
+
+      <section id="view-confidentialite" class="view">
+        <div class="grid two">
+          <article class="panel">
+            <div class="panel-head"><div><p class="eyebrow">Privacy by design</p><h3>Minimisation appliquée</h3></div></div>
+            <ul class="checklist">
+              <li>Identité de l’élève facultative : ne la saisir que si elle est nécessaire au suivi.</li>
+              <li>Aucune donnée relative à la famille n’est demandée dans le formulaire V5.</li>
+              <li>Les identités sont masquées par défaut dans les listes.</li>
+              <li>Les métadonnées EXIF/XMP/IPTC et commentaires sont retirés des JPEG à l’import.</li>
+              <li>Aucun cloud, aucune télémétrie et aucune ressource distante ne sont nécessaires.</li>
+              <li>Le réseau HTTP(S) est bloqué au niveau de la session Electron.</li>
+            </ul>
+          </article>
+          <article class="panel">
+            <div class="panel-head"><div><p class="eyebrow">Gouvernance</p><h3>Validation établissement requise</h3></div></div>
+            <dl class="facts">
+              <div><dt>Finalité</dt><dd>suivi des dégradations et mesures associées — à formaliser</dd></div>
+              <div><dt>Responsable</dt><dd>chef d’établissement pour le second degré — à confirmer dans la fiche de traitement</dd></div>
+              <div><dt>DPD</dt><dd>avis du délégué académique à la protection des données à solliciter</dd></div>
+              <div><dt>Conservation</dt><dd>durée non fixée dans l’application : décision à documenter avant production</dd></div>
+              <div><dt>AIPD</dt><dd>criblage à réaliser avec le DPD ; une AIPD n’est pas déclarée automatiquement nécessaire</dd></div>
+            </dl>
+          </article>
+        </div>
+        <article class="notice danger"><strong>Ne pas saisir</strong> de données de santé, d’origine raciale ou ethnique, d’opinions politiques, philosophiques ou religieuses, d’appartenance syndicale ou relatives à la vie sexuelle. Les zones de texte libre doivent rester strictement factuelles et nécessaires au suivi du dossier.</article>
+        <article class="notice warning"><strong>Avant mise en production :</strong> inscrire ou rattacher le traitement au registre, fixer les catégories de destinataires et la durée de conservation, préparer l’information des personnes concernées, valider la sécurité du poste et la procédure en cas d’incident.</article>
       </section>
 
       <section id="view-systeme" class="view">
@@ -135,14 +165,15 @@
             <button id="open-data" class="btn secondary">Ouvrir le dossier de données</button>
           </article>
           <article class="panel">
-            <div class="panel-head"><h3>Garde-fous V5.0</h3></div>
+            <div class="panel-head"><h3>Garde-fous V5.0.1</h3></div>
             <ul class="checklist">
               <li>Une seule instance de l’application à la fois</li>
               <li>SQLite en WAL + synchronous FULL</li>
               <li>Clés étrangères actives</li>
-              <li>JPEG uniquement, 3 Mo maximum</li>
-              <li>Aucune API cloud dans le renderer</li>
-              <li>Sauvegarde quotidienne au démarrage</li>
+              <li>JPEG uniquement, 3 Mo maximum, métadonnées retirées</li>
+              <li>Navigation, permissions et réseau distant bloqués</li>
+              <li>DevTools désactivés dans l’application empaquetée</li>
+              <li>Sauvegarde quotidienne au démarrage après contrôle d’intégrité</li>
             </ul>
           </article>
         </div>
@@ -153,17 +184,17 @@
   <dialog id="signal-dialog">
     <form id="signal-form" method="dialog" class="dialog-card">
       <header><div><p class="eyebrow">Nouveau dossier</p><h2>Créer un signalement</h2></div><button class="close" value="cancel" aria-label="Fermer">×</button></header>
+      <div class="notice compact"><strong>Minimisation :</strong> saisissez uniquement les informations nécessaires au traitement du signalement. L’identité de l’élève est facultative.</div>
       <div class="form-grid">
         <label>Date<input name="date" type="date" required></label>
         <label>Heure<input name="heure" type="time"></label>
         <label class="span-2">Lieu<input name="lieu" maxlength="200" required placeholder="Bâtiment, salle, espace…"></label>
         <label>Type<input name="type" maxlength="120" placeholder="Dégradation, propreté…"></label>
         <label>Gravité<select name="gravite"><option value="">—</option><option>Mineure</option><option>Modérée</option><option>Importante</option><option>Critique</option></select></label>
-        <label>Élève<input name="eleve" maxlength="200"></label>
-        <label>Classe<input name="classe" maxlength="100"></label>
-        <label>Signalé par<input name="signale_par" maxlength="200"></label>
-        <label>Famille<input name="famille" maxlength="200"></label>
-        <label class="span-2">Description<textarea name="description" rows="4" maxlength="5000"></textarea></label>
+        <label>Élève concerné <span class="field-note">facultatif, seulement si nécessaire</span><input name="eleve" maxlength="200" autocomplete="off"></label>
+        <label>Classe <span class="field-note">facultatif</span><input name="classe" maxlength="100" autocomplete="off"></label>
+        <label class="span-2">Signalé par <span class="field-note">facultatif, uniquement si utile au suivi</span><input name="signale_par" maxlength="200" autocomplete="off"></label>
+        <label class="span-2">Description factuelle <span class="field-note">éviter toute donnée sensible ou appréciation inutile</span><textarea name="description" rows="4" maxlength="5000"></textarea></label>
       </div>
       <footer><button class="btn secondary" value="cancel">Annuler</button><button id="save-signalement" class="btn primary" value="default">Enregistrer localement</button></footer>
     </form>
@@ -175,11 +206,11 @@
       <input type="hidden" name="signalement_id">
       <div class="form-grid">
         <label class="span-2">Mesure / action<textarea name="mesure" rows="3" maxlength="2000" required></textarea></label>
-        <label>Référent<input name="referent" maxlength="200"></label>
+        <label>Référent<input name="referent" maxlength="200" autocomplete="off"></label>
         <label>Début<input name="debut" type="date"></label>
         <label>Durée<input name="duree" maxlength="100"></label>
         <label>Statut<select name="statut"><option>En cours</option><option>Terminée</option><option>Annulée</option></select></label>
-        <label class="span-2">Notes<textarea name="notes" rows="3" maxlength="5000"></textarea></label>
+        <label class="span-2">Notes factuelles <span class="field-note">ne saisir que ce qui est nécessaire au suivi</span><textarea name="notes" rows="3" maxlength="5000"></textarea></label>
       </div>
       <footer><button class="btn secondary" value="cancel">Annuler</button><button class="btn primary" value="default">Enregistrer</button></footer>
     </form>
