@@ -16,42 +16,29 @@ function stripJpegMetadata(input) {
   let i = 2;
 
   while (i < bytes.length) {
-    if (bytes[i] !== 0xff) {
-      throw new Error('Structure JPEG invalide.');
-    }
-
+    if (bytes[i] !== 0xff) throw new Error('Structure JPEG invalide.');
     const markerStart = i;
     while (i < bytes.length && bytes[i] === 0xff) i += 1;
     if (i >= bytes.length) throw new Error('Structure JPEG tronquée.');
 
     const marker = bytes[i];
     i += 1;
-
-    // SOS : à partir d'ici les octets sont le flux compressé ; on ne le modifie pas.
     if (marker === 0xda) {
       chunks.push(bytes.subarray(markerStart));
       i = bytes.length;
       break;
     }
-
-    // EOI ou marqueurs sans longueur.
     if (marker === 0xd9 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
       chunks.push(bytes.subarray(markerStart, i));
       if (marker === 0xd9) break;
       continue;
     }
-
     if (i + 2 > bytes.length) throw new Error('Segment JPEG tronqué.');
     const segmentLength = bytes.readUInt16BE(i);
     if (segmentLength < 2) throw new Error('Longueur de segment JPEG invalide.');
     const segmentEnd = i + segmentLength;
     if (segmentEnd > bytes.length) throw new Error('Segment JPEG incomplet.');
-
-    // On retire les métadonnées susceptibles d'embarquer GPS, appareil, auteur,
-    // commentaires ou informations éditoriales. APP0/JFIF et ICC restent intacts.
-    if (!METADATA_MARKERS.has(marker)) {
-      chunks.push(bytes.subarray(markerStart, segmentEnd));
-    }
+    if (!METADATA_MARKERS.has(marker)) chunks.push(bytes.subarray(markerStart, segmentEnd));
     i = segmentEnd;
   }
 
@@ -65,7 +52,9 @@ function stripJpegMetadata(input) {
 class LocalPhotoStore {
   constructor(photoDir) {
     this.photoDir = photoDir;
+    this.trashDir = path.join(this.photoDir, '.trash');
     fs.mkdirSync(this.photoDir, { recursive: true });
+    fs.mkdirSync(this.trashDir, { recursive: true });
   }
 
   resolveStoredName(storedName) {
@@ -112,7 +101,6 @@ class LocalPhotoStore {
     try {
       return db.insertPhotoMetadata({
         signalement_id: signalementId,
-        // Le nom d'origine peut lui-même contenir une identité ; il n'est pas nécessaire.
         original_name: 'photo.jpg',
         stored_name: storedName,
         size_bytes: sanitizedBytes.length,
@@ -122,6 +110,44 @@ class LocalPhotoStore {
       try { fs.unlinkSync(target); } catch {}
       throw error;
     }
+  }
+
+  stageDelete(storedNames = []) {
+    const unique = [...new Set(storedNames.map((name) => path.basename(String(name || ''))).filter(Boolean))];
+    const stageId = crypto.randomUUID();
+    const stageDir = path.join(this.trashDir, stageId);
+    fs.mkdirSync(stageDir, { recursive: true });
+    const moved = [];
+    try {
+      for (const name of unique) {
+        const source = this.resolveStoredName(name);
+        if (!fs.existsSync(source)) continue;
+        const target = path.join(stageDir, name);
+        fs.renameSync(source, target);
+        moved.push({ name, source, target });
+      }
+      return { stageDir, moved };
+    } catch (error) {
+      for (const item of moved.reverse()) {
+        try { fs.renameSync(item.target, item.source); } catch {}
+      }
+      try { fs.rmSync(stageDir, { recursive: true, force: true }); } catch {}
+      throw error;
+    }
+  }
+
+  rollbackStagedDelete(stage) {
+    if (!stage?.moved) return;
+    for (const item of [...stage.moved].reverse()) {
+      if (!fs.existsSync(item.target)) continue;
+      fs.renameSync(item.target, item.source);
+    }
+    try { fs.rmSync(stage.stageDir, { recursive: true, force: true }); } catch {}
+  }
+
+  commitStagedDelete(stage) {
+    if (!stage?.stageDir) return;
+    fs.rmSync(stage.stageDir, { recursive: true, force: true });
   }
 }
 
