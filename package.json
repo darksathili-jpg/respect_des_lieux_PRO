@@ -1,6 +1,6 @@
 {
   "name": "respect-des-lieux-pro",
-  "version": "5.2.0-alpha.6",
+  "version": "5.2.0-alpha.7",
   "private": true,
   "description": "Application desktop locale de suivi des dégradations en établissement scolaire — données stockées uniquement sur le poste utilisateur.",
   "main": "main-bootstrap.cjs",
@@ -11,7 +11,7 @@
   },
   "scripts": {
     "start": "electron .",
-    "check": "node --check main-bootstrap.cjs && node --check main.cjs && node --check preload.cjs && node --check src/database.cjs && node --check src/storage.cjs && node --check src/portable-backup.cjs && node --check renderer/app.js",
+    "check": "node --check main-bootstrap.cjs && node --check main.cjs && node --check preload.cjs && node --check src/database.cjs && node --check src/storage.cjs && node --check src/portable-backup.cjs && node --check renderer/app.js && node --check renderer/detail.js",
     "test": "node --test tests/*.test.mjs",
     "verify": "npm run check && npm test",
     "dist:win": "electron-builder --win nsis --x64 --publish never"

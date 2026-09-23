@@ -58,6 +58,8 @@ jobs:
             'renderer/styles.css',
             'renderer/v51.css',
             'renderer/app.js',
+            'renderer/detail.js',
+            'renderer/detail.css',
             'src/database.cjs',
             'src/storage.cjs',
             'src/portable-backup.cjs'

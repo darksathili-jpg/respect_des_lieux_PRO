@@ -58,6 +58,7 @@ function paintProbe(nativeImage) {
 }
 
 async function probeRenderer(win) {
+  await delay(1200);
   const dom = await win.webContents.executeJavaScript(`(() => {
     const shell = document.querySelector('.shell');
     const sidebar = document.querySelector('.sidebar');
@@ -70,6 +71,9 @@ async function probeRenderer(win) {
       shell: Boolean(shell),
       sidebar: Boolean(sidebar),
       main: Boolean(main),
+      signalDetailDialog: Boolean(document.querySelector('#signal-detail-dialog')),
+      detailScript: Boolean(document.querySelector('script[data-rdl-detail-layer]')),
+      detailStyle: Boolean(document.querySelector('link[data-rdl-detail-layer]')),
       shellWidth: shellRect?.width || 0,
       shellHeight: shellRect?.height || 0,
       sidebarWidth: sidebarRect?.width || 0,
@@ -126,6 +130,9 @@ app.on('browser-window-created', (_event, win) => {
         && result.dom.shell
         && result.dom.sidebar
         && result.dom.main
+        && result.dom.signalDetailDialog
+        && result.dom.detailScript
+        && result.dom.detailStyle
         && result.dom.shellWidth > 500
         && result.dom.shellHeight > 400
         && result.dom.sidebarWidth > 100

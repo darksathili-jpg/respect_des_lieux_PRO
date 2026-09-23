@@ -45,10 +45,25 @@ test('qualification packaging : arbre applicatif complet, UI non exclue', () => 
     'renderer/index.html',
     'renderer/styles.css',
     'renderer/v51.css',
-    'renderer/app.js'
+    'renderer/app.js',
+    'renderer/detail.js',
+    'renderer/detail.css'
   ]) {
     assert.ok(fs.existsSync(requiredOnDisk), `fichier runtime absent du dépôt : ${requiredOnDisk}`);
   }
+});
+
+test('qualification UI : une fiche de signalement consultable est chargée localement', () => {
+  const preload = fs.readFileSync('preload.cjs', 'utf8');
+  const detail = fs.readFileSync('renderer/detail.js', 'utf8');
+  assert.match(preload, /detail\.js/);
+  assert.match(preload, /detail\.css/);
+  assert.match(detail, /signal-detail-dialog/);
+  assert.match(detail, /data-fiche/);
+  assert.match(detail, /listPhotos/);
+  assert.match(detail, /openPhoto/);
+  assert.match(detail, /listReparations/);
+  assert.match(pkg.scripts.check, /renderer\/detail\.js/);
 });
 
 test('qualification packaging : aucune publication automatique', () => {

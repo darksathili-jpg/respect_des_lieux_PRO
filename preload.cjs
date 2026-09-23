@@ -29,3 +29,29 @@ contextBridge.exposeInMainWorld('rdl', Object.freeze({
   restartApp: () => ipcRenderer.invoke('rdl:system:restart'),
   health: () => ipcRenderer.invoke('rdl:system:health')
 }));
+
+function installSignalementDetailLayer() {
+  setTimeout(() => {
+    if (!document.querySelector('link[data-rdl-detail-layer]')) {
+      const style = document.createElement('link');
+      style.rel = 'stylesheet';
+      style.href = './detail.css';
+      style.dataset.rdlDetailLayer = 'style';
+      document.head.appendChild(style);
+    }
+
+    if (!document.querySelector('script[data-rdl-detail-layer]')) {
+      const script = document.createElement('script');
+      script.src = './detail.js';
+      script.dataset.rdlDetailLayer = 'script';
+      script.defer = true;
+      document.body.appendChild(script);
+    }
+  }, 0);
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', installSignalementDetailLayer, { once: true });
+} else {
+  installSignalementDetailLayer();
+}
