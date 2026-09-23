@@ -1,8 +1,10 @@
 const path = require('node:path');
 const fs = require('node:fs');
+const { DatabaseSync } = require('node:sqlite');
 const { app, BrowserWindow, ipcMain, dialog, shell, session } = require('electron');
 const { LocalDatabase } = require('./src/database.cjs');
 const { LocalPhotoStore } = require('./src/storage.cjs');
+const { createEncryptedBackup, extractEncryptedBackup, validatePassphrase } = require('./src/portable-backup.cjs');
 
 app.setName('Respect des Lieux PRO');
 
@@ -28,6 +30,7 @@ function appPaths() {
   const photos = path.join(root, 'photos');
   const backups = path.join(root, 'backups');
   const exportsDir = path.join(root, 'exports');
+  const pendingRestore = path.join(root, 'pending-restore');
   [root, data, photos, backups, exportsDir].forEach(ensureDir);
   return {
     root,
@@ -35,8 +38,10 @@ function appPaths() {
     photos,
     backups,
     exports: exportsDir,
+    pendingRestore,
     database: path.join(data, 'respect-des-lieux.sqlite3'),
-    privacyLedger: path.join(root, 'privacy-purge-ledger.json')
+    privacyLedger: path.join(root, 'privacy-purge-ledger.json'),
+    restoreMarker: path.join(root, 'restore-pending.json')
   };
 }
 
@@ -164,6 +169,127 @@ async function ensureDailyBackup() {
   }
 }
 
+function quickCheckDatabaseFile(databasePath) {
+  if (!fs.existsSync(databasePath)) throw new Error('Base SQLite absente de la sauvegarde.');
+  const probe = new DatabaseSync(databasePath, { timeout: 5000, readOnly: true });
+  try {
+    const rows = probe.prepare('PRAGMA quick_check').all();
+    const messages = rows.map((row) => String(Object.values(row)[0]));
+    return { ok: messages.length > 0 && messages.every((message) => message === 'ok'), messages };
+  } finally {
+    probe.close();
+  }
+}
+
+function validateSnapshotFolder(folder) {
+  const manifestPath = path.join(folder, 'manifest.json');
+  const databasePath = path.join(folder, 'respect-des-lieux.sqlite3');
+  if (!fs.existsSync(manifestPath)) throw new Error('Manifeste absent de la sauvegarde.');
+  let manifest;
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  } catch {
+    throw new Error('Manifeste de sauvegarde illisible.');
+  }
+  if (!manifest || Number(manifest.format) < 1) throw new Error('Format de manifeste non reconnu.');
+  const integrity = quickCheckDatabaseFile(databasePath);
+  if (!integrity.ok) throw new Error(`Sauvegarde SQLite invalide : ${integrity.messages.join(', ')}`);
+  const photosDir = path.join(folder, 'photos');
+  if (!fs.existsSync(photosDir)) ensureDir(photosDir);
+  return { manifest, databasePath, photosDir, integrity };
+}
+
+function replaceActiveDataFromSnapshot(snapshotFolder) {
+  const snapshot = validateSnapshotFolder(snapshotFolder);
+  ensureDir(paths.data);
+  const incomingDb = `${paths.database}.incoming`;
+  const incomingPhotos = path.join(paths.root, '.photos-incoming');
+  fs.rmSync(incomingDb, { force: true });
+  fs.rmSync(incomingPhotos, { recursive: true, force: true });
+  fs.copyFileSync(snapshot.databasePath, incomingDb);
+  fs.cpSync(snapshot.photosDir, incomingPhotos, { recursive: true, force: true });
+
+  fs.rmSync(paths.database, { force: true });
+  fs.rmSync(`${paths.database}-wal`, { force: true });
+  fs.rmSync(`${paths.database}-shm`, { force: true });
+  fs.rmSync(paths.photos, { recursive: true, force: true });
+  fs.renameSync(incomingDb, paths.database);
+  fs.renameSync(incomingPhotos, paths.photos);
+  return snapshot;
+}
+
+function applyPendingRestoreBeforeOpen() {
+  if (!fs.existsSync(paths.restoreMarker)) return { restored: false };
+  let marker;
+  try {
+    marker = JSON.parse(fs.readFileSync(paths.restoreMarker, 'utf8'));
+  } catch {
+    throw new Error('Marqueur de restauration illisible.');
+  }
+  if (!marker || marker.format !== 1 || path.resolve(marker.pendingDir || '') !== path.resolve(paths.pendingRestore)) {
+    throw new Error('Marqueur de restauration invalide.');
+  }
+
+  try {
+    const result = replaceActiveDataFromSnapshot(paths.pendingRestore);
+    fs.rmSync(paths.restoreMarker, { force: true });
+    fs.rmSync(paths.pendingRestore, { recursive: true, force: true });
+    return { restored: true, manifest: result.manifest };
+  } catch (error) {
+    if (marker.safeguardFolder && fs.existsSync(marker.safeguardFolder)) {
+      try { replaceActiveDataFromSnapshot(marker.safeguardFolder); } catch {}
+    }
+    fs.rmSync(paths.restoreMarker, { force: true });
+    fs.rmSync(paths.pendingRestore, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+async function exportEncryptedBackup(passphrase) {
+  validatePassphrase(passphrase);
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Exporter une sauvegarde chiffrée',
+    defaultPath: path.join(app.getPath('documents'), `respect-des-lieux-${safeTimestamp()}.rdlbackup`),
+    filters: [{ name: 'Sauvegarde Respect des Lieux', extensions: ['rdlbackup'] }]
+  });
+  if (result.canceled || !result.filePath) return { canceled: true };
+  const snapshot = await createBackup('portable-encrypted-export');
+  const encrypted = await createEncryptedBackup(snapshot.folder, result.filePath, passphrase);
+  db.recordPrivacyEvent('encrypted_backup_exported', '', 'Sauvegarde externe AES-256-GCM créée');
+  return { canceled: false, filePath: result.filePath, ...encrypted };
+}
+
+async function prepareEncryptedRestore(passphrase) {
+  validatePassphrase(passphrase);
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Choisir une sauvegarde chiffrée à restaurer',
+    properties: ['openFile'],
+    filters: [{ name: 'Sauvegarde Respect des Lieux', extensions: ['rdlbackup'] }]
+  });
+  if (result.canceled || !result.filePaths[0]) return { canceled: true };
+
+  fs.rmSync(paths.pendingRestore, { recursive: true, force: true });
+  await extractEncryptedBackup(result.filePaths[0], paths.pendingRestore, passphrase);
+  const validation = validateSnapshotFolder(paths.pendingRestore);
+  const safeguard = await createBackup('pre-encrypted-restore');
+  const marker = {
+    format: 1,
+    preparedAt: new Date().toISOString(),
+    pendingDir: paths.pendingRestore,
+    safeguardFolder: safeguard.folder
+  };
+  const tmp = `${paths.restoreMarker}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(marker, null, 2), { encoding: 'utf8', mode: 0o600 });
+  fs.renameSync(tmp, paths.restoreMarker);
+  return {
+    canceled: false,
+    ready: true,
+    source: result.filePaths[0],
+    snapshotCreatedAt: validation.manifest.createdAt || '',
+    restartRequired: true
+  };
+}
+
 function readPurgeLedger() {
   if (!fs.existsSync(paths.privacyLedger)) return { format: 1, entries: [] };
   try {
@@ -270,7 +396,6 @@ function registerIpc() {
   secureHandle('rdl:signalements:list', (limit = 500) => db.listSignalements(limit));
   secureHandle('rdl:signalements:create', (payload) => db.createSignalement(payload));
   secureHandle('rdl:signalements:update', (id, patch) => db.updateSignalement(id, patch));
-
   secureHandle('rdl:reparations:list', (limit = 1000) => db.listReparations(limit));
   secureHandle('rdl:reparations:create', (payload) => db.createReparation(payload));
 
@@ -283,7 +408,6 @@ function registerIpc() {
     if (result.canceled || !result.filePaths[0]) return { canceled: true };
     return { canceled: false, photo: photoStore.attach(signalementId, result.filePaths[0], db) };
   });
-
   secureHandle('rdl:photos:list', (signalementId) => db.listPhotos(signalementId));
   secureHandle('rdl:photos:open', async (photoId) => {
     const photo = db.getPhoto(photoId);
@@ -303,9 +427,19 @@ function registerIpc() {
   secureHandle('rdl:privacy:events', (limit = 100) => db.listPrivacyEvents(limit));
 
   secureHandle('rdl:backup:create', async () => createBackup('manual'));
+  secureHandle('rdl:backup:export-encrypted', (passphrase) => exportEncryptedBackup(passphrase));
+  secureHandle('rdl:backup:prepare-restore', (passphrase) => prepareEncryptedRestore(passphrase));
+
   secureHandle('rdl:system:open-data-folder', async () => shell.openPath(paths.root));
   secureHandle('rdl:system:open-backups-folder', async () => shell.openPath(paths.backups));
   secureHandle('rdl:system:open-exports-folder', async () => shell.openPath(paths.exports));
+  secureHandle('rdl:system:restart', async () => {
+    setImmediate(() => {
+      app.relaunch();
+      app.exit(0);
+    });
+    return true;
+  });
   secureHandle('rdl:system:health', async () => ({
     integrity: db.integrityCheck(),
     stats: db.getStats(),
@@ -323,10 +457,14 @@ app.on('second-instance', () => {
 app.whenReady().then(async () => {
   configureLocalOnlySession();
   paths = appPaths();
+  const restoreResult = applyPendingRestoreBeforeOpen();
   db = new LocalDatabase(paths.database);
   db.init();
   photoStore = new LocalPhotoStore(paths.photos);
   enforcePurgeLedger();
+  if (restoreResult.restored) {
+    db.recordPrivacyEvent('encrypted_backup_restored', '', 'Restauration locale chiffrée appliquée au démarrage');
+  }
   registerIpc();
   createWindow();
   await ensureDailyBackup();
