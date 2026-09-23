@@ -1,7 +1,8 @@
 const state = {
   bootstrap: null,
   signalements: [],
-  reparations: []
+  reparations: [],
+  identitiesVisible: false
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -34,6 +35,26 @@ function statusBadge(status) {
   return `<span class="badge ${cls}">${esc(status || '—')}</span>`;
 }
 
+function protectedIdentity(value) {
+  const text = String(value || '').trim();
+  if (!text) return '—';
+  return state.identitiesVisible ? esc(text) : '<span class="masked" title="Identité masquée">••••••</span>';
+}
+
+function updatePrivacyButton() {
+  const button = $('#privacy-toggle');
+  button.setAttribute('aria-pressed', String(state.identitiesVisible));
+  button.textContent = state.identitiesVisible ? 'Masquer les identités' : 'Afficher les identités';
+  button.classList.toggle('privacy-active', state.identitiesVisible);
+}
+
+function hideIdentities() {
+  if (!state.identitiesVisible) return;
+  state.identitiesVisible = false;
+  updatePrivacyButton();
+  renderSignalements();
+}
+
 function setView(name) {
   $$('.nav').forEach((button) => button.classList.toggle('active', button.dataset.view === name));
   $$('.view').forEach((view) => view.classList.toggle('active', view.id === `view-${name}`));
@@ -42,6 +63,7 @@ function setView(name) {
     signalements: 'Signalements',
     reparations: 'Réparations',
     sauvegardes: 'Sauvegardes',
+    confidentialite: 'Protection des données',
     systeme: 'Système local'
   };
   $('#page-title').textContent = labels[name] || 'Respect des Lieux PRO';
@@ -93,7 +115,7 @@ function renderSignalements() {
       <td>${esc(s.lieu)}</td>
       <td>${esc(s.type || '—')}</td>
       <td>${esc(s.gravite || '—')}</td>
-      <td>${esc(s.eleve || '—')}<br><small>${esc(s.classe || '')}</small></td>
+      <td>${protectedIdentity(s.eleve)}<br><small>${esc(s.classe || '')}</small></td>
       <td>${statusBadge(s.statut)}</td>
       <td><div class="actions">
         <button class="mini" data-photo="${s.id}">Photo (${Number(s.photo_count || 0)})</button>
@@ -122,6 +144,7 @@ async function reload() {
   renderDashboard();
   renderSignalements();
   renderReparations();
+  updatePrivacyButton();
 }
 
 function formPayload(form) {
@@ -140,6 +163,11 @@ async function createBackup() {
 function bindStaticEvents() {
   $$('.nav').forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
   $$('[data-goto]').forEach((button) => button.addEventListener('click', () => setView(button.dataset.goto)));
+  $('#privacy-toggle').addEventListener('click', () => {
+    state.identitiesVisible = !state.identitiesVisible;
+    updatePrivacyButton();
+    renderSignalements();
+  });
   $('#new-signalement').addEventListener('click', () => {
     const form = $('#signal-form');
     form.reset();
@@ -185,7 +213,7 @@ function bindStaticEvents() {
         const result = await window.rdl.attachPhoto(Number(photo.dataset.photo));
         if (!result.canceled) {
           await reload();
-          toast('Photo copiée dans le coffre local.');
+          toast('Photo assainie et copiée dans le coffre local.');
         }
       } else if (repair) {
         const form = $('#repair-form');
@@ -204,10 +232,17 @@ function bindStaticEvents() {
       toast(error.message, true);
     }
   });
+
+  // Protection contre l'affichage accidentel d'identités lors d'un changement de fenêtre.
+  window.addEventListener('blur', hideIdentities);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) hideIdentities();
+  });
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
   bindStaticEvents();
+  updatePrivacyButton();
   try {
     await reload();
   } catch (error) {
