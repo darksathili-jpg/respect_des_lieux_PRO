@@ -25,6 +25,17 @@ function cleanup(ctx) {
   fs.rmSync(ctx.root, { recursive: true, force: true });
 }
 
+function jpegWithExif() {
+  const exif = Buffer.from('Exif\0\0GPS=50.000,3.000', 'latin1');
+  const app1 = Buffer.alloc(4 + exif.length);
+  app1[0] = 0xff;
+  app1[1] = 0xe1;
+  app1.writeUInt16BE(exif.length + 2, 2);
+  exif.copy(app1, 4);
+  const scanAndEnd = Buffer.from([0xff, 0xda, 0x00, 0x02, 0x11, 0x22, 0x33, 0xff, 0xd9]);
+  return Buffer.concat([Buffer.from([0xff, 0xd8]), app1, scanAndEnd]);
+}
+
 test('schéma local et intégrité SQLite', () => {
   const ctx = fixture();
   try {
@@ -70,16 +81,22 @@ test('réparation liée à un signalement existant', () => {
   }
 });
 
-test('photo JPEG stockée hors base avec garde-fou 3 Mo', () => {
+test('photo JPEG stockée hors base, limitée à 3 Mo et débarrassée des métadonnées', () => {
   const ctx = fixture();
   try {
     const s = ctx.db.createSignalement({ date: '2026-09-23', lieu: 'Gymnase' });
-    const source = path.join(ctx.root, 'preuve.jpg');
-    fs.writeFileSync(source, Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4, 0xff, 0xd9]));
+    const source = path.join(ctx.root, 'eleve-nom-gps.jpg');
+    fs.writeFileSync(source, jpegWithExif());
     const photo = ctx.photos.attach(s.id, source, ctx.db);
     assert.equal(photo.mime_type, 'image/jpeg');
+    assert.equal(photo.original_name, 'photo.jpg');
     assert.equal(ctx.db.getStats().photos, 1);
-    assert.equal(fs.existsSync(path.join(ctx.photoDir, photo.stored_name)), true);
+
+    const storedPath = path.join(ctx.photoDir, photo.stored_name);
+    assert.equal(fs.existsSync(storedPath), true);
+    const stored = fs.readFileSync(storedPath);
+    assert.equal(stored.includes(Buffer.from('Exif', 'latin1')), false);
+    assert.equal(stored.includes(Buffer.from('GPS=50.000,3.000', 'latin1')), false);
 
     const tooLarge = path.join(ctx.root, 'large.jpg');
     const bytes = Buffer.alloc(3 * 1024 * 1024 + 1);
