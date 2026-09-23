@@ -4,12 +4,18 @@ import fs from 'node:fs';
 
 const read = (file) => fs.readFileSync(file, 'utf8');
 
-test('frontière Electron : renderer isolé de Node', () => {
+test('frontière Electron : renderer isolé de Node et permissions bloquées', () => {
   const main = read('main.cjs');
   const preload = read('preload.cjs');
   assert.match(main, /contextIsolation:\s*true/);
   assert.match(main, /nodeIntegration:\s*false/);
   assert.match(main, /sandbox:\s*true/);
+  assert.match(main, /webSecurity:\s*true/);
+  assert.match(main, /spellcheck:\s*false/);
+  assert.match(main, /devTools:\s*!app\.isPackaged/);
+  assert.match(main, /setPermissionRequestHandler/);
+  assert.match(main, /setPermissionCheckHandler/);
+  assert.match(main, /assertTrustedIpc/);
   assert.doesNotMatch(preload, /service_role|sb_secret_/i);
 });
 
@@ -23,9 +29,11 @@ test('renderer entièrement local : aucun backend cloud exécutable', () => {
   assert.doesNotMatch(runtime, /\bfetch\s*\(/i);
   assert.doesNotMatch(runtime, /XMLHttpRequest|WebSocket|EventSource/);
   assert.match(html, /default-src 'self'/);
+  assert.match(html, /connect-src 'none'/);
+  assert.match(read('main.cjs'), /urls:\s*\['http:\/\/\*\/\*',\s*'https:\/\/\*\/\*'\]/);
 });
 
-test('aucune donnée métier dans localStorage', () => {
+test('aucune donnée métier dans les stockages navigateur', () => {
   const runtime = `${read('renderer/app.js')}\n${read('preload.cjs')}`;
   assert.doesNotMatch(runtime, /localStorage|sessionStorage|indexedDB/);
 });
@@ -39,5 +47,21 @@ test('garde-fous SQLite et photos présents', () => {
   assert.match(db, /BEGIN IMMEDIATE/);
   assert.match(db, /PRAGMA quick_check/);
   assert.match(storage, /3 \* 1024 \* 1024/);
-  assert.match(storage, /0xff.*0xd8.*0xff/s);
+  assert.match(storage, /METADATA_MARKERS/);
+  assert.match(storage, /0xe1/);
+  assert.match(storage, /0xed/);
+  assert.match(storage, /0xfe/);
+  assert.match(storage, /original_name:\s*'photo\.jpg'/);
+});
+
+test('minimisation scolaire et masquage des identités restent actifs', () => {
+  const html = read('renderer/index.html');
+  const app = read('renderer/app.js');
+  assert.doesNotMatch(html, /name="famille"/i);
+  assert.match(html, /Élève concerné/);
+  assert.match(html, /Protection des données/);
+  assert.match(html, /durée non fixée/i);
+  assert.match(app, /identitiesVisible:\s*false/);
+  assert.match(app, /visibilitychange/);
+  assert.match(app, /window\.addEventListener\('blur'/);
 });
