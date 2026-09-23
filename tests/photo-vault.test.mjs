@@ -7,7 +7,12 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const { LocalDatabase } = require('../src/database.cjs');
-const { LocalPhotoStore, MAX_PHOTOS_PER_SIGNALEMENT } = require('../src/storage.cjs');
+const {
+  LocalPhotoStore,
+  MAX_PHOTOS_PER_SIGNALEMENT,
+  MIN_FREE_SPACE_RESERVE_BYTES,
+  ensureDiskHeadroom
+} = require('../src/storage.cjs');
 
 function tinyJpeg(marker = 1) {
   return Buffer.from([0xff, 0xd8, 0xff, 0xda, 0x00, 0x02, marker & 0xff, 0x22, 0x33, 0xff, 0xd9]);
@@ -60,5 +65,21 @@ test('coffre photo : un JPEG identique n’est pas dupliqué', () => {
     assert.equal(ctx.db.listPhotos(s.id).length, 1);
   } finally {
     cleanup(ctx);
+  }
+});
+
+test('coffre photo : simulation disque presque plein, écriture refusée avant copie', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rdl-low-disk-'));
+  const original = fs.statfsSync;
+  try {
+    assert.equal(MIN_FREE_SPACE_RESERVE_BYTES, 64 * 1024 * 1024);
+    fs.statfsSync = () => ({ bsize: 4096, bavail: 8 });
+    assert.throws(
+      () => ensureDiskHeadroom(root, 1024),
+      /Espace disque insuffisant.*64 Mo/i
+    );
+  } finally {
+    fs.statfsSync = original;
+    fs.rmSync(root, { recursive: true, force: true });
   }
 });
