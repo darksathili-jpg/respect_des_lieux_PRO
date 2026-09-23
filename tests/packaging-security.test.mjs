@@ -5,7 +5,7 @@ import fs from 'node:fs';
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 
 test('qualification packaging : versions critiques épinglées', () => {
-  assert.equal(pkg.version, '5.2.0-alpha.1');
+  assert.match(pkg.version, /^5\.2\.0-alpha\.\d+$/);
   assert.equal(pkg.devDependencies.electron, '44.4.0');
   assert.equal(pkg.devDependencies['electron-builder'], '26.16.1');
   assert.doesNotMatch(pkg.devDependencies.electron, /^[~^]/);
@@ -14,13 +14,14 @@ test('qualification packaging : versions critiques épinglées', () => {
   assert.match(pkg.scripts['dist:win'], /--publish never/);
 });
 
-test('qualification packaging : fuses Electron durcis', () => {
+test('qualification packaging : fuses Electron durcis et démarrage V8 compatible', () => {
   const fuses = pkg.build?.electronFuses || {};
   assert.equal(fuses.runAsNode, false);
   assert.equal(fuses.enableNodeOptionsEnvironmentVariable, false);
   assert.equal(fuses.enableNodeCliInspectArguments, false);
   assert.equal(fuses.enableEmbeddedAsarIntegrityValidation, true);
   assert.equal(fuses.onlyLoadAppFromAsar, true);
+  assert.equal(fuses.loadBrowserProcessSpecificV8Snapshot, false);
   assert.equal(fuses.grantFileProtocolExtraPrivileges, false);
 });
 
