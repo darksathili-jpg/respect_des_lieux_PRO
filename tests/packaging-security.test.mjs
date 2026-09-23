@@ -25,10 +25,14 @@ test('qualification packaging : fuses Electron durcis et démarrage V8 compatibl
   assert.equal(fuses.grantFileProtocolExtraPrivileges, false);
 });
 
-test('qualification packaging : interface et bootstrap explicitement embarqués', () => {
+test('qualification packaging : arbre applicatif complet, UI non exclue', () => {
   assert.equal(pkg.main, 'main-bootstrap.cjs');
-  const files = new Set(pkg.build?.files || []);
-  for (const required of [
+  const files = pkg.build?.files || [];
+  assert.ok(files.includes('**/*'), 'le package doit partir de l’arbre applicatif complet');
+  for (const forbidden of ['!renderer/**', '!renderer/**/*', '!src/**', '!src/**/*']) {
+    assert.ok(!files.includes(forbidden), `exclusion interdite : ${forbidden}`);
+  }
+  for (const requiredOnDisk of [
     'main-bootstrap.cjs',
     'main.cjs',
     'preload.cjs',
@@ -38,10 +42,9 @@ test('qualification packaging : interface et bootstrap explicitement embarqués'
     'renderer/index.html',
     'renderer/styles.css',
     'renderer/v51.css',
-    'renderer/app.js',
-    'package.json'
+    'renderer/app.js'
   ]) {
-    assert.ok(files.has(required), `fichier obligatoire absent du package : ${required}`);
+    assert.ok(fs.existsSync(requiredOnDisk), `fichier runtime absent du dépôt : ${requiredOnDisk}`);
   }
 });
 
