@@ -25,6 +25,26 @@ test('qualification packaging : fuses Electron durcis et démarrage V8 compatibl
   assert.equal(fuses.grantFileProtocolExtraPrivileges, false);
 });
 
+test('qualification packaging : interface et bootstrap explicitement embarqués', () => {
+  assert.equal(pkg.main, 'main-bootstrap.cjs');
+  const files = new Set(pkg.build?.files || []);
+  for (const required of [
+    'main-bootstrap.cjs',
+    'main.cjs',
+    'preload.cjs',
+    'src/database.cjs',
+    'src/storage.cjs',
+    'src/portable-backup.cjs',
+    'renderer/index.html',
+    'renderer/styles.css',
+    'renderer/v51.css',
+    'renderer/app.js',
+    'package.json'
+  ]) {
+    assert.ok(files.has(required), `fichier obligatoire absent du package : ${required}`);
+  }
+});
+
 test('qualification packaging : aucune publication automatique', () => {
   assert.equal(pkg.build?.publish, undefined);
   assert.match(pkg.scripts['dist:win'], /--publish never/);
