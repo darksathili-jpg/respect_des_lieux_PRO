@@ -52,6 +52,8 @@ test('garde-fous SQLite et photos présents', () => {
   assert.match(storage, /0xed/);
   assert.match(storage, /0xfe/);
   assert.match(storage, /original_name:\s*'photo\.jpg'/);
+  assert.match(storage, /stageDelete/);
+  assert.match(storage, /rollbackStagedDelete/);
 });
 
 test('minimisation scolaire et masquage des identités restent actifs', () => {
@@ -60,8 +62,38 @@ test('minimisation scolaire et masquage des identités restent actifs', () => {
   assert.doesNotMatch(html, /name="famille"/i);
   assert.match(html, /Élève concerné/);
   assert.match(html, /Protection des données/);
-  assert.match(html, /durée non fixée/i);
+  assert.match(html, /aucune durée imposée par défaut/i);
   assert.match(app, /identitiesVisible:\s*false/);
   assert.match(app, /visibilitychange/);
   assert.match(app, /window\.addEventListener\('blur'/);
+  assert.match(app, /if \(state\.identitiesVisible\) fields\.push\(s\.eleve, s\.classe, s\.signale_par\)/);
+});
+
+test('cycle de vie : pas de durée arbitraire ni de purge automatique', () => {
+  const db = read('src/database.cjs');
+  const app = read('renderer/app.js');
+  assert.match(db, /payload\.confirmed !== true/);
+  assert.match(db, /retention_months/);
+  assert.match(db, /getLifecycleReview/);
+  assert.match(db, /Seul un dossier clos peut être supprimé définitivement/);
+  assert.doesNotMatch(app, /setInterval\s*\(/);
+  assert.doesNotMatch(app, /setTimeout\s*\([^,]*purge/i);
+  assert.match(app, /window\.prompt\(`Suppression définitive/);
+});
+
+test('registre de purge persistant hors base empêche une restauration de ressusciter un dossier', () => {
+  const main = read('main.cjs');
+  assert.match(main, /privacy-purge-ledger\.json/);
+  assert.match(main, /enforcePurgeLedger/);
+  assert.match(main, /forcePurgeByNum/);
+  assert.match(main, /addPurgeLedgerEntry/);
+});
+
+test('droit d’accès : export interne explicitement soumis à revue des tiers', () => {
+  const db = read('src/database.cjs');
+  const html = read('renderer/index.html');
+  assert.match(db, /reviewRequired:\s*true/);
+  assert.match(db, /Vérifier et masquer les données de tiers/);
+  assert.match(html, /données concernant des tiers/i);
+  assert.match(html, /Préparer le dossier de revue/);
 });
