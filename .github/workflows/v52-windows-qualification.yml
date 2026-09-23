@@ -1,0 +1,57 @@
+name: V5.2 Windows Professional Qualification
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "package.json"
+      - "main.cjs"
+      - "preload.cjs"
+      - "src/**"
+      - "renderer/**"
+      - "tests/**"
+      - ".github/workflows/v52-windows-qualification.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-windows:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Node 24.21
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24.21.0"
+
+      - name: Install pinned desktop toolchain
+        shell: pwsh
+        run: npm install --no-audit --no-fund
+
+      - name: Reliability and qualification tests
+        shell: pwsh
+        run: npm run verify
+
+      - name: Build x64 NSIS qualification installer
+        shell: pwsh
+        run: npm run dist:win
+
+      - name: Assert installer artifact
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem -Path dist -Filter *.exe -File
+          if ($files.Count -lt 1) { throw "Aucun installateur .exe produit." }
+          $files | Select-Object Name,Length,LastWriteTime | Format-Table -AutoSize
+
+      - name: Upload unsigned qualification installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: respect-des-lieux-pro-v5.2-windows-unsigned
+          path: dist/*.exe
+          if-no-files-found: error
+          retention-days: 14
