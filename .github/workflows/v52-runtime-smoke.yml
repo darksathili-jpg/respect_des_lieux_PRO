@@ -37,6 +37,40 @@ jobs:
         shell: pwsh
         run: npx electron-builder --win dir --x64 --publish never
 
+      - name: Inspect packaged ASAR contents
+        shell: pwsh
+        run: |
+          $asar = Join-Path $PWD "dist\win-unpacked\resources\app.asar"
+          if (-not (Test-Path $asar)) { throw "app.asar absent du package." }
+          @'
+          const asar = require('@electron/asar');
+          const path = require('node:path');
+          const archive = path.resolve('dist/win-unpacked/resources/app.asar');
+          const files = asar.listPackage(archive).map((p) => p.replace(/^[/\\]+/, '').replace(/\\/g, '/'));
+          console.log('--- ASAR CONTENTS ---');
+          console.log(files.join('\n'));
+          const required = [
+            'package.json',
+            'main-bootstrap.cjs',
+            'main.cjs',
+            'preload.cjs',
+            'renderer/index.html',
+            'renderer/styles.css',
+            'renderer/v51.css',
+            'renderer/app.js',
+            'src/database.cjs',
+            'src/storage.cjs',
+            'src/portable-backup.cjs'
+          ];
+          const missing = required.filter((p) => !files.includes(p));
+          if (missing.length) {
+            console.error('ASAR_MISSING ' + JSON.stringify(missing));
+            process.exit(73);
+          }
+          console.log('ASAR_REQUIRED_FILES_PASS');
+          '@ | Set-Content -Path inspect-asar.cjs -Encoding utf8
+          node inspect-asar.cjs
+
       - name: Verify packaged DOM and real painted UI
         shell: pwsh
         run: |
