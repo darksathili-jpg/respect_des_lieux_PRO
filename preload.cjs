@@ -10,8 +10,18 @@ contextBridge.exposeInMainWorld('rdl', Object.freeze({
   attachPhoto: (signalementId) => ipcRenderer.invoke('rdl:photos:attach', signalementId),
   listPhotos: (signalementId) => ipcRenderer.invoke('rdl:photos:list', signalementId),
   openPhoto: (photoId) => ipcRenderer.invoke('rdl:photos:open', photoId),
+
+  getRetentionPolicy: () => ipcRenderer.invoke('rdl:privacy:retention:get'),
+  configureRetentionPolicy: (payload) => ipcRenderer.invoke('rdl:privacy:retention:configure', payload),
+  lifecycleReview: () => ipcRenderer.invoke('rdl:privacy:lifecycle'),
+  reduceDirectIdentifiers: (id) => ipcRenderer.invoke('rdl:privacy:reduce-identifiers', id),
+  purgeSignalement: (id, confirmationNum) => ipcRenderer.invoke('rdl:privacy:purge', id, confirmationNum),
+  exportAccessReview: (query) => ipcRenderer.invoke('rdl:privacy:export-review', query),
+  listPrivacyEvents: (limit) => ipcRenderer.invoke('rdl:privacy:events', limit),
+
   createBackup: () => ipcRenderer.invoke('rdl:backup:create'),
   openDataFolder: () => ipcRenderer.invoke('rdl:system:open-data-folder'),
   openBackupsFolder: () => ipcRenderer.invoke('rdl:system:open-backups-folder'),
+  openExportsFolder: () => ipcRenderer.invoke('rdl:system:open-exports-folder'),
   health: () => ipcRenderer.invoke('rdl:system:health')
 }));
