@@ -7,6 +7,9 @@ const state = {
   identitiesVisible: false
 };
 
+let secretResolver = null;
+let secretMode = 'export';
+
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const esc = (value) => String(value ?? '')
@@ -205,7 +208,9 @@ function eventLabel(type) {
     direct_identifiers_reduced: 'Identifiants directs réduits',
     dossier_purged: 'Dossier supprimé',
     purge_reapplied_after_restore: 'Suppression réappliquée après restauration',
-    access_review_exported: 'Dossier de revue exporté'
+    access_review_exported: 'Dossier de revue exporté',
+    encrypted_backup_exported: 'Sauvegarde chiffrée exportée',
+    encrypted_backup_restored: 'Sauvegarde chiffrée restaurée'
   };
   return labels[type] || type;
 }
@@ -255,6 +260,72 @@ function toggleRetentionFields() {
   if (!active) $('#retention-confirmed').checked = false;
 }
 
+function askSecret(mode) {
+  secretMode = mode;
+  const dialog = $('#secret-dialog');
+  const title = $('#secret-title');
+  const description = $('#secret-description');
+  const confirmRow = $('#secret-confirm-row');
+  const pass = $('#secret-passphrase');
+  const confirm = $('#secret-confirm');
+  const submit = $('#secret-submit');
+  pass.value = '';
+  confirm.value = '';
+
+  if (mode === 'export') {
+    title.textContent = 'Protéger la sauvegarde externe';
+    description.textContent = 'Choisissez une phrase secrète d’au moins 12 caractères. Elle sera nécessaire pour toute restauration et n’est jamais enregistrée par l’application.';
+    confirmRow.hidden = false;
+    confirm.required = true;
+    submit.textContent = 'Créer la sauvegarde chiffrée';
+  } else {
+    title.textContent = 'Déverrouiller une sauvegarde';
+    description.textContent = 'Saisissez la phrase secrète utilisée lors de l’export. La sauvegarde sera vérifiée avant toute restauration.';
+    confirmRow.hidden = true;
+    confirm.required = false;
+    submit.textContent = 'Vérifier et préparer';
+  }
+
+  dialog.showModal();
+  setTimeout(() => pass.focus(), 0);
+  return new Promise((resolve) => {
+    secretResolver = resolve;
+  });
+}
+
+function settleSecret(value) {
+  const resolve = secretResolver;
+  secretResolver = null;
+  if (resolve) resolve(value);
+}
+
+function bindSecretDialog() {
+  const dialog = $('#secret-dialog');
+  const form = $('#secret-form');
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const pass = $('#secret-passphrase').value;
+    const confirm = $('#secret-confirm').value;
+    if (pass.length < 12) {
+      toast('La phrase secrète doit contenir au moins 12 caractères.', true);
+      return;
+    }
+    if (secretMode === 'export' && pass !== confirm) {
+      toast('Les deux phrases secrètes ne correspondent pas.', true);
+      return;
+    }
+    dialog.close();
+    settleSecret(pass);
+    $('#secret-passphrase').value = '';
+    $('#secret-confirm').value = '';
+  });
+  dialog.addEventListener('close', () => {
+    if (secretResolver) settleSecret(null);
+    $('#secret-passphrase').value = '';
+    $('#secret-confirm').value = '';
+  });
+}
+
 function bindStaticEvents() {
   $$('.nav').forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
   $$('[data-goto]').forEach((button) => button.addEventListener('click', () => setView(button.dataset.goto)));
@@ -279,6 +350,33 @@ function bindStaticEvents() {
   $('#open-backups').addEventListener('click', () => window.rdl.openBackupsFolder());
   $('#open-data').addEventListener('click', () => window.rdl.openDataFolder());
   $('#open-exports').addEventListener('click', () => window.rdl.openExportsFolder());
+
+  $('#encrypted-backup').addEventListener('click', async () => {
+    const passphrase = await askSecret('export');
+    if (!passphrase) return;
+    try {
+      const result = await window.rdl.exportEncryptedBackup(passphrase);
+      if (result.canceled) return;
+      await reload();
+      toast('Sauvegarde chiffrée créée. Conservez le fichier et sa phrase secrète séparément.');
+    } catch (error) {
+      toast(`Export chiffré impossible : ${error.message}`, true);
+    }
+  });
+
+  $('#encrypted-restore').addEventListener('click', async () => {
+    const passphrase = await askSecret('restore');
+    if (!passphrase) return;
+    try {
+      const result = await window.rdl.prepareEncryptedRestore(passphrase);
+      if (result.canceled) return;
+      const restart = window.confirm('Sauvegarde vérifiée. Une copie de sécurité de l’état actuel a été créée. Redémarrer maintenant pour appliquer la restauration ?');
+      if (restart) await window.rdl.restartApp();
+      else toast('Restauration prête : elle sera appliquée au prochain redémarrage de l’application.');
+    } catch (error) {
+      toast(`Restauration refusée : ${error.message}`, true);
+    }
+  });
 
   $('#retention-enabled').addEventListener('change', toggleRetentionFields);
   $('#retention-form').addEventListener('submit', async (event) => {
@@ -393,6 +491,7 @@ function bindStaticEvents() {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
+  bindSecretDialog();
   bindStaticEvents();
   updatePrivacyButton();
   toggleRetentionFields();
