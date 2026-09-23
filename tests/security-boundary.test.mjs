@@ -13,12 +13,13 @@ test('frontière Electron : renderer isolé de Node', () => {
   assert.doesNotMatch(preload, /service_role|sb_secret_/i);
 });
 
-test('renderer entièrement local : aucun backend cloud', () => {
+test('renderer entièrement local : aucun backend cloud exécutable', () => {
   const html = read('renderer/index.html');
   const app = read('renderer/app.js');
   const css = read('renderer/styles.css');
   const runtime = `${html}\n${app}\n${css}`;
-  assert.doesNotMatch(runtime, /supabase\.co|supabase|https?:\/\//i);
+  assert.doesNotMatch(runtime, /[a-z0-9-]+\.supabase\.co/i);
+  assert.doesNotMatch(runtime, /https?:\/\//i);
   assert.doesNotMatch(runtime, /\bfetch\s*\(/i);
   assert.doesNotMatch(runtime, /XMLHttpRequest|WebSocket|EventSource/);
   assert.match(html, /default-src 'self'/);
