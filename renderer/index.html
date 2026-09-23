@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'">
+  <title>Respect des Lieux PRO</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">RL</div>
+        <div>
+          <strong>Respect des Lieux</strong>
+          <span>PRO · Local</span>
+        </div>
+      </div>
+      <nav>
+        <button class="nav active" data-view="dashboard">Tableau de bord</button>
+        <button class="nav" data-view="signalements">Signalements</button>
+        <button class="nav" data-view="reparations">Réparations</button>
+        <button class="nav" data-view="sauvegardes">Sauvegardes</button>
+        <button class="nav" data-view="systeme">Système local</button>
+      </nav>
+      <div class="local-seal">
+        <span class="dot"></span>
+        <div>
+          <strong>100 % local</strong>
+          <small>Aucun Supabase · aucun cloud</small>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Lycée Watteau · Valenciennes</p>
+          <h1 id="page-title">Tableau de bord</h1>
+        </div>
+        <div class="top-actions">
+          <span id="health-pill" class="health neutral">Vérification…</span>
+          <button id="backup-now" class="btn secondary">Sauvegarder</button>
+          <button id="new-signalement" class="btn primary">Nouveau signalement</button>
+        </div>
+      </header>
+
+      <section id="view-dashboard" class="view active">
+        <div class="hero">
+          <div>
+            <p class="eyebrow">V5.0 · Local-first</p>
+            <h2>Les données restent sur ce PC.</h2>
+            <p>SQLite, photos locales et sauvegardes automatiques. La version Supabase précédente reste indépendante et active.</p>
+          </div>
+          <div class="hero-badge">SQLite<br><strong>LOCAL</strong></div>
+        </div>
+        <div class="kpis">
+          <article class="kpi"><span>Signalements</span><strong id="kpi-total">0</strong><small>dans la base locale</small></article>
+          <article class="kpi"><span>Ouverts</span><strong id="kpi-open">0</strong><small>à suivre</small></article>
+          <article class="kpi"><span>Réparations</span><strong id="kpi-repairs">0</strong><small>mesures enregistrées</small></article>
+          <article class="kpi"><span>Photos</span><strong id="kpi-photos">0</strong><small id="kpi-photo-size">0 Mo</small></article>
+        </div>
+        <div class="grid two">
+          <article class="panel">
+            <div class="panel-head"><h3>Derniers signalements</h3><button class="text-btn" data-goto="signalements">Voir tout</button></div>
+            <div id="recent-list" class="stack empty-state">Aucun signalement.</div>
+          </article>
+          <article class="panel">
+            <div class="panel-head"><h3>État local</h3></div>
+            <dl class="facts">
+              <div><dt>Base</dt><dd id="fact-db">—</dd></div>
+              <div><dt>Intégrité</dt><dd id="fact-integrity">—</dd></div>
+              <div><dt>Version</dt><dd id="fact-version">—</dd></div>
+              <div><dt>Réseau métier</dt><dd>désactivé</dd></div>
+            </dl>
+          </article>
+        </div>
+      </section>
+
+      <section id="view-signalements" class="view">
+        <div class="panel">
+          <div class="panel-head">
+            <div><p class="eyebrow">Registre local</p><h3>Signalements</h3></div>
+            <input id="signal-search" class="search" type="search" placeholder="Rechercher…">
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>N°</th><th>Date</th><th>Lieu</th><th>Type</th><th>Gravité</th><th>Élève / classe</th><th>Statut</th><th>Actions</th></tr></thead>
+              <tbody id="signalements-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-reparations" class="view">
+        <div class="panel">
+          <div class="panel-head"><div><p class="eyebrow">Suivi</p><h3>Réparations</h3></div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Signalement</th><th>Mesure</th><th>Référent</th><th>Début</th><th>Durée</th><th>Statut</th></tr></thead>
+              <tbody id="reparations-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-sauvegardes" class="view">
+        <div class="grid two">
+          <article class="panel large-action">
+            <div class="icon">⤓</div>
+            <h3>Sauvegarde locale</h3>
+            <p>Crée une copie cohérente de la base SQLite, des photos et d’un manifeste de contrôle.</p>
+            <button id="backup-view-action" class="btn primary">Créer une sauvegarde maintenant</button>
+          </article>
+          <article class="panel large-action">
+            <div class="icon">⌂</div>
+            <h3>Dossier des sauvegardes</h3>
+            <p>Les 14 dernières sauvegardes sont conservées automatiquement sur ce PC.</p>
+            <button id="open-backups" class="btn secondary">Ouvrir le dossier</button>
+          </article>
+        </div>
+        <article class="notice warning"><strong>V5.0 alpha :</strong> la restauration guidée sera ajoutée après l’épreuve de fiabilité. Les sauvegardes créées dès maintenant sont exploitables.</article>
+      </section>
+
+      <section id="view-systeme" class="view">
+        <div class="grid two">
+          <article class="panel">
+            <div class="panel-head"><h3>Stockage</h3></div>
+            <dl class="facts">
+              <div><dt>Données locales</dt><dd id="sys-root">—</dd></div>
+              <div><dt>Base SQLite</dt><dd id="sys-db">—</dd></div>
+              <div><dt>Sauvegardes</dt><dd id="sys-backups">—</dd></div>
+            </dl>
+            <button id="open-data" class="btn secondary">Ouvrir le dossier de données</button>
+          </article>
+          <article class="panel">
+            <div class="panel-head"><h3>Garde-fous V5.0</h3></div>
+            <ul class="checklist">
+              <li>Une seule instance de l’application à la fois</li>
+              <li>SQLite en WAL + synchronous FULL</li>
+              <li>Clés étrangères actives</li>
+              <li>JPEG uniquement, 3 Mo maximum</li>
+              <li>Aucune API cloud dans le renderer</li>
+              <li>Sauvegarde quotidienne au démarrage</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="signal-dialog">
+    <form id="signal-form" method="dialog" class="dialog-card">
+      <header><div><p class="eyebrow">Nouveau dossier</p><h2>Créer un signalement</h2></div><button class="close" value="cancel" aria-label="Fermer">×</button></header>
+      <div class="form-grid">
+        <label>Date<input name="date" type="date" required></label>
+        <label>Heure<input name="heure" type="time"></label>
+        <label class="span-2">Lieu<input name="lieu" maxlength="200" required placeholder="Bâtiment, salle, espace…"></label>
+        <label>Type<input name="type" maxlength="120" placeholder="Dégradation, propreté…"></label>
+        <label>Gravité<select name="gravite"><option value="">—</option><option>Mineure</option><option>Modérée</option><option>Importante</option><option>Critique</option></select></label>
+        <label>Élève<input name="eleve" maxlength="200"></label>
+        <label>Classe<input name="classe" maxlength="100"></label>
+        <label>Signalé par<input name="signale_par" maxlength="200"></label>
+        <label>Famille<input name="famille" maxlength="200"></label>
+        <label class="span-2">Description<textarea name="description" rows="4" maxlength="5000"></textarea></label>
+      </div>
+      <footer><button class="btn secondary" value="cancel">Annuler</button><button id="save-signalement" class="btn primary" value="default">Enregistrer localement</button></footer>
+    </form>
+  </dialog>
+
+  <dialog id="repair-dialog">
+    <form id="repair-form" method="dialog" class="dialog-card">
+      <header><div><p class="eyebrow">Mesure</p><h2>Ajouter une réparation</h2></div><button class="close" value="cancel" aria-label="Fermer">×</button></header>
+      <input type="hidden" name="signalement_id">
+      <div class="form-grid">
+        <label class="span-2">Mesure / action<textarea name="mesure" rows="3" maxlength="2000" required></textarea></label>
+        <label>Référent<input name="referent" maxlength="200"></label>
+        <label>Début<input name="debut" type="date"></label>
+        <label>Durée<input name="duree" maxlength="100"></label>
+        <label>Statut<select name="statut"><option>En cours</option><option>Terminée</option><option>Annulée</option></select></label>
+        <label class="span-2">Notes<textarea name="notes" rows="3" maxlength="5000"></textarea></label>
+      </div>
+      <footer><button class="btn secondary" value="cancel">Annuler</button><button class="btn primary" value="default">Enregistrer</button></footer>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="./app.js"></script>
+</body>
+</html>

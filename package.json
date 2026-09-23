@@ -1,0 +1,44 @@
+{
+  "name": "respect-des-lieux-pro",
+  "version": "5.0.0-alpha.1",
+  "private": true,
+  "description": "Version locale desktop de Respect des Lieux — données stockées uniquement sur le poste utilisateur.",
+  "main": "main.cjs",
+  "author": "Lycée Watteau",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=24.15.0"
+  },
+  "scripts": {
+    "start": "electron .",
+    "check": "node --check main.cjs && node --check preload.cjs && node --check src/database.cjs && node --check src/storage.cjs && node --check renderer/app.js",
+    "test": "node --test tests/*.test.mjs",
+    "verify": "npm run check && npm test",
+    "dist:win": "electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "^44.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "fr.lycee-watteau.respect-des-lieux-pro",
+    "productName": "Respect des Lieux PRO",
+    "asar": true,
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "src/**/*",
+      "renderer/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": ["nsis"]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

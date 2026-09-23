@@ -1,0 +1,39 @@
+name: V5 Local Reliability Gate
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  local-reliability:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.18.0'
+
+      - name: Runtime
+        shell: pwsh
+        run: node --version
+
+      - name: Syntax guard
+        shell: pwsh
+        run: |
+          node --check main.cjs
+          node --check preload.cjs
+          node --check src/database.cjs
+          node --check src/storage.cjs
+          node --check renderer/app.js
+
+      - name: Local database and security tests
+        shell: pwsh
+        run: node --test tests/*.test.mjs
