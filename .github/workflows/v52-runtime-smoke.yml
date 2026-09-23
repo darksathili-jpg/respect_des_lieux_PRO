@@ -5,6 +5,7 @@ on:
     branches: ["main"]
     paths:
       - "package.json"
+      - "main-bootstrap.cjs"
       - "main.cjs"
       - "preload.cjs"
       - "src/**"
@@ -36,24 +37,41 @@ jobs:
         shell: pwsh
         run: npx electron-builder --win dir --x64 --publish never
 
-      - name: Launch packaged application for 12 seconds
+      - name: Verify packaged DOM and real painted UI
         shell: pwsh
         run: |
           $exe = Get-ChildItem -Path dist -Recurse -Filter "Respect des Lieux PRO.exe" -File | Select-Object -First 1
           if (-not $exe) { throw "Exécutable unpacked introuvable." }
-          Write-Host "Launching: $($exe.FullName)"
+
+          Write-Host "Launching rendered-UI smoke probe: $($exe.FullName)"
           $stdout = Join-Path $env:RUNNER_TEMP "rdl-stdout.txt"
           $stderr = Join-Path $env:RUNNER_TEMP "rdl-stderr.txt"
+          $env:RDL_PACKAGED_SMOKE = "1"
+
           $p = Start-Process -FilePath $exe.FullName -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
-          Start-Sleep -Seconds 12
-          $p.Refresh()
-          if ($p.HasExited) {
-            Write-Host "Application exited early with code $($p.ExitCode)"
+          $finished = $p.WaitForExit(25000)
+          if (-not $finished) {
+            try { Stop-Process -Id $p.Id -Force } catch {}
             if (Test-Path $stdout) { Write-Host "--- STDOUT ---"; Get-Content $stdout -Raw }
             if (Test-Path $stderr) { Write-Host "--- STDERR ---"; Get-Content $stderr -Raw }
+            throw "Le contrôle de rendu n'a pas terminé dans le délai imparti."
+          }
+
+          $p.Refresh()
+          $out = if (Test-Path $stdout) { Get-Content $stdout -Raw } else { "" }
+          $err = if (Test-Path $stderr) { Get-Content $stderr -Raw } else { "" }
+          Write-Host "--- STDOUT ---"
+          Write-Host $out
+          Write-Host "--- STDERR ---"
+          Write-Host $err
+
+          if ($p.ExitCode -ne 0) {
             Write-Host "--- Recent Windows Application errors ---"
             Get-WinEvent -FilterHashtable @{LogName='Application'; Level=2; StartTime=(Get-Date).AddMinutes(-5)} -ErrorAction SilentlyContinue | Select-Object -First 12 | Format-List TimeCreated,ProviderName,Id,Message
-            throw "L'application empaquetée s'est arrêtée avant 12 secondes."
+            throw "L'application empaquetée a échoué au contrôle de rendu (code $($p.ExitCode))."
           }
-          Write-Host "Packaged runtime stayed alive for 12 seconds: PASS"
-          Stop-Process -Id $p.Id -Force
+          if ($out -notmatch 'RDL_SMOKE_PASS') {
+            throw "L'application s'est arrêtée sans preuve de rendu UI valide."
+          }
+
+          Write-Host "Packaged DOM + painted UI smoke: PASS"
