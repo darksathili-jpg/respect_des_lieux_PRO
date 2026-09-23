@@ -11,9 +11,7 @@ if (process.platform === 'win32' && process.env.LOCALAPPDATA) {
 }
 
 const gotLock = app.requestSingleInstanceLock();
-if (!gotLock) {
-  app.quit();
-}
+if (!gotLock) app.quit();
 
 let mainWindow = null;
 let db = null;
@@ -29,26 +27,25 @@ function appPaths() {
   const data = path.join(root, 'data');
   const photos = path.join(root, 'photos');
   const backups = path.join(root, 'backups');
-  [root, data, photos, backups].forEach(ensureDir);
+  const exportsDir = path.join(root, 'exports');
+  [root, data, photos, backups, exportsDir].forEach(ensureDir);
   return {
     root,
     data,
     photos,
     backups,
-    database: path.join(data, 'respect-des-lieux.sqlite3')
+    exports: exportsDir,
+    database: path.join(data, 'respect-des-lieux.sqlite3'),
+    privacyLedger: path.join(root, 'privacy-purge-ledger.json')
   };
 }
 
 function configureLocalOnlySession() {
   const ses = session.defaultSession;
-
-  // L'application métier n'a besoin d'aucun accès réseau. On bloque donc
-  // toute requête HTTP(S) au niveau Electron, indépendamment du renderer.
   ses.webRequest.onBeforeRequest(
     { urls: ['http://*/*', 'https://*/*'] },
     (_details, callback) => callback({ cancel: true })
   );
-
   ses.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
   ses.setPermissionCheckHandler(() => false);
 }
@@ -90,9 +87,7 @@ function assertTrustedIpc(event) {
     throw new Error('IPC refusé : seul le document principal est autorisé.');
   }
   const url = String(event.senderFrame?.url || '');
-  if (!url.startsWith('file://')) {
-    throw new Error('IPC refusé : origine non locale.');
-  }
+  if (!url.startsWith('file://')) throw new Error('IPC refusé : origine non locale.');
 }
 
 function secureHandle(channel, handler) {
@@ -112,7 +107,11 @@ function backupPrefix(date = new Date()) {
 
 function copyPhotos(targetDir) {
   if (!fs.existsSync(paths.photos)) return;
-  fs.cpSync(paths.photos, targetDir, { recursive: true, force: true });
+  fs.cpSync(paths.photos, targetDir, {
+    recursive: true,
+    force: true,
+    filter: (source) => !source.includes(`${path.sep}.trash${path.sep}`) && !source.endsWith(`${path.sep}.trash`)
+  });
 }
 
 function pruneBackups(keep = 14) {
@@ -138,15 +137,16 @@ async function createBackup(reason = 'manual') {
   copyPhotos(photosTarget);
 
   const manifest = {
-    format: 1,
+    format: 2,
     appVersion: app.getVersion(),
     createdAt: new Date().toISOString(),
     reason,
     database: 'respect-des-lieux.sqlite3',
     photos: 'photos',
-    integrity: integrityBefore
+    integrity: integrityBefore,
+    privacyLedgerPreservedOutsideBackups: true
   };
-  fs.writeFileSync(path.join(folder, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
+  fs.writeFileSync(path.join(folder, 'manifest.json'), JSON.stringify(manifest, null, 2), { encoding: 'utf8', mode: 0o600 });
   pruneBackups(14);
   return { folder, manifest };
 }
@@ -164,14 +164,107 @@ async function ensureDailyBackup() {
   }
 }
 
+function readPurgeLedger() {
+  if (!fs.existsSync(paths.privacyLedger)) return { format: 1, entries: [] };
+  try {
+    const parsed = JSON.parse(fs.readFileSync(paths.privacyLedger, 'utf8'));
+    if (!parsed || parsed.format !== 1 || !Array.isArray(parsed.entries)) throw new Error('format invalide');
+    return parsed;
+  } catch (error) {
+    throw new Error(`Registre de purge illisible : ${error.message}`);
+  }
+}
+
+function writePurgeLedger(ledger) {
+  const tmp = `${paths.privacyLedger}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(ledger, null, 2), { encoding: 'utf8', mode: 0o600 });
+  fs.renameSync(tmp, paths.privacyLedger);
+}
+
+function addPurgeLedgerEntry(num) {
+  const ledger = readPurgeLedger();
+  if (!ledger.entries.some((entry) => entry.num === num)) {
+    ledger.entries.push({ num, purgedAt: new Date().toISOString() });
+    writePurgeLedger(ledger);
+  }
+}
+
+function removePurgeLedgerEntry(num) {
+  const ledger = readPurgeLedger();
+  ledger.entries = ledger.entries.filter((entry) => entry.num !== num);
+  writePurgeLedger(ledger);
+}
+
+function enforcePurgeLedger() {
+  const ledger = readPurgeLedger();
+  for (const entry of ledger.entries) {
+    const current = db.getSignalementByNum(entry.num);
+    if (!current) continue;
+    const storedNames = db.listPhotos(current.id).map((photo) => photo.stored_name);
+    const stage = photoStore.stageDelete(storedNames);
+    try {
+      db.forcePurgeByNum(entry.num);
+      photoStore.commitStagedDelete(stage);
+    } catch (error) {
+      photoStore.rollbackStagedDelete(stage);
+      throw error;
+    }
+  }
+}
+
+function safeExportName(query) {
+  return String(query || 'personne')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 50) || 'personne';
+}
+
+async function exportAccessReview(query) {
+  const review = db.buildAccessReview(query);
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Enregistrer le dossier de revue des droits',
+    defaultPath: path.join(paths.exports, `revue-droits-${safeExportName(query)}-${safeTimestamp()}.json`),
+    filters: [{ name: 'Dossier de revue JSON', extensions: ['json'] }]
+  });
+  if (result.canceled || !result.filePath) return { canceled: true };
+  fs.writeFileSync(result.filePath, JSON.stringify(review, null, 2), { encoding: 'utf8', mode: 0o600 });
+  db.recordPrivacyEvent('access_review_exported', '', 'Export JSON préparé pour revue interne');
+  return {
+    canceled: false,
+    filePath: result.filePath,
+    matches: review.signalements.length,
+    warning: review.warning
+  };
+}
+
+async function purgeSignalement(id, confirmationNum) {
+  const plan = db.getPurgePlan(id, confirmationNum);
+  addPurgeLedgerEntry(plan.num);
+  const stage = photoStore.stageDelete(plan.storedNames);
+  try {
+    const result = db.purgeSignalement(id, confirmationNum);
+    photoStore.commitStagedDelete(stage);
+    return result;
+  } catch (error) {
+    photoStore.rollbackStagedDelete(stage);
+    try { removePurgeLedgerEntry(plan.num); } catch {}
+    throw error;
+  }
+}
+
 function registerIpc() {
   secureHandle('rdl:bootstrap', async () => ({
     appVersion: app.getVersion(),
-    paths: { root: paths.root, database: paths.database, backups: paths.backups },
+    paths: { root: paths.root, database: paths.database, backups: paths.backups, exports: paths.exports },
     stats: db.getStats(),
     signalements: db.listSignalements(500),
     reparations: db.listReparations(1000),
-    integrity: db.integrityCheck()
+    integrity: db.integrityCheck(),
+    retention: db.getRetentionPolicy(),
+    lifecycle: db.getLifecycleReview(),
+    privacyEvents: db.listPrivacyEvents(50)
   }));
 
   secureHandle('rdl:signalements:list', (limit = 500) => db.listSignalements(limit));
@@ -201,13 +294,23 @@ function registerIpc() {
     return true;
   });
 
+  secureHandle('rdl:privacy:retention:get', () => db.getRetentionPolicy());
+  secureHandle('rdl:privacy:retention:configure', (payload) => db.configureRetentionPolicy(payload));
+  secureHandle('rdl:privacy:lifecycle', () => db.getLifecycleReview());
+  secureHandle('rdl:privacy:reduce-identifiers', (id) => db.reduceDirectIdentifiers(id));
+  secureHandle('rdl:privacy:purge', (id, confirmationNum) => purgeSignalement(id, confirmationNum));
+  secureHandle('rdl:privacy:export-review', (query) => exportAccessReview(query));
+  secureHandle('rdl:privacy:events', (limit = 100) => db.listPrivacyEvents(limit));
+
   secureHandle('rdl:backup:create', async () => createBackup('manual'));
   secureHandle('rdl:system:open-data-folder', async () => shell.openPath(paths.root));
   secureHandle('rdl:system:open-backups-folder', async () => shell.openPath(paths.backups));
+  secureHandle('rdl:system:open-exports-folder', async () => shell.openPath(paths.exports));
   secureHandle('rdl:system:health', async () => ({
     integrity: db.integrityCheck(),
     stats: db.getStats(),
-    paths: { root: paths.root, database: paths.database, backups: paths.backups }
+    retention: db.getRetentionPolicy(),
+    paths: { root: paths.root, database: paths.database, backups: paths.backups, exports: paths.exports }
   }));
 }
 
@@ -223,6 +326,7 @@ app.whenReady().then(async () => {
   db = new LocalDatabase(paths.database);
   db.init();
   photoStore = new LocalPhotoStore(paths.photos);
+  enforcePurgeLedger();
   registerIpc();
   createWindow();
   await ensureDailyBackup();
