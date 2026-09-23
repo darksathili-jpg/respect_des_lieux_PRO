@@ -20,8 +20,12 @@ contextBridge.exposeInMainWorld('rdl', Object.freeze({
   listPrivacyEvents: (limit) => ipcRenderer.invoke('rdl:privacy:events', limit),
 
   createBackup: () => ipcRenderer.invoke('rdl:backup:create'),
+  exportEncryptedBackup: (passphrase) => ipcRenderer.invoke('rdl:backup:export-encrypted', passphrase),
+  prepareEncryptedRestore: (passphrase) => ipcRenderer.invoke('rdl:backup:prepare-restore', passphrase),
+
   openDataFolder: () => ipcRenderer.invoke('rdl:system:open-data-folder'),
   openBackupsFolder: () => ipcRenderer.invoke('rdl:system:open-backups-folder'),
   openExportsFolder: () => ipcRenderer.invoke('rdl:system:open-exports-folder'),
+  restartApp: () => ipcRenderer.invoke('rdl:system:restart'),
   health: () => ipcRenderer.invoke('rdl:system:health')
 }));
