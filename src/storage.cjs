@@ -3,6 +3,64 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 
 const MAX_JPEG_BYTES = 3 * 1024 * 1024;
+const JPEG_SOI = Buffer.from([0xff, 0xd8]);
+const METADATA_MARKERS = new Set([0xe1, 0xed, 0xfe]); // APP1 (EXIF/XMP), APP13 (IPTC), COM
+
+function stripJpegMetadata(input) {
+  const bytes = Buffer.from(input);
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) {
+    throw new Error('Le fichier n’est pas un JPEG valide.');
+  }
+
+  const chunks = [JPEG_SOI];
+  let i = 2;
+
+  while (i < bytes.length) {
+    if (bytes[i] !== 0xff) {
+      throw new Error('Structure JPEG invalide.');
+    }
+
+    const markerStart = i;
+    while (i < bytes.length && bytes[i] === 0xff) i += 1;
+    if (i >= bytes.length) throw new Error('Structure JPEG tronquée.');
+
+    const marker = bytes[i];
+    i += 1;
+
+    // SOS : à partir d'ici les octets sont le flux compressé ; on ne le modifie pas.
+    if (marker === 0xda) {
+      chunks.push(bytes.subarray(markerStart));
+      i = bytes.length;
+      break;
+    }
+
+    // EOI ou marqueurs sans longueur.
+    if (marker === 0xd9 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+      chunks.push(bytes.subarray(markerStart, i));
+      if (marker === 0xd9) break;
+      continue;
+    }
+
+    if (i + 2 > bytes.length) throw new Error('Segment JPEG tronqué.');
+    const segmentLength = bytes.readUInt16BE(i);
+    if (segmentLength < 2) throw new Error('Longueur de segment JPEG invalide.');
+    const segmentEnd = i + segmentLength;
+    if (segmentEnd > bytes.length) throw new Error('Segment JPEG incomplet.');
+
+    // On retire les métadonnées susceptibles d'embarquer GPS, appareil, auteur,
+    // commentaires ou informations éditoriales. APP0/JFIF et ICC restent intacts.
+    if (!METADATA_MARKERS.has(marker)) {
+      chunks.push(bytes.subarray(markerStart, segmentEnd));
+    }
+    i = segmentEnd;
+  }
+
+  const sanitized = Buffer.concat(chunks);
+  if (sanitized.length < 4 || sanitized[0] !== 0xff || sanitized[1] !== 0xd8) {
+    throw new Error('JPEG assaini invalide.');
+  }
+  return sanitized;
+}
 
 class LocalPhotoStore {
   constructor(photoDir) {
@@ -38,19 +96,26 @@ class LocalPhotoStore {
   attach(signalementId, sourcePath, db) {
     const signalement = db.getSignalement(signalementId);
     if (!signalement) throw new Error('Signalement introuvable.');
-    const stat = this.validateJpeg(sourcePath);
-    const bytes = fs.readFileSync(sourcePath);
-    const sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
+    this.validateJpeg(sourcePath);
+
+    const sourceBytes = fs.readFileSync(sourcePath);
+    const sanitizedBytes = stripJpegMetadata(sourceBytes);
+    if (sanitizedBytes.length <= 0 || sanitizedBytes.length > MAX_JPEG_BYTES) {
+      throw new Error('La photo assainie dépasse la limite autorisée.');
+    }
+
+    const sha256 = crypto.createHash('sha256').update(sanitizedBytes).digest('hex');
     const storedName = `${signalementId}-${Date.now()}-${sha256.slice(0, 16)}.jpg`;
     const target = this.resolveStoredName(storedName);
 
-    fs.writeFileSync(target, bytes, { flag: 'wx', mode: 0o600 });
+    fs.writeFileSync(target, sanitizedBytes, { flag: 'wx', mode: 0o600 });
     try {
       return db.insertPhotoMetadata({
         signalement_id: signalementId,
-        original_name: path.basename(sourcePath),
+        // Le nom d'origine peut lui-même contenir une identité ; il n'est pas nécessaire.
+        original_name: 'photo.jpg',
         stored_name: storedName,
-        size_bytes: stat.size,
+        size_bytes: sanitizedBytes.length,
         sha256
       });
     } catch (error) {
@@ -60,4 +125,4 @@ class LocalPhotoStore {
   }
 }
 
-module.exports = { LocalPhotoStore, MAX_JPEG_BYTES };
+module.exports = { LocalPhotoStore, MAX_JPEG_BYTES, stripJpegMetadata };
