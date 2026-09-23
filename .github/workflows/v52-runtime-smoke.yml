@@ -1,0 +1,59 @@
+name: V5.2 Packaged Windows Runtime Smoke
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "package.json"
+      - "main.cjs"
+      - "preload.cjs"
+      - "src/**"
+      - "renderer/**"
+      - ".github/workflows/v52-runtime-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  packaged-runtime-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Node 24.21
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24.21.0"
+
+      - name: Install toolchain
+        shell: pwsh
+        run: npm install --no-audit --no-fund
+
+      - name: Build unpacked Windows application
+        shell: pwsh
+        run: npx electron-builder --win dir --x64 --publish never
+
+      - name: Launch packaged application for 12 seconds
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path dist -Recurse -Filter "Respect des Lieux PRO.exe" -File | Select-Object -First 1
+          if (-not $exe) { throw "Exécutable unpacked introuvable." }
+          Write-Host "Launching: $($exe.FullName)"
+          $stdout = Join-Path $env:RUNNER_TEMP "rdl-stdout.txt"
+          $stderr = Join-Path $env:RUNNER_TEMP "rdl-stderr.txt"
+          $p = Start-Process -FilePath $exe.FullName -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          Start-Sleep -Seconds 12
+          $p.Refresh()
+          if ($p.HasExited) {
+            Write-Host "Application exited early with code $($p.ExitCode)"
+            if (Test-Path $stdout) { Write-Host "--- STDOUT ---"; Get-Content $stdout -Raw }
+            if (Test-Path $stderr) { Write-Host "--- STDERR ---"; Get-Content $stderr -Raw }
+            Write-Host "--- Recent Windows Application errors ---"
+            Get-WinEvent -FilterHashtable @{LogName='Application'; Level=2; StartTime=(Get-Date).AddMinutes(-5)} -ErrorAction SilentlyContinue | Select-Object -First 12 | Format-List TimeCreated,ProviderName,Id,Message
+            throw "L'application empaquetée s'est arrêtée avant 12 secondes."
+          }
+          Write-Host "Packaged runtime stayed alive for 12 seconds: PASS"
+          Stop-Process -Id $p.Id -Force
