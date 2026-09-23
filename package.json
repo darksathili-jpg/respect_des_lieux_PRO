@@ -1,8 +1,8 @@
 {
   "name": "respect-des-lieux-pro",
-  "version": "5.0.1-alpha.1",
+  "version": "5.1.0-alpha.1",
   "private": true,
-  "description": "Version locale desktop de Respect des Lieux — données stockées uniquement sur le poste utilisateur.",
+  "description": "Application desktop locale de suivi des dégradations en établissement scolaire — données stockées uniquement sur le poste utilisateur.",
   "main": "main.cjs",
   "author": "Lycée Watteau",
   "license": "UNLICENSED",
