@@ -122,8 +122,20 @@
             <p>Les 14 dernières sauvegardes sont conservées automatiquement sur ce PC.</p>
             <button id="open-backups" class="btn secondary">Ouvrir le dossier</button>
           </article>
+          <article class="panel large-action secure-action">
+            <div class="icon">🔐</div>
+            <h3>Sauvegarde externe chiffrée</h3>
+            <p>Crée un fichier <code>.rdlbackup</code> protégé par AES-256-GCM. La phrase secrète n’est jamais enregistrée dans l’application.</p>
+            <button id="encrypted-backup" class="btn primary">Exporter une sauvegarde chiffrée</button>
+          </article>
+          <article class="panel large-action secure-action">
+            <div class="icon">↺</div>
+            <h3>Restauration guidée</h3>
+            <p>Déchiffre et contrôle la sauvegarde, crée une copie de sécurité de l’état actuel puis applique la restauration au redémarrage.</p>
+            <button id="encrypted-restore" class="btn secondary">Préparer une restauration</button>
+          </article>
         </div>
-        <article class="notice warning"><strong>Protection :</strong> ces copies locales protègent contre une erreur applicative mais pas contre la perte du PC. Une sauvegarde externe chiffrée et une restauration guidée restent un verrou de production.</article>
+        <article class="notice warning"><strong>Règle pratique :</strong> conservez au moins une sauvegarde chiffrée sur un support distinct du PC. Une sauvegarde n’est utile que si sa restauration est régulièrement vérifiée.</article>
       </section>
 
       <section id="view-confidentialite" class="view">
@@ -219,6 +231,7 @@
               <li>Navigation, permissions et réseau distant bloqués</li>
               <li>DevTools désactivés dans l’application empaquetée</li>
               <li>Sauvegarde quotidienne après contrôle d’intégrité</li>
+              <li>Sauvegarde externe AES-256-GCM avec restauration contrôlée</li>
               <li>Registre de purge séparé de la base restaurable</li>
             </ul>
           </article>
@@ -259,6 +272,17 @@
         <label class="span-2">Notes factuelles <span class="field-note">ne saisir que ce qui est nécessaire au suivi</span><textarea name="notes" rows="3" maxlength="5000"></textarea></label>
       </div>
       <footer><button class="btn secondary" value="cancel">Annuler</button><button class="btn primary" value="default">Enregistrer</button></footer>
+    </form>
+  </dialog>
+
+  <dialog id="secret-dialog" class="secret-dialog">
+    <form id="secret-form" method="dialog" class="dialog-card compact-dialog">
+      <header><div><p class="eyebrow">Protection de la sauvegarde</p><h2 id="secret-title">Phrase secrète</h2></div><button class="close" value="cancel" aria-label="Fermer">×</button></header>
+      <p id="secret-description" class="panel-copy">Saisissez une phrase secrète d’au moins 12 caractères. Elle n’est ni stockée ni récupérable par l’application.</p>
+      <label class="secret-field">Phrase secrète<input id="secret-passphrase" type="password" minlength="12" maxlength="256" autocomplete="new-password" required></label>
+      <label id="secret-confirm-row" class="secret-field">Confirmer la phrase secrète<input id="secret-confirm" type="password" minlength="12" maxlength="256" autocomplete="new-password"></label>
+      <div id="secret-warning" class="notice warning compact">Conservez cette phrase dans un endroit sûr et distinct de la sauvegarde. Sans elle, le fichier chiffré ne peut pas être restauré.</div>
+      <footer><button class="btn secondary" value="cancel">Annuler</button><button id="secret-submit" class="btn primary" value="default">Continuer</button></footer>
     </form>
   </dialog>
 
