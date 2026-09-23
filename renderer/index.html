@@ -51,9 +51,9 @@
       <section id="view-dashboard" class="view active">
         <div class="hero">
           <div>
-            <p class="eyebrow">V5.0.1 · Privacy-by-design</p>
+            <p class="eyebrow">V5.1 · School Data Lifecycle Gate</p>
             <h2>Les données restent sur ce PC.</h2>
-            <p>SQLite, photos locales assainies de leurs métadonnées et sauvegardes automatiques. La version Supabase précédente reste indépendante et active.</p>
+            <p>SQLite local, réseau métier bloqué, identités masquées par défaut et cycle de vie contrôlé sans effacement automatique.</p>
           </div>
           <div class="hero-badge">SQLite<br><strong>LOCAL</strong></div>
         </div>
@@ -75,6 +75,7 @@
               <div><dt>Intégrité</dt><dd id="fact-integrity">—</dd></div>
               <div><dt>Version</dt><dd id="fact-version">—</dd></div>
               <div><dt>Réseau métier</dt><dd>bloqué</dd></div>
+              <div><dt>Conservation</dt><dd id="fact-retention">non configurée</dd></div>
             </dl>
           </article>
         </div>
@@ -122,7 +123,7 @@
             <button id="open-backups" class="btn secondary">Ouvrir le dossier</button>
           </article>
         </div>
-        <article class="notice warning"><strong>Protection :</strong> les sauvegardes sont locales mais pas encore chiffrées par l’application. Le poste Windows doit être protégé et la stratégie de sauvegarde externe sera ajoutée avant la version de production.</article>
+        <article class="notice warning"><strong>Protection :</strong> ces copies locales protègent contre une erreur applicative mais pas contre la perte du PC. Une sauvegarde externe chiffrée et une restauration guidée restent un verrou de production.</article>
       </section>
 
       <section id="view-confidentialite" class="view">
@@ -144,11 +145,54 @@
               <div><dt>Finalité</dt><dd>suivi des dégradations et mesures associées — à formaliser</dd></div>
               <div><dt>Responsable</dt><dd>chef d’établissement pour le second degré — à confirmer dans la fiche de traitement</dd></div>
               <div><dt>DPD</dt><dd>avis du délégué académique à la protection des données à solliciter</dd></div>
-              <div><dt>Conservation</dt><dd>durée non fixée dans l’application : décision à documenter avant production</dd></div>
-              <div><dt>AIPD</dt><dd>criblage à réaliser avec le DPD ; une AIPD n’est pas déclarée automatiquement nécessaire</dd></div>
+              <div><dt>Conservation</dt><dd>aucune durée imposée par défaut dans le logiciel</dd></div>
+              <div><dt>AIPD</dt><dd>criblage à réaliser avec le DPD ; aucune conclusion automatique</dd></div>
             </dl>
           </article>
         </div>
+
+        <article class="panel lifecycle-panel">
+          <div class="panel-head">
+            <div><p class="eyebrow">Cycle de vie</p><h3>Politique de conservation</h3></div>
+            <span id="retention-status" class="health neutral">Non configurée</span>
+          </div>
+          <p class="panel-copy">L’application n’invente aucune durée. Une durée n’est activable qu’après confirmation qu’elle a été validée par l’établissement et/ou le DPD. Aucun dossier n’est effacé automatiquement.</p>
+          <form id="retention-form" class="retention-form">
+            <label class="check-row"><input id="retention-enabled" type="checkbox"> Activer une politique de réexamen</label>
+            <label>Durée validée (mois)<input id="retention-months" type="number" min="1" max="120" inputmode="numeric" disabled></label>
+            <label class="wide">Référence interne / note de validation <span class="field-note">sans donnée personnelle</span><input id="retention-note" maxlength="500" autocomplete="off" disabled></label>
+            <label class="check-row wide"><input id="retention-confirmed" type="checkbox" disabled> Je confirme que cette durée a été validée dans le cadre de gouvernance de l’établissement.</label>
+            <div class="wide form-actions"><button class="btn primary" type="submit">Enregistrer la politique</button></div>
+          </form>
+        </article>
+
+        <article class="panel lifecycle-panel">
+          <div class="panel-head"><div><p class="eyebrow">Réexamen</p><h3>Dossiers clos à examiner</h3></div><span id="lifecycle-count" class="badge">0</span></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Dossier</th><th>Clôture</th><th>Échéance</th><th>État</th><th>Identifiants</th><th>Actions</th></tr></thead>
+              <tbody id="lifecycle-body"><tr><td colspan="6">Politique de conservation non configurée.</td></tr></tbody>
+            </table>
+          </div>
+          <p class="microcopy">« Réduire les identifiants » efface uniquement les champs structurés élève/classe. Les textes libres et photographies doivent encore être revus. « Supprimer » exige la saisie exacte du numéro de dossier et inscrit un registre de purge pour éviter sa réapparition après restauration d’une ancienne sauvegarde.</p>
+        </article>
+
+        <div class="grid two">
+          <article class="panel">
+            <div class="panel-head"><div><p class="eyebrow">Droits des personnes</p><h3>Préparer une revue interne</h3></div></div>
+            <p class="panel-copy">Rechercher un nom ou autre terme puis générer un JSON de revue. Ce fichier n’est pas destiné à être transmis tel quel : les données concernant des tiers doivent être examinées et masquées si nécessaire.</p>
+            <div class="rights-tools">
+              <input id="rights-query" class="search" type="search" autocomplete="off" placeholder="Nom / terme à rechercher">
+              <button id="rights-export" class="btn primary" type="button">Préparer le dossier de revue</button>
+              <button id="open-exports" class="btn secondary" type="button">Ouvrir les exports</button>
+            </div>
+          </article>
+          <article class="panel">
+            <div class="panel-head"><div><p class="eyebrow">Traçabilité minimale</p><h3>Dernières opérations de confidentialité</h3></div></div>
+            <div id="privacy-events" class="event-list empty-state">Aucune opération.</div>
+          </article>
+        </div>
+
         <article class="notice danger"><strong>Ne pas saisir</strong> de données de santé, d’origine raciale ou ethnique, d’opinions politiques, philosophiques ou religieuses, d’appartenance syndicale ou relatives à la vie sexuelle. Les zones de texte libre doivent rester strictement factuelles et nécessaires au suivi du dossier.</article>
         <article class="notice warning"><strong>Avant mise en production :</strong> inscrire ou rattacher le traitement au registre, fixer les catégories de destinataires et la durée de conservation, préparer l’information des personnes concernées, valider la sécurité du poste et la procédure en cas d’incident.</article>
       </section>
@@ -161,11 +205,12 @@
               <div><dt>Données locales</dt><dd id="sys-root">—</dd></div>
               <div><dt>Base SQLite</dt><dd id="sys-db">—</dd></div>
               <div><dt>Sauvegardes</dt><dd id="sys-backups">—</dd></div>
+              <div><dt>Exports de revue</dt><dd id="sys-exports">—</dd></div>
             </dl>
             <button id="open-data" class="btn secondary">Ouvrir le dossier de données</button>
           </article>
           <article class="panel">
-            <div class="panel-head"><h3>Garde-fous V5.0.1</h3></div>
+            <div class="panel-head"><h3>Garde-fous V5.1</h3></div>
             <ul class="checklist">
               <li>Une seule instance de l’application à la fois</li>
               <li>SQLite en WAL + synchronous FULL</li>
@@ -173,7 +218,8 @@
               <li>JPEG uniquement, 3 Mo maximum, métadonnées retirées</li>
               <li>Navigation, permissions et réseau distant bloqués</li>
               <li>DevTools désactivés dans l’application empaquetée</li>
-              <li>Sauvegarde quotidienne au démarrage après contrôle d’intégrité</li>
+              <li>Sauvegarde quotidienne après contrôle d’intégrité</li>
+              <li>Registre de purge séparé de la base restaurable</li>
             </ul>
           </article>
         </div>
