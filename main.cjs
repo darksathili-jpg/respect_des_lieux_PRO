@@ -1,6 +1,6 @@
 const path = require('node:path');
 const fs = require('node:fs');
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, session } = require('electron');
 const { LocalDatabase } = require('./src/database.cjs');
 const { LocalPhotoStore } = require('./src/storage.cjs');
 
@@ -39,6 +39,20 @@ function appPaths() {
   };
 }
 
+function configureLocalOnlySession() {
+  const ses = session.defaultSession;
+
+  // L'application métier n'a besoin d'aucun accès réseau. On bloque donc
+  // toute requête HTTP(S) au niveau Electron, indépendamment du renderer.
+  ses.webRequest.onBeforeRequest(
+    { urls: ['http://*/*', 'https://*/*'] },
+    (_details, callback) => callback({ cancel: true })
+  );
+
+  ses.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
+  ses.setPermissionCheckHandler(() => false);
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1420,
@@ -52,7 +66,9 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      webSecurity: true
+      webSecurity: true,
+      spellcheck: false,
+      devTools: !app.isPackaged
     }
   });
 
@@ -60,8 +76,29 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  mainWindow.webContents.on('will-attach-webview', (event) => event.preventDefault());
   mainWindow.webContents.on('will-navigate', (event, url) => {
     if (!url.startsWith('file://')) event.preventDefault();
+  });
+}
+
+function assertTrustedIpc(event) {
+  if (!mainWindow || event.sender !== mainWindow.webContents) {
+    throw new Error('IPC refusé : émetteur non autorisé.');
+  }
+  if (event.senderFrame !== mainWindow.webContents.mainFrame) {
+    throw new Error('IPC refusé : seul le document principal est autorisé.');
+  }
+  const url = String(event.senderFrame?.url || '');
+  if (!url.startsWith('file://')) {
+    throw new Error('IPC refusé : origine non locale.');
+  }
+}
+
+function secureHandle(channel, handler) {
+  ipcMain.handle(channel, (event, ...args) => {
+    assertTrustedIpc(event);
+    return handler(...args);
   });
 }
 
@@ -88,6 +125,9 @@ function pruneBackups(keep = 14) {
 }
 
 async function createBackup(reason = 'manual') {
+  const integrityBefore = db.integrityCheck();
+  if (!integrityBefore.ok) throw new Error('Sauvegarde refusée : l’intégrité SQLite doit être contrôlée.');
+
   const folder = path.join(paths.backups, `backup-${safeTimestamp()}`);
   const photosTarget = path.join(folder, 'photos');
   ensureDir(folder);
@@ -104,7 +144,7 @@ async function createBackup(reason = 'manual') {
     reason,
     database: 'respect-des-lieux.sqlite3',
     photos: 'photos',
-    integrity: db.integrityCheck()
+    integrity: integrityBefore
   };
   fs.writeFileSync(path.join(folder, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
   pruneBackups(14);
@@ -125,7 +165,7 @@ async function ensureDailyBackup() {
 }
 
 function registerIpc() {
-  ipcMain.handle('rdl:bootstrap', async () => ({
+  secureHandle('rdl:bootstrap', async () => ({
     appVersion: app.getVersion(),
     paths: { root: paths.root, database: paths.database, backups: paths.backups },
     stats: db.getStats(),
@@ -134,14 +174,14 @@ function registerIpc() {
     integrity: db.integrityCheck()
   }));
 
-  ipcMain.handle('rdl:signalements:list', (_event, limit = 500) => db.listSignalements(limit));
-  ipcMain.handle('rdl:signalements:create', (_event, payload) => db.createSignalement(payload));
-  ipcMain.handle('rdl:signalements:update', (_event, id, patch) => db.updateSignalement(id, patch));
+  secureHandle('rdl:signalements:list', (limit = 500) => db.listSignalements(limit));
+  secureHandle('rdl:signalements:create', (payload) => db.createSignalement(payload));
+  secureHandle('rdl:signalements:update', (id, patch) => db.updateSignalement(id, patch));
 
-  ipcMain.handle('rdl:reparations:list', (_event, limit = 1000) => db.listReparations(limit));
-  ipcMain.handle('rdl:reparations:create', (_event, payload) => db.createReparation(payload));
+  secureHandle('rdl:reparations:list', (limit = 1000) => db.listReparations(limit));
+  secureHandle('rdl:reparations:create', (payload) => db.createReparation(payload));
 
-  ipcMain.handle('rdl:photos:attach', async (_event, signalementId) => {
+  secureHandle('rdl:photos:attach', async (signalementId) => {
     const result = await dialog.showOpenDialog(mainWindow, {
       title: 'Ajouter une photo JPEG',
       properties: ['openFile'],
@@ -151,8 +191,8 @@ function registerIpc() {
     return { canceled: false, photo: photoStore.attach(signalementId, result.filePaths[0], db) };
   });
 
-  ipcMain.handle('rdl:photos:list', (_event, signalementId) => db.listPhotos(signalementId));
-  ipcMain.handle('rdl:photos:open', async (_event, photoId) => {
+  secureHandle('rdl:photos:list', (signalementId) => db.listPhotos(signalementId));
+  secureHandle('rdl:photos:open', async (photoId) => {
     const photo = db.getPhoto(photoId);
     if (!photo) throw new Error('Photo introuvable.');
     const fullPath = photoStore.resolveStoredName(photo.stored_name);
@@ -161,10 +201,10 @@ function registerIpc() {
     return true;
   });
 
-  ipcMain.handle('rdl:backup:create', async () => createBackup('manual'));
-  ipcMain.handle('rdl:system:open-data-folder', async () => shell.openPath(paths.root));
-  ipcMain.handle('rdl:system:open-backups-folder', async () => shell.openPath(paths.backups));
-  ipcMain.handle('rdl:system:health', async () => ({
+  secureHandle('rdl:backup:create', async () => createBackup('manual'));
+  secureHandle('rdl:system:open-data-folder', async () => shell.openPath(paths.root));
+  secureHandle('rdl:system:open-backups-folder', async () => shell.openPath(paths.backups));
+  secureHandle('rdl:system:health', async () => ({
     integrity: db.integrityCheck(),
     stats: db.getStats(),
     paths: { root: paths.root, database: paths.database, backups: paths.backups }
@@ -178,6 +218,7 @@ app.on('second-instance', () => {
 });
 
 app.whenReady().then(async () => {
+  configureLocalOnlySession();
   paths = appPaths();
   db = new LocalDatabase(paths.database);
   db.init();
