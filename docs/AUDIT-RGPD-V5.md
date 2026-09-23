@@ -1,131 +1,169 @@
-# Audit protection des données — Respect des Lieux PRO V5
+# Audit protection des données — Respect des Lieux PRO V5.1
 
 Date de référence : 23 septembre 2026.
 
 Ce document est un **audit technique et organisationnel de conception**. Il ne remplace ni la décision du responsable de traitement, ni l'avis du DPD, ni une analyse juridique propre à l'établissement.
 
-## 1. Contexte et qualification
+## 1. Contexte
 
 L'application peut traiter des données permettant d'identifier des élèves mineurs : identité, classe, description d'un incident, mesures prises, personnes référentes et photographies. Elle doit donc être pilotée comme un traitement de données personnelles en milieu scolaire.
 
-Pour le second degré, le ministère indique que le chef d'établissement est responsable des traitements mis en œuvre dans l'établissement. Le DPD académique doit être associé aux nouveaux traitements ou aux modifications de traitements existants.
+Pour le second degré, Éduscol indique que le chef d'établissement est responsable des traitements mis en œuvre dans l'établissement. Le DPD académique doit être associé au cadrage et aux évolutions du traitement.
 
 Références officielles :
 
-- Ministère / Éduscol — Protection des données personnelles et assistance : https://eduscol.education.gouv.fr/6231/protection-des-donnees-personnelles-et-assistance
+- Éduscol — Protection des données personnelles et assistance : https://eduscol.education.gouv.fr/6231/protection-des-donnees-personnelles-et-assistance
 - Éduscol — Délégués à la protection des données : https://eduscol.education.gouv.fr/4935/delegues-la-protection-des-donnees-dpd
-- Ministère — Les enjeux de la protection des données au sein de l'éducation : https://www.education.gouv.fr/les-enjeux-de-la-protection-des-donnees-au-sein-de-l-education-455253
+- CNIL — Durées de conservation : https://www.cnil.fr/fr/passer-laction/les-durees-de-conservation-des-donnees
+- CNIL — Sécurité : sauvegarder : https://www.cnil.fr/fr/securite-sauvegarder
 
-## 2. Points forts techniques déjà acquis
+## 2. Mesures techniques déjà en place
 
-- données métier locales dans SQLite ;
-- aucune API cloud ou télémétrie nécessaire ;
-- requêtes HTTP(S) bloquées au niveau Electron ;
-- renderer isolé de Node (`contextIsolation`, `sandbox`, `nodeIntegration: false`) ;
-- IPC limité au document principal local ;
-- Content Security Policy locale ;
-- SQLite en WAL, `synchronous=FULL`, clés étrangères, transactions ;
-- sauvegarde SQLite cohérente ;
-- JPEG limités à 3 Mo ;
-- métadonnées EXIF/XMP/IPTC et commentaires retirés à l'import ;
-- nom de fichier source non conservé ;
-- identités masquées par défaut dans les listes et remasquées dès que la fenêtre perd le focus ;
-- absence du champ « famille » dans le formulaire V5 ;
-- aucun stockage de données métier dans `localStorage`, IndexedDB ou le cache web applicatif.
+### Local-first et réduction de surface d'exposition
 
-## 3. Écarts bloquants avant une version de production
+- données métier dans SQLite local ;
+- aucun backend cloud requis ;
+- aucune télémétrie ;
+- Content Security Policy avec `connect-src 'none'` ;
+- toute requête HTTP(S) annulée au niveau de la session Electron ;
+- permissions navigateur refusées ;
+- nouvelles fenêtres et navigation distante interdites ;
+- `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`, `webSecurity: true` ;
+- IPC limité au document local principal ;
+- DevTools désactivés dans l'application empaquetée.
+
+### Intégrité et fiabilité
+
+- SQLite en WAL ;
+- `synchronous=FULL` ;
+- clés étrangères actives ;
+- numérotation annuelle sous `BEGIN IMMEDIATE` ;
+- `PRAGMA quick_check` ;
+- sauvegardes SQLite cohérentes ;
+- une seule instance applicative autorisée.
+
+### Minimisation
+
+- identité élève facultative ;
+- classe facultative ;
+- déclarant facultatif ;
+- champ « famille » retiré du formulaire ;
+- identités masquées par défaut ;
+- masquage réactivé dès que la fenêtre perd le focus ;
+- lorsque les identités sont masquées, la recherche visuelle ne les utilise pas comme canal indirect ;
+- messages de saisie demandant des descriptions factuelles et strictement nécessaires.
+
+### Photos
+
+- JPEG uniquement ;
+- 3 Mo maximum ;
+- EXIF/XMP/IPTC et commentaires supprimés avant stockage ;
+- nom original du fichier non conservé ;
+- photo stockée hors SQLite ;
+- SHA-256 calculé sur le contenu assaini.
+
+Ces protections ne rendent pas une photographie représentant une personne « anonyme » : son usage doit rester nécessaire et proportionné.
+
+## 3. Cycle de vie V5.1
+
+La CNIL rappelle que les données personnelles ne peuvent pas être conservées indéfiniment et que la durée doit être déterminée par le responsable de traitement en fonction de la finalité.
+
+La V5.1 applique ce principe sans inventer une durée à la place de l'établissement :
+
+- aucune durée par défaut ;
+- activation impossible sans confirmation explicite d'une validation de gouvernance ;
+- date de clôture tracée ;
+- calcul d'une échéance de réexamen pour les dossiers clos ;
+- aucune suppression automatique ;
+- tableau des dossiers à examiner ;
+- possibilité de réduire les identifiants structurés d'un dossier clos ;
+- avertissement explicite que les textes libres et photographies doivent encore être examinés ;
+- suppression définitive possible uniquement pour un dossier clos et après saisie exacte de son numéro.
+
+La suppression ajoute le numéro du dossier à un **registre de purge séparé de la base restaurable**. Après restauration d'une ancienne sauvegarde, l'application réapplique ces purges afin d'éviter qu'un dossier volontairement supprimé réapparaisse silencieusement.
+
+Ce registre ne contient pas le contenu du dossier ; il conserve le numéro technique et la date de purge.
+
+## 4. Droits des personnes
+
+V5.1 fournit un outil de **revue interne** : une recherche ciblée peut produire un JSON regroupant les enregistrements potentiellement concernés.
+
+Ce fichier n'est volontairement pas présenté comme une réponse prête à transmettre. La CNIL rappelle que la réponse à un droit d'accès doit tenir compte des droits et libertés des tiers. L'application affiche donc un avertissement imposant une revue humaine et, si nécessaire, le masquage des données de tiers avant communication.
+
+Référence : https://www.cnil.fr/fr/respecter-les-droits-des-personnes/professionnels-comment-repondre-une-demande-de-droit-dacces
+
+Une procédure organisationnelle reste nécessaire pour la rectification, l'effacement lorsque le droit est applicable, les délais de réponse et la validation de l'identité du demandeur.
+
+## 5. Sauvegarde et reprise V5.1
+
+La CNIL recommande des sauvegardes régulières, au moins une copie distincte/hors ligne, un niveau de protection équivalent à celui des données actives et des tests réguliers de restauration. Elle cite également la règle 3-2-1 comme bonne pratique.
+
+V5.1 apporte désormais :
+
+- snapshots locaux cohérents ;
+- 14 sauvegardes glissantes ;
+- export externe dans un fichier `.rdlbackup` ;
+- chiffrement authentifié AES-256-GCM ;
+- clé dérivée de la phrase secrète via scrypt avec sel aléatoire ;
+- phrase secrète jamais enregistrée ;
+- refus d'une archive modifiée ou d'une phrase secrète incorrecte ;
+- déchiffrement dans une zone temporaire ;
+- contrôle du manifeste ;
+- `PRAGMA quick_check` sur la base restaurée ;
+- sauvegarde de précaution de l'état actuel avant bascule ;
+- application de la restauration seulement au redémarrage ;
+- réapplication du registre de purge après restauration.
+
+Référence : https://www.cnil.fr/fr/securite-sauvegarder
+
+Ce dispositif doit encore être **éprouvé sur le PC cible** avec un vrai support externe et un scénario complet de perte/reprise avant d'être considéré comme validé en production.
+
+## 6. Points bloquants restant avant production
 
 ### P0 — Gouvernance
 
-1. **Finalité exacte à arrêter** : l'établissement doit documenter ce que l'application permet de faire et ce qu'elle ne doit pas devenir. Exemple de formulation de travail : suivi des dégradations matérielles, des faits associés strictement nécessaires et des mesures de réparation.
-2. **Base légale à confirmer** par le responsable de traitement et le DPD. Ne pas ajouter de pseudo-consentement dans l'application sans validation : dans l'Éducation nationale, de nombreux traitements de gestion reposent sur une mission d'intérêt public.
-3. **Fiche au registre des activités de traitement** : catégories de personnes, données, destinataires, finalité, durée de conservation, sécurité, transferts éventuels.
-4. **Information des personnes concernées** : finalité, responsable, base légale, données, destinataires, durée, droits et contact DPD.
-5. **Durée de conservation** : elle ne peut pas rester indéfinie. La valeur doit être décidée et documentée avant d'automatiser un archivage ou un effacement.
-6. **Criblage AIPD** avec le DPD. Les mineurs constituent une population vulnérable au sens de l'analyse des risques, mais l'application ne déclare pas d'elle-même qu'une AIPD complète est juridiquement obligatoire.
+1. finalité exacte approuvée ;
+2. base légale documentée ;
+3. traitement inscrit ou rattaché au registre ;
+4. catégories de personnes et de données validées ;
+5. destinataires et habilitations définis ;
+6. durée de conservation effectivement décidée ;
+7. mention d'information prête ;
+8. DPD consulté ;
+9. criblage AIPD documenté ;
+10. procédure de violation de données définie.
 
-Références :
+### P0 — Poste Windows cible
 
-- CNIL — Registre des activités de traitement : https://www.cnil.fr/fr/RGPD-le-registre-des-activites-de-traitement
-- CNIL — Durées de conservation : https://www.cnil.fr/fr/passer-laction/les-durees-de-conservation-des-donnees
-- CNIL — AIPD : https://www.cnil.fr/fr/definition/analyse-dimpact-aipd
+- compte Windows nominatif ;
+- verrouillage automatique de session ;
+- chiffrement du disque vérifié avec l'administrateur ;
+- correctifs et protection antimalware gérés ;
+- droits non administrateur si possible ;
+- politique de réaffectation / mise au rebut du poste ;
+- emplacement du support de sauvegarde externe décidé.
 
-### P0 — Sécurité du poste
+Référence : https://www.cnil.fr/fr/securite-securiser-les-postes-de-travail
 
-Le stockage local réduit fortement l'exposition réseau mais reporte la sécurité sur le PC. Avant production :
+### P1 — Validation opérationnelle
 
-- compte Windows nominatif et verrouillage automatique de session ;
-- chiffrement du poste (BitLocker / chiffrement de l'appareil selon l'équipement) à vérifier avec l'administrateur ;
-- correctifs Windows et antivirus gérés ;
-- droits utilisateur non administrateur si possible ;
-- procédure de réaffectation / mise au rebut du poste avec effacement sécurisé ;
-- sauvegarde externe définie et protégée contre la perte ou le vol.
+- installateur Windows construit et testé ;
+- test d'installation / mise à jour / désinstallation ;
+- test de sauvegarde chiffrée sur support externe ;
+- restauration complète sur le poste cible ;
+- test d'une restauration contenant un dossier déjà purgé ;
+- test coupure brutale / redémarrage ;
+- test disque plein ;
+- test de volume ;
+- audit de parité fonctionnelle avec V4.3 ;
+- revue ergonomique avec l'utilisateur réel.
 
-Référence : CNIL — Sécuriser les postes de travail : https://www.cnil.fr/fr/securite-securiser-les-postes-de-travail
+## 7. Production gate
 
-### P1 — Cycle de vie des dossiers
+La version ne doit pas être qualifiée « production RGPD validée » tant que le fichier [`PRODUCTION-GATE-V5.1.md`](PRODUCTION-GATE-V5.1.md) n'est pas renseigné et que les décisions relevant de l'établissement ne sont pas formalisées.
 
-À ajouter après validation de la durée :
+## 8. Conclusion intermédiaire
 
-- date de clôture explicite ;
-- tableau « dossiers à réexaminer » ;
-- archivage / anonymisation / suppression contrôlée selon la politique retenue ;
-- journal minimal des opérations de purge, sans recopier le contenu des dossiers.
+Le choix **local-first, mono-utilisateur, sans backend cloud** réduit sensiblement l'exposition réseau et donne un meilleur contrôle technique du cycle de vie des données. V5.1 apporte désormais des mécanismes concrets de minimisation, réexamen, purge, exercice des droits et reprise chiffrée.
 
-### P1 — Droits des personnes
-
-À prévoir :
-
-- export ciblé des informations concernant une personne ;
-- procédure documentée de rectification ;
-- procédure d'effacement lorsque le droit est applicable ;
-- protection des informations concernant des tiers lors d'un export.
-
-Référence : CNIL — Droit d'accès : https://www.cnil.fr/fr/respecter-les-droits-des-personnes/professionnels-comment-repondre-une-demande-de-droit-dacces
-
-### P1 — Sauvegardes
-
-Les sauvegardes actuelles sont cohérentes mais restent sur le même PC. Elles protègent contre une erreur applicative, pas contre la panne ou le vol du disque. La version de production devra disposer d'un export de sauvegarde **chiffré**, vérifiable et restaurable, avec test de restauration périodique.
-
-## 4. Minimisation recommandée
-
-Principe : ne pas collecter une donnée « au cas où ».
-
-- identité élève : facultative dans l'interface ;
-- classe : facultative ;
-- personne ayant signalé : facultative ;
-- famille : retirée du formulaire ;
-- photographie : seulement si elle apporte une preuve utile ;
-- texte libre : rester factuel, éviter appréciations, rumeurs ou détails non nécessaires ;
-- données sensibles (santé, religion, opinions, origine, vie sexuelle, etc.) : ne pas utiliser cette application pour les stocker.
-
-Référence : CNIL — Minimiser les données collectées : https://www.cnil.fr/fr/minimiser-les-donnees-collectees
-
-## 5. Risques spécifiques photos
-
-Une photo JPEG peut embarquer des métadonnées EXIF contenant notamment des informations sur l'appareil et parfois des coordonnées GPS. V5.0.1 supprime les segments APP1 (EXIF/XMP), APP13 (IPTC) et COM avant stockage. Le nom original du fichier n'est pas conservé non plus.
-
-Le besoin de conserver une photo doit néanmoins être apprécié dossier par dossier : l'assainissement des métadonnées ne transforme pas une photo identifiable en donnée anonyme.
-
-## 6. Production gate
-
-La version ne doit pas être qualifiée « production RGPD validée » tant que les cases suivantes ne sont pas formellement satisfaites :
-
-- [ ] finalité validée par le responsable de traitement ;
-- [ ] base légale documentée ;
-- [ ] traitement inscrit ou rattaché au registre ;
-- [ ] DPD consulté ;
-- [ ] criblage AIPD documenté ;
-- [ ] catégories de données validées ;
-- [ ] destinataires / habilitations définis ;
-- [ ] durée de conservation définie ;
-- [ ] mention d'information prête ;
-- [ ] chiffrement du poste vérifié ;
-- [ ] verrouillage automatique Windows vérifié ;
-- [ ] sauvegarde externe chiffrée et restauration testée ;
-- [ ] procédure de violation de données connue ;
-- [ ] test fonctionnel et test de charge passés sur le poste cible.
-
-## 7. Conclusion technique intermédiaire
-
-Le choix **local-first, mono-utilisateur, sans backend cloud** est cohérent avec une stratégie de minimisation de surface d'exposition. Il ne suffit toutefois pas à garantir la conformité : la gouvernance du traitement, la durée de conservation, l'information des personnes, les habilitations et la sécurité du poste restent déterminantes.
+Ces mécanismes techniques ne remplacent pas la gouvernance : conformité et mise en production dépendent encore de la finalité, de la base légale, de la durée de conservation, de l'information des personnes, des habilitations, du poste Windows cible et de la validation avec le DPD.
