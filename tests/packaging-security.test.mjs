@@ -14,7 +14,7 @@ test('qualification packaging : versions critiques épinglées', () => {
   assert.match(pkg.scripts['dist:win'], /--publish never/);
 });
 
-test('qualification packaging : fuses Electron durcis et démarrage V8 compatible', () => {
+test('qualification packaging : fuses Electron cohérents avec le renderer file://', () => {
   const fuses = pkg.build?.electronFuses || {};
   assert.equal(fuses.runAsNode, false);
   assert.equal(fuses.enableNodeOptionsEnvironmentVariable, false);
@@ -22,7 +22,10 @@ test('qualification packaging : fuses Electron durcis et démarrage V8 compatibl
   assert.equal(fuses.enableEmbeddedAsarIntegrityValidation, true);
   assert.equal(fuses.onlyLoadAppFromAsar, true);
   assert.equal(fuses.loadBrowserProcessSpecificV8Snapshot, false);
-  assert.equal(fuses.grantFileProtocolExtraPrivileges, false);
+  // Tant que createWindow utilise BrowserWindow.loadFile(file://), ce fuse doit
+  // rester activé. Le désactiver produit une fenêtre vide / ERR_FILE_NOT_FOUND
+  // sur les fichiers pourtant présents dans app.asar sous Windows.
+  assert.equal(fuses.grantFileProtocolExtraPrivileges, true);
 });
 
 test('qualification packaging : arbre applicatif complet, UI non exclue', () => {
