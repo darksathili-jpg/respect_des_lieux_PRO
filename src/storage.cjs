@@ -3,6 +3,8 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 
 const MAX_JPEG_BYTES = 3 * 1024 * 1024;
+const MAX_PHOTOS_PER_SIGNALEMENT = 2;
+const MIN_FREE_SPACE_RESERVE_BYTES = 64 * 1024 * 1024;
 const JPEG_SOI = Buffer.from([0xff, 0xd8]);
 const METADATA_MARKERS = new Set([0xe1, 0xed, 0xfe]); // APP1 (EXIF/XMP), APP13 (IPTC), COM
 
@@ -49,6 +51,27 @@ function stripJpegMetadata(input) {
   return sanitized;
 }
 
+function availableBytes(dir) {
+  try {
+    const stat = fs.statfsSync(dir);
+    const blockSize = Number(stat.bsize || 0);
+    const availableBlocks = Number(stat.bavail || 0);
+    if (!Number.isFinite(blockSize) || !Number.isFinite(availableBlocks) || blockSize <= 0 || availableBlocks < 0) return null;
+    return blockSize * availableBlocks;
+  } catch {
+    return null;
+  }
+}
+
+function ensureDiskHeadroom(dir, bytesToWrite) {
+  const free = availableBytes(dir);
+  if (free === null) return;
+  const required = Number(bytesToWrite || 0) + MIN_FREE_SPACE_RESERVE_BYTES;
+  if (free < required) {
+    throw new Error('Espace disque insuffisant : libérez au moins 64 Mo avant d’ajouter une photo.');
+  }
+}
+
 class LocalPhotoStore {
   constructor(photoDir) {
     this.photoDir = photoDir;
@@ -85,8 +108,13 @@ class LocalPhotoStore {
   attach(signalementId, sourcePath, db) {
     const signalement = db.getSignalement(signalementId);
     if (!signalement) throw new Error('Signalement introuvable.');
-    this.validateJpeg(sourcePath);
 
+    const currentPhotos = db.listPhotos(signalementId);
+    if (currentPhotos.length >= MAX_PHOTOS_PER_SIGNALEMENT) {
+      throw new Error('Maximum atteint : 2 photos par signalement.');
+    }
+
+    this.validateJpeg(sourcePath);
     const sourceBytes = fs.readFileSync(sourcePath);
     const sanitizedBytes = stripJpegMetadata(sourceBytes);
     if (sanitizedBytes.length <= 0 || sanitizedBytes.length > MAX_JPEG_BYTES) {
@@ -94,6 +122,11 @@ class LocalPhotoStore {
     }
 
     const sha256 = crypto.createHash('sha256').update(sanitizedBytes).digest('hex');
+    if (currentPhotos.some((photo) => String(photo.sha256 || '') === sha256)) {
+      throw new Error('Cette photo est déjà associée au signalement.');
+    }
+
+    ensureDiskHeadroom(this.photoDir, sanitizedBytes.length);
     const storedName = `${signalementId}-${Date.now()}-${sha256.slice(0, 16)}.jpg`;
     const target = this.resolveStoredName(storedName);
 
@@ -151,4 +184,12 @@ class LocalPhotoStore {
   }
 }
 
-module.exports = { LocalPhotoStore, MAX_JPEG_BYTES, stripJpegMetadata };
+module.exports = {
+  LocalPhotoStore,
+  MAX_JPEG_BYTES,
+  MAX_PHOTOS_PER_SIGNALEMENT,
+  MIN_FREE_SPACE_RESERVE_BYTES,
+  stripJpegMetadata,
+  availableBytes,
+  ensureDiskHeadroom
+};
