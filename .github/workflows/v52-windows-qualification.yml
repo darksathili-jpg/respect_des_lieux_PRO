@@ -5,6 +5,7 @@ on:
     branches: ["main"]
     paths:
       - "package.json"
+      - "main-bootstrap.cjs"
       - "main.cjs"
       - "preload.cjs"
       - "src/**"
@@ -19,7 +20,7 @@ permissions:
 jobs:
   qualify-windows:
     runs-on: windows-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -36,6 +37,33 @@ jobs:
       - name: Reliability and qualification tests
         shell: pwsh
         run: npm run verify
+
+      - name: Build unpacked Windows runtime
+        shell: pwsh
+        run: npx electron-builder --win dir --x64 --publish never
+
+      - name: Rendered UI gate
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path dist -Recurse -Filter "Respect des Lieux PRO.exe" -File | Select-Object -First 1
+          if (-not $exe) { throw "Exécutable unpacked introuvable." }
+          $stdout = Join-Path $env:RUNNER_TEMP "rdl-ui-stdout.txt"
+          $stderr = Join-Path $env:RUNNER_TEMP "rdl-ui-stderr.txt"
+          $env:RDL_PACKAGED_SMOKE = "1"
+          $p = Start-Process -FilePath $exe.FullName -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          $finished = $p.WaitForExit(25000)
+          if (-not $finished) {
+            try { Stop-Process -Id $p.Id -Force } catch {}
+            throw "Le contrôle de rendu UI n'a pas terminé dans le délai imparti."
+          }
+          $p.Refresh()
+          $out = if (Test-Path $stdout) { Get-Content $stdout -Raw } else { "" }
+          $err = if (Test-Path $stderr) { Get-Content $stderr -Raw } else { "" }
+          Write-Host $out
+          Write-Host $err
+          if ($p.ExitCode -ne 0 -or $out -notmatch 'RDL_SMOKE_PASS') {
+            throw "Qualification refusée : l'interface empaquetée n'a pas fourni de preuve de rendu valide."
+          }
 
       - name: Build x64 NSIS qualification installer
         shell: pwsh
