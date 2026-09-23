@@ -11,26 +11,31 @@ Remplacer progressivement le backend cloud de la V4.3 par une application deskto
 - Electron pour l'application Windows ;
 - SQLite pour les signalements et réparations ;
 - photos stockées comme fichiers locaux, jamais en Base64 dans la base ;
-- aucun Supabase, aucun appel métier réseau, aucune télémétrie ;
+- aucun backend cloud, aucun appel métier réseau, aucune télémétrie ;
 - sauvegarde SQLite cohérente + copie des photos ;
 - 14 sauvegardes glissantes conservées sur le poste ;
 - installateur Windows prévu via `electron-builder`.
 
 ## État actuel
 
-**V5.0.0-alpha.1 — Local Desktop Foundation**
+**V5.0.1-alpha.1 — Local Desktop + School Privacy Hardening**
 
-Cette première fondation est déjà fonctionnelle pour :
+Cette fondation est déjà fonctionnelle pour :
 
 - créer et consulter des signalements ;
 - générer des numéros annuels transactionnels (`2026-0001`, etc.) ;
 - ajouter des réparations ;
 - joindre des JPEG de 3 Mo maximum ;
+- retirer les métadonnées EXIF/XMP/IPTC/commentaires des photos avant stockage ;
+- ne pas conserver le nom original du fichier photo ;
+- masquer les identités des élèves par défaut et les remasquer dès que la fenêtre perd le focus ;
 - clore / rouvrir un signalement ;
 - vérifier l'intégrité SQLite ;
 - créer une sauvegarde locale ;
 - effectuer une sauvegarde quotidienne au démarrage ;
-- empêcher deux instances concurrentes de l'application.
+- empêcher deux instances concurrentes de l'application ;
+- bloquer toute requête HTTP(S) dans la session Electron ;
+- refuser les permissions navigateur et limiter l'IPC au document local principal.
 
 La reprise exhaustive de toutes les fonctions et du rendu de la V4.3 sera faite par étapes, sans couper l'ancienne application.
 
@@ -73,11 +78,32 @@ La fenêtre principale est créée avec :
 contextIsolation: true
 nodeIntegration: false
 sandbox: true
+webSecurity: true
+spellcheck: false
 ```
 
-Le renderer n'accède jamais directement au système de fichiers ni à SQLite. Une API minimale est exposée par `preload.cjs` et transite par IPC vers le processus principal.
+Le renderer n'accède jamais directement au système de fichiers ni à SQLite. Une API minimale est exposée par `preload.cjs` et transite par IPC vers le processus principal. Les appels IPC sont vérifiés côté processus principal.
 
-Le HTML applique également une Content Security Policy `default-src 'self'` et ne charge aucune ressource distante.
+Le HTML applique une Content Security Policy avec `connect-src 'none'`. En complément, Electron annule toute requête `http://` ou `https://` de la session applicative. Les DevTools sont désactivés dans l'application empaquetée.
+
+## Protection des données en milieu scolaire
+
+La V5 intègre désormais une première couche **privacy-by-design**, mais elle ne doit pas être présentée comme « conforme RGPD par le seul fait d'être locale ».
+
+Avant toute mise en production, le responsable de traitement et le DPD doivent notamment valider :
+
+- finalité ;
+- base légale ;
+- inscription/rattachement au registre des traitements ;
+- catégories de données et destinataires ;
+- durée de conservation ;
+- information des personnes ;
+- criblage AIPD ;
+- sécurité du poste Windows ;
+- sauvegarde externe protégée ;
+- procédure en cas de violation de données.
+
+Audit détaillé : [`docs/AUDIT-RGPD-V5.md`](docs/AUDIT-RGPD-V5.md)
 
 ## Développement
 
@@ -115,30 +141,10 @@ Chaque push sur `main` déclenche le workflow **V5 Local Reliability Gate** sur 
 - la numérotation annuelle ;
 - les relations signalement → réparation ;
 - le coffre photo JPEG / 3 Mo ;
+- la suppression des métadonnées photo ;
 - une vraie sauvegarde SQLite relisible ;
-- l'absence de backend cloud dans le renderer ;
-- l'isolement Electron.
-
-## Roadmap
-
-### V5.0 — Local Desktop Foundation
-Architecture Electron + SQLite, stockage photo local, sauvegardes et premiers tests de fiabilité.
-
-### V5.1 — Parité fonctionnelle V4.3
-Reprise détaillée de l'interface, filtres, statistiques, formulaires et ergonomie de la V4.3.
-
-### V5.2 — Photo Vault
-Prévisualisation, gestion avancée des pièces jointes, contrôle d'intégrité et déduplication.
-
-### V5.3 — Backup & Restore
-Restauration guidée, export portable, contrôle avant restauration et scénario de reprise après panne.
-
-### V5.4 — Reliability Gate
-Tests disque plein, fermeture brutale, base verrouillée, corruption simulée, milliers de dossiers, double lancement et restauration.
-
-### V5.5 — Windows Release
-Installateur signé si possible, procédure de déploiement et documentation utilisateur.
-
-## Principe de migration
-
-La V4.3 cloud et la V5 locale restent **en parallèle** tant que la V5 n'a pas passé ses tests de parité et de reprise après incident. Aucun arrêt ni suppression de l'ancienne solution ne doit être effectué pendant cette phase.
+- l'absence de backend cloud exécutable dans le renderer ;
+- l'isolement Electron ;
+- le blocage réseau et permissions ;
+- la minimisation du formulaire ;
+- le masquage des identités par défaut.
