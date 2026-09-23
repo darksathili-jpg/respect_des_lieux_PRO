@@ -61,8 +61,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "v5.2.0-alpha.1"
-          $title = "Respect des Lieux PRO V5.2.0 alpha 1"
+          $pkg = Get-Content package.json -Raw | ConvertFrom-Json
+          $version = [string]$pkg.version
+          $tag = "v$version"
+          $title = "Respect des Lieux PRO V$version"
           $exe = Get-ChildItem -Path dist -Filter *.exe -File | Select-Object -First 1
           if (-not $exe) { throw "Installateur introuvable pour la publication." }
 
