@@ -11,15 +11,15 @@ permissions:
 jobs:
   local-reliability:
     runs-on: windows-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Node 24
+      - name: Node 24.21
         uses: actions/setup-node@v5
         with:
-          node-version: '24.18.0'
+          node-version: '24.21.0'
           package-manager-cache: false
 
       - name: Runtime
