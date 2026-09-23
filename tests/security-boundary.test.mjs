@@ -22,7 +22,7 @@ test('frontière Electron : renderer isolé de Node et permissions bloquées', (
 test('renderer entièrement local : aucun backend cloud exécutable', () => {
   const html = read('renderer/index.html');
   const app = read('renderer/app.js');
-  const css = read('renderer/styles.css');
+  const css = `${read('renderer/styles.css')}\n${read('renderer/v51.css')}`;
   const runtime = `${html}\n${app}\n${css}`;
   assert.doesNotMatch(runtime, /[a-z0-9-]+\.supabase\.co/i);
   assert.doesNotMatch(runtime, /https?:\/\//i);
@@ -30,12 +30,14 @@ test('renderer entièrement local : aucun backend cloud exécutable', () => {
   assert.doesNotMatch(runtime, /XMLHttpRequest|WebSocket|EventSource/);
   assert.match(html, /default-src 'self'/);
   assert.match(html, /connect-src 'none'/);
+  assert.match(html, /href="\.\/v51\.css"/);
   assert.match(read('main.cjs'), /urls:\s*\['http:\/\/\*\/\*',\s*'https:\/\/\*\/\*'\]/);
 });
 
-test('aucune donnée métier dans les stockages navigateur', () => {
+test('aucune donnée métier ni secret dans les stockages navigateur', () => {
   const runtime = `${read('renderer/app.js')}\n${read('preload.cjs')}`;
   assert.doesNotMatch(runtime, /localStorage|sessionStorage|indexedDB/);
+  assert.doesNotMatch(runtime, /setItem\s*\(/);
 });
 
 test('garde-fous SQLite et photos présents', () => {
@@ -96,4 +98,22 @@ test('droit d’accès : export interne explicitement soumis à revue des tiers'
   assert.match(db, /Vérifier et masquer les données de tiers/);
   assert.match(html, /données concernant des tiers/i);
   assert.match(html, /Préparer le dossier de revue/);
+});
+
+test('sauvegarde externe : chiffrement authentifié, KDF et secret non persistant', () => {
+  const portable = read('src/portable-backup.cjs');
+  const main = read('main.cjs');
+  const app = read('renderer/app.js');
+  assert.match(portable, /aes-256-gcm/i);
+  assert.match(portable, /scryptSync/);
+  assert.match(portable, /randomBytes\(SALT_BYTES\)/);
+  assert.match(portable, /getAuthTag/);
+  assert.match(portable, /setAuthTag/);
+  assert.match(portable, /length < 12/);
+  assert.match(main, /restore-pending\.json/);
+  assert.match(main, /pre-encrypted-restore/);
+  assert.match(app, /#secret-passphrase/);
+  assert.match(app, /\.value = ''/);
+  assert.doesNotMatch(main, /setSetting\([^\n]*passphrase/i);
+  assert.doesNotMatch(app, /localStorage|sessionStorage|indexedDB/);
 });
