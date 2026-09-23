@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   qualify-windows:
@@ -55,3 +55,25 @@ jobs:
           path: dist/*.exe
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish clickable GitHub prerelease
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "v5.2.0-alpha.1"
+          $title = "Respect des Lieux PRO V5.2.0 alpha 1"
+          $exe = Get-ChildItem -Path dist -Filter *.exe -File | Select-Object -First 1
+          if (-not $exe) { throw "Installateur introuvable pour la publication." }
+
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag `
+              --repo $env:GITHUB_REPOSITORY `
+              --target $env:GITHUB_SHA `
+              --title $title `
+              --prerelease `
+              --notes "Version de qualification Windows non signée. Utiliser uniquement des données fictives pour les essais."
+          }
+
+          gh release upload $tag $exe.FullName --repo $env:GITHUB_REPOSITORY --clobber
