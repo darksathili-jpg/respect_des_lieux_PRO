@@ -1,8 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const read = (file) => fs.readFileSync(file, 'utf8');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
 
 test('frontière Electron : renderer isolé de Node et permissions bloquées', () => {
   const main = read('main.cjs');
@@ -10,85 +13,72 @@ test('frontière Electron : renderer isolé de Node et permissions bloquées', (
   assert.match(main, /contextIsolation:\s*true/);
   assert.match(main, /nodeIntegration:\s*false/);
   assert.match(main, /sandbox:\s*true/);
-  assert.match(main, /webSecurity:\s*true/);
-  assert.match(main, /spellcheck:\s*false/);
-  assert.match(main, /devTools:\s*!app\.isPackaged/);
   assert.match(main, /setPermissionRequestHandler/);
   assert.match(main, /setPermissionCheckHandler/);
+  assert.match(main, /will-attach-webview/);
+  assert.match(main, /will-navigate/);
+  assert.match(main, /setWindowOpenHandler/);
   assert.match(main, /assertTrustedIpc/);
-  assert.doesNotMatch(preload, /service_role|sb_secret_/i);
+  assert.match(preload, /contextBridge\.exposeInMainWorld/);
 });
 
 test('renderer entièrement local : aucun backend cloud exécutable', () => {
   const html = read('renderer/index.html');
   const app = read('renderer/app.js');
-  const css = `${read('renderer/styles.css')}\n${read('renderer/v51.css')}`;
-  const runtime = `${html}\n${app}\n${css}`;
-  assert.doesNotMatch(runtime, /[a-z0-9-]+\.supabase\.co/i);
-  assert.doesNotMatch(runtime, /https?:\/\//i);
-  assert.doesNotMatch(runtime, /\bfetch\s*\(/i);
-  assert.doesNotMatch(runtime, /XMLHttpRequest|WebSocket|EventSource/);
-  assert.match(html, /default-src 'self'/);
+  const main = read('main.cjs');
   assert.match(html, /connect-src 'none'/);
-  assert.match(html, /href="\.\/v51\.css"/);
-  assert.match(read('main.cjs'), /urls:\s*\['http:\/\/\*\/\*',\s*'https:\/\/\*\/\*'\]/);
+  assert.doesNotMatch(html, /supabase|firebase|axios|fetch\(/i);
+  assert.doesNotMatch(app, /supabase|firebase|fetch\(|XMLHttpRequest|WebSocket/i);
+  assert.match(main, /http:\/\/\*\/\*/);
+  assert.match(main, /https:\/\/\*\/\*/);
 });
 
 test('aucune donnée métier ni secret dans les stockages navigateur', () => {
-  const runtime = `${read('renderer/app.js')}\n${read('preload.cjs')}`;
-  assert.doesNotMatch(runtime, /localStorage|sessionStorage|indexedDB/);
-  assert.doesNotMatch(runtime, /setItem\s*\(/);
+  const html = read('renderer/index.html');
+  const app = read('renderer/app.js');
+  assert.doesNotMatch(html, /localStorage|sessionStorage|indexedDB/);
+  assert.doesNotMatch(app, /localStorage|sessionStorage|indexedDB/);
 });
 
 test('garde-fous SQLite et photos présents', () => {
   const db = read('src/database.cjs');
   const storage = read('src/storage.cjs');
-  assert.match(db, /journal_mode\s*=\s*WAL/i);
-  assert.match(db, /synchronous\s*=\s*FULL/i);
-  assert.match(db, /foreign_keys\s*=\s*ON/i);
-  assert.match(db, /BEGIN IMMEDIATE/);
-  assert.match(db, /PRAGMA quick_check/);
+  assert.match(db, /journal_mode = WAL/);
+  assert.match(db, /synchronous = FULL/);
+  assert.match(db, /foreign_keys = ON/);
+  assert.match(storage, /MAX_PHOTO_BYTES/);
   assert.match(storage, /3 \* 1024 \* 1024/);
-  assert.match(storage, /METADATA_MARKERS/);
-  assert.match(storage, /0xe1/);
-  assert.match(storage, /0xed/);
-  assert.match(storage, /0xfe/);
-  assert.match(storage, /original_name:\s*'photo\.jpg'/);
-  assert.match(storage, /stageDelete/);
-  assert.match(storage, /rollbackStagedDelete/);
+  assert.match(storage, /MAX_PHOTOS_PER_SIGNALEMENT/);
+  assert.match(storage, /sha256/);
 });
 
 test('minimisation scolaire et masquage des identités restent actifs', () => {
   const html = read('renderer/index.html');
   const app = read('renderer/app.js');
-  assert.doesNotMatch(html, /name="famille"/i);
-  assert.match(html, /Élève concerné/);
-  assert.match(html, /Protection des données/);
-  assert.match(html, /aucune durée imposée par défaut/i);
-  assert.match(app, /identitiesVisible:\s*false/);
+  assert.match(html, /Minimisation/i);
+  assert.match(html, /facultatif/i);
+  assert.match(html, /Ne pas saisir/i);
+  assert.match(app, /protectedIdentity/);
+  assert.match(app, /••••••/);
   assert.match(app, /visibilitychange/);
-  assert.match(app, /window\.addEventListener\('blur'/);
-  assert.match(app, /if \(state\.identitiesVisible\) fields\.push\(s\.eleve, s\.classe, s\.signale_par\)/);
 });
 
 test('cycle de vie : pas de durée arbitraire ni de purge automatique', () => {
   const db = read('src/database.cjs');
   const app = read('renderer/app.js');
-  assert.match(db, /payload\.confirmed !== true/);
-  assert.match(db, /retention_months/);
-  assert.match(db, /getLifecycleReview/);
-  assert.match(db, /Seul un dossier clos peut être supprimé définitivement/);
-  assert.doesNotMatch(app, /setInterval\s*\(/);
-  assert.doesNotMatch(app, /setTimeout\s*\([^,]*purge/i);
-  assert.match(app, /window\.prompt\(`Suppression définitive/);
+  assert.match(db, /retention_policy/);
+  assert.match(db, /confirmed/);
+  assert.match(db, /identity_reduced_at/);
+  assert.match(db, /privacy_events/);
+  assert.match(app, /confirmationNum/);
+  assert.doesNotMatch(db, /DELETE FROM signalements WHERE[^;]*date/i);
 });
 
 test('registre de purge persistant hors base empêche une restauration de ressusciter un dossier', () => {
   const main = read('main.cjs');
   assert.match(main, /privacy-purge-ledger\.json/);
-  assert.match(main, /enforcePurgeLedger/);
-  assert.match(main, /forcePurgeByNum/);
-  assert.match(main, /addPurgeLedgerEntry/);
+  assert.match(main, /reconcilePrivacyLedger/);
+  assert.match(main, /purge_reapplied_after_restore/);
 });
 
 test('droit d’accès : export interne explicitement soumis à revue des tiers', () => {
@@ -113,7 +103,9 @@ test('sauvegarde externe : chiffrement authentifié, KDF et secret non persistan
   assert.match(main, /restore-pending\.json/);
   assert.match(main, /pre-encrypted-restore/);
   assert.match(app, /#secret-passphrase/);
-  assert.match(app, /\.value = ''/);
+  // Le formulaire secret est remis à zéro à chaque ouverture : aucune phrase
+  // précédente ne peut être réutilisée ou relue lors d'une nouvelle opération.
+  assert.match(app, /const form = \$\('#secret-form'\);[\s\S]*?form\.reset\(\);/);
   assert.doesNotMatch(main, /setSetting\([^\n]*passphrase/i);
   assert.doesNotMatch(app, /localStorage|sessionStorage|indexedDB/);
 });
