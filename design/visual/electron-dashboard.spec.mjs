@@ -1,10 +1,12 @@
-import { test, expect, _electron as electron } from '@playwright/test';
+import { test, expect, chromium } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const EXECUTABLE = path.resolve(HERE, '../../dist/win-unpacked/Respect des Lieux PRO.exe');
+const DEBUG_PORT = 9222;
 
 async function box(locator, label) {
   const value = await locator.boundingBox();
@@ -12,26 +14,55 @@ async function box(locator, label) {
   return Object.fromEntries(Object.entries(value).map(([key, number]) => [key, Math.round(number)]));
 }
 
+async function delay(ms) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function connectToPackagedElectron(processLog) {
+  let lastError = null;
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    try {
+      return await chromium.connectOverCDP(`http://127.0.0.1:${DEBUG_PORT}`);
+    } catch (error) {
+      lastError = error;
+      await delay(250);
+    }
+  }
+  throw new Error(`CDP Electron inaccessible sur le port ${DEBUG_PORT}: ${lastError?.message || 'erreur inconnue'}\n${processLog()}`);
+}
+
 test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo) => {
   expect(fs.existsSync(EXECUTABLE), `Exécutable empaqueté absent: ${EXECUTABLE}`).toBe(true);
 
-  const app = await electron.launch({
-    executablePath: EXECUTABLE,
+  let output = '';
+  const child = spawn(EXECUTABLE, [
+    `--remote-debugging-port=${DEBUG_PORT}`,
+    '--force-device-scale-factor=1'
+  ], {
     env: {
       ...process.env,
       RDL_VISUAL_TEST: '1'
-    }
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: false
   });
+  child.stdout?.on('data', (chunk) => { output += chunk.toString(); });
+  child.stderr?.on('data', (chunk) => { output += chunk.toString(); });
 
+  let browser = null;
   try {
-    const page = await app.firstWindow();
+    browser = await connectToPackagedElectron(() => output);
+    const context = browser.contexts()[0];
+    if (!context) throw new Error(`Contexte Chromium Electron introuvable.\n${output}`);
 
-    await app.evaluate(({ BrowserWindow }) => {
-      const window = BrowserWindow.getAllWindows()[0];
-      if (!window) throw new Error('Fenêtre Electron principale introuvable.');
-      window.setContentSize(1448, 1086);
-    });
+    let page = context.pages()[0] || null;
+    for (let attempt = 0; !page && attempt < 80; attempt += 1) {
+      await delay(125);
+      page = context.pages()[0] || null;
+    }
+    if (!page) throw new Error(`Fenêtre Electron principale introuvable.\n${output}`);
 
+    await page.setViewportSize({ width: 1448, height: 1086 });
     await expect.poll(async () => page.evaluate(() => ({ width: innerWidth, height: innerHeight }))).toEqual({ width: 1448, height: 1086 });
     await expect(page.locator('#vf-dashboard')).toHaveAttribute('data-vf-ready', 'true');
     await page.evaluate(() => document.fonts.ready);
@@ -60,6 +91,10 @@ test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo
       maxDiffPixelRatio: 0.04
     });
   } finally {
-    await app.close();
+    await testInfo.attach('electron-process-log', { body: Buffer.from(output || '(aucune sortie processus)', 'utf8'), contentType: 'text/plain' });
+    if (browser) await browser.close().catch(() => {});
+    if (child.pid && child.exitCode === null) {
+      spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+    }
   }
 });
