@@ -3,6 +3,21 @@ const { contextBridge, ipcRenderer } = require('electron');
 const visualTest = process.env.RDL_VISUAL_TEST === '1'
   || process.argv.some((arg) => arg === '--rdl-visual-test' || arg === '--rdl-visual-test=1');
 
+// Le master 1448×1086 doit rester strictement immuable pour le gate Electron,
+// sans pour autant imposer ses dimensions au produit réellement utilisé.
+// La classe est appliquée depuis le preload (monde isolé) avant toute preuve
+// visuelle : le CSS peut ainsi distinguer sans ambiguïté qualification et UI
+// de production.
+function markVisualTestMode() {
+  const apply = () => document.body?.classList.toggle('visual-test-mode', visualTest);
+  if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', apply, { once: true });
+  } else {
+    apply();
+  }
+}
+markVisualTestMode();
+
 contextBridge.exposeInMainWorld('rdl', Object.freeze({
   visualTest,
   bootstrap: () => ipcRenderer.invoke('rdl:bootstrap'),
