@@ -1,4 +1,4 @@
-import { test, expect, chromium } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
@@ -15,22 +15,76 @@ async function delay(ms) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function connectToPackagedElectron(processLog) {
-  let lastError = null;
-  for (let attempt = 0; attempt < 12; attempt += 1) {
-    try {
-      return await chromium.connectOverCDP(`http://127.0.0.1:${DEBUG_PORT}`, { timeout: 1000 });
-    } catch (error) {
-      lastError = error;
-      await delay(250);
-    }
-  }
-  throw new Error(`CDP Electron inaccessible sur le port ${DEBUG_PORT}: ${lastError?.message || 'erreur inconnue'}\n${processLog()}`);
-}
-
 function stopProcess(child) {
   if (child?.pid && child.exitCode === null) {
     spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+  }
+}
+
+async function discoverRendererTarget(processLog) {
+  let lastError = null;
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    try {
+      const response = await fetch(`http://127.0.0.1:${DEBUG_PORT}/json/list`, { signal: AbortSignal.timeout(1000) });
+      const targets = await response.json();
+      const target = targets.find((item) => item.type === 'page' && String(item.url || '').includes('/renderer/index.html'));
+      if (target?.webSocketDebuggerUrl) return target;
+    } catch (error) {
+      lastError = error;
+    }
+    await delay(250);
+  }
+  throw new Error(`Cible renderer Electron introuvable: ${lastError?.message || 'aucune page publiée'}\n${processLog()}`);
+}
+
+class CdpClient {
+  constructor(socket) {
+    this.socket = socket;
+    this.nextId = 1;
+    this.pending = new Map();
+    socket.addEventListener('message', (event) => {
+      let message;
+      try { message = JSON.parse(String(event.data)); } catch { return; }
+      if (!message.id || !this.pending.has(message.id)) return;
+      const request = this.pending.get(message.id);
+      this.pending.delete(message.id);
+      clearTimeout(request.timer);
+      if (message.error) request.reject(new Error(`${request.method}: ${message.error.message}`));
+      else request.resolve(message.result || {});
+    });
+    socket.addEventListener('close', () => {
+      for (const request of this.pending.values()) {
+        clearTimeout(request.timer);
+        request.reject(new Error(`CDP fermé pendant ${request.method}`));
+      }
+      this.pending.clear();
+    });
+  }
+
+  static async connect(url) {
+    const socket = new WebSocket(url);
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Ouverture WebSocket CDP expirée')), 5000);
+      socket.addEventListener('open', () => { clearTimeout(timer); resolve(); }, { once: true });
+      socket.addEventListener('error', () => { clearTimeout(timer); reject(new Error('Connexion WebSocket CDP refusée')); }, { once: true });
+    });
+    return new CdpClient(socket);
+  }
+
+  send(method, params = {}, timeoutMs = 5000) {
+    const id = this.nextId++;
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        reject(new Error(`Timeout CDP ${method}`));
+      }, timeoutMs);
+      this.pending.set(id, { resolve, reject, timer, method });
+      this.socket.send(JSON.stringify({ id, method, params }));
+    });
+  }
+
+  close() {
+    try { this.socket.close(); } catch {}
   }
 }
 
@@ -105,27 +159,14 @@ test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo
   child.stdout?.on('data', (chunk) => { output += chunk.toString(); });
   child.stderr?.on('data', (chunk) => { output += chunk.toString(); });
 
-  let browser = null;
+  let cdp = null;
   try {
-    console.log('[gate] connexion CDP');
-    browser = await connectToPackagedElectron(() => output);
-    console.log('[gate] CDP connecté');
-
-    const context = browser.contexts()[0];
-    if (!context) throw new Error(`Contexte Chromium Electron introuvable.\n${output}`);
-
-    let page = context.pages()[0] || null;
-    for (let attempt = 0; !page && attempt < 40; attempt += 1) {
-      await delay(125);
-      page = context.pages()[0] || null;
-    }
-    if (!page) throw new Error(`Fenêtre Electron principale introuvable.\n${output}`);
-    console.log(`[gate] fenêtre trouvée: ${page.url()}`);
-
-    const cdp = await context.newCDPSession(page);
+    const target = await discoverRendererTarget(() => output);
+    console.log(`[gate] cible renderer trouvée: ${target.url}`);
+    cdp = await CdpClient.connect(target.webSocketDebuggerUrl);
     await cdp.send('DOM.enable');
     await cdp.send('Page.enable');
-    console.log('[gate] session CDP DOM/Page active');
+    console.log('[gate] protocole DevTools direct actif');
 
     let rootId = 0;
     let ready = false;
@@ -145,7 +186,7 @@ test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo
     const interventionsHtml = await outerHTML(cdp, rootId, '#vf-kpi-interventions');
     const resolvedHtml = await outerHTML(cdp, rootId, '#vf-kpi-resolved');
     const diagnostic = {
-      url: page.url(),
+      url: target.url,
       vfReady: lastAttrs['data-vf-ready'] || null,
       pending: textFromOuterHTML(pendingHtml),
       interventions: textFromOuterHTML(interventionsHtml),
@@ -163,14 +204,14 @@ test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo
     expect(await box(cdp, rootId, '.vf-main')).toEqual({ x: 362, y: 77, width: 1086, height: 1009 });
     expect(await box(cdp, rootId, '.vf-hero')).toEqual({ x: 362, y: 77, width: 1086, height: 323 });
     expect(await box(cdp, rootId, '.vf-kpi')).toEqual({ x: 376, y: 412, width: 242, height: 165 });
-    console.log('[gate] géométrie et données de contrôle validées par CDP');
+    console.log('[gate] géométrie et données de contrôle validées');
 
     const capture = await cdp.send('Page.captureScreenshot', {
       format: 'png',
       fromSurface: true,
       captureBeyondViewport: true,
       clip: { x: 0, y: 0, width: 1448, height: 1086, scale: 1 }
-    });
+    }, 10_000);
     const actualBuffer = Buffer.from(capture.data, 'base64');
     const actualPath = testInfo.outputPath('electron-dashboard-actual.png');
     fs.writeFileSync(actualPath, actualBuffer);
@@ -192,9 +233,7 @@ test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo
     console.log('[gate] comparaison maître validée');
   } finally {
     await testInfo.attach('electron-process-log', { body: Buffer.from(output || '(aucune sortie processus)', 'utf8'), contentType: 'text/plain' });
+    cdp?.close();
     stopProcess(child);
-    if (browser) {
-      await Promise.race([browser.close().catch(() => {}), delay(1500)]);
-    }
   }
 });
