@@ -5,9 +5,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DASHBOARD = path.resolve(HERE, '../prototype/dashboard.html');
 
-async function box(page, selector) {
-  const value = await page.locator(selector).boundingBox();
-  if (!value) throw new Error(`Élément introuvable: ${selector}`);
+async function box(locator, label) {
+  const value = await locator.boundingBox();
+  if (!value) throw new Error(`Élément introuvable: ${label}`);
   return Object.fromEntries(Object.entries(value).map(([key, number]) => [key, Math.round(number)]));
 }
 
@@ -18,12 +18,12 @@ test('dashboard master — geometry + visual fidelity', async ({ page }, testInf
   await expect(page.locator('.vf-canvas')).toBeVisible();
   await expect.poll(async () => page.evaluate(() => document.readyState)).toBe('complete');
 
-  expect(await box(page, '.vf-canvas')).toEqual({ x: 0, y: 0, width: 1448, height: 1086 });
-  expect(await box(page, '.vf-sidebar')).toEqual({ x: 0, y: 77, width: 362, height: 1009 });
-  expect(await box(page, '.vf-main')).toEqual({ x: 362, y: 77, width: 1086, height: 1009 });
-  expect(await box(page, '.vf-hero')).toEqual({ x: 362, y: 77, width: 1086, height: 323 });
+  expect(await box(page.locator('.vf-canvas'), '.vf-canvas')).toEqual({ x: 0, y: 0, width: 1448, height: 1086 });
+  expect(await box(page.locator('.vf-sidebar'), '.vf-sidebar')).toEqual({ x: 0, y: 77, width: 362, height: 1009 });
+  expect(await box(page.locator('.vf-main'), '.vf-main')).toEqual({ x: 362, y: 77, width: 1086, height: 1009 });
+  expect(await box(page.locator('.vf-hero'), '.vf-hero')).toEqual({ x: 362, y: 77, width: 1086, height: 323 });
 
-  const firstKpi = await box(page, '.vf-kpi');
+  const firstKpi = await box(page.locator('.vf-kpi').first(), '.vf-kpi:first');
   expect(firstKpi.x).toBe(376);
   expect(firstKpi.y).toBe(412);
   expect(firstKpi.width).toBe(242);
