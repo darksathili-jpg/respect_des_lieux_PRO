@@ -11,6 +11,8 @@ on:
       - "src/**"
       - "renderer/**"
       - "tests/**"
+      - "scripts/**"
+      - "quality/**"
       - "design/reference/dashboard-master.png"
       - "design/visual/electron-dashboard.spec.mjs"
       - "design/visual/playwright.electron.config.mjs"
@@ -34,6 +36,10 @@ jobs:
         with:
           node-version: "24.21.0"
           package-manager-cache: false
+
+      - name: Multi-Agent Quality Gate
+        shell: pwsh
+        run: node scripts/quality-contract.mjs --role all
 
       - name: Verify approved master identity
         shell: pwsh
@@ -151,6 +157,6 @@ jobs:
             --target $env:GITHUB_SHA `
             --title $title `
             --prerelease `
-            --notes "Version de qualification Windows non signée. Le dashboard empaqueté a franchi le Visual Fidelity Gate face au master approuvé. Utiliser uniquement des données fictives pour les essais."
+            --notes "Version de qualification Windows non signée. Le dashboard empaqueté a franchi le Visual Fidelity Gate face au master approuvé et le Multi-Agent Quality Gate. Utiliser uniquement des données fictives pour les essais."
 
           gh release upload $tag $exe.FullName --repo $env:GITHUB_REPOSITORY
