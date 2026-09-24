@@ -5,7 +5,7 @@ import fs from 'node:fs';
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 
 test('qualification packaging : versions critiques épinglées', () => {
-  assert.match(pkg.version, /^5\.2\.0-alpha\.\d+$/);
+  assert.match(pkg.version, /^5\.2\.1-alpha\.\d+$/);
   assert.equal(pkg.devDependencies.electron, '44.4.0');
   assert.equal(pkg.devDependencies['electron-builder'], '26.16.1');
   assert.doesNotMatch(pkg.devDependencies.electron, /^[~^]/);
@@ -47,23 +47,30 @@ test('qualification packaging : arbre applicatif complet, UI non exclue', () => 
     'renderer/v51.css',
     'renderer/app.js',
     'renderer/detail.js',
-    'renderer/detail.css'
+    'renderer/detail.css',
+    'renderer/theme-v521.js'
   ]) {
     assert.ok(fs.existsSync(requiredOnDisk), `fichier runtime absent du dépôt : ${requiredOnDisk}`);
   }
 });
 
-test('qualification UI : une fiche de signalement consultable est chargée localement', () => {
+test('qualification UI : la charte Watteau V5.2.1 et la fiche sont chargées localement', () => {
   const preload = fs.readFileSync('preload.cjs', 'utf8');
   const detail = fs.readFileSync('renderer/detail.js', 'utf8');
+  const theme = fs.readFileSync('renderer/theme-v521.js', 'utf8');
+  assert.match(preload, /theme-v521\.js/);
   assert.match(preload, /detail\.js/);
   assert.match(preload, /detail\.css/);
+  assert.match(theme, /watteau-v5\.2\.1/);
+  assert.match(theme, /--wat-red:#8b1e24/);
+  assert.match(theme, /Des lieux/);
   assert.match(detail, /signal-detail-dialog/);
   assert.match(detail, /data-fiche/);
   assert.match(detail, /listPhotos/);
   assert.match(detail, /openPhoto/);
   assert.match(detail, /listReparations/);
   assert.match(pkg.scripts.check, /renderer\/detail\.js/);
+  assert.match(pkg.scripts.check, /renderer\/theme-v521\.js/);
 });
 
 test('qualification packaging : aucune publication automatique', () => {
