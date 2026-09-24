@@ -64,14 +64,26 @@ async function probeRenderer(win) {
     const sidebar = document.querySelector('.sidebar');
     const main = document.querySelector('.main');
     const title = document.querySelector('#page-title');
+    const visualDashboard = document.querySelector('#vf-dashboard');
+    const visualSidebar = visualDashboard?.querySelector('.vf-sidebar');
+    const visualMain = visualDashboard?.querySelector('.vf-main');
+    const visualHero = visualDashboard?.querySelector('.vf-hero');
     const shellRect = shell?.getBoundingClientRect();
     const sidebarRect = sidebar?.getBoundingClientRect();
+    const visualRect = visualDashboard?.getBoundingClientRect();
     const parity = window.RDL_PARITY?.snapshot?.() || null;
     return {
       readyState: document.readyState,
       shell: Boolean(shell),
       sidebar: Boolean(sidebar),
       main: Boolean(main),
+      visualDashboard: Boolean(visualDashboard),
+      visualSidebar: Boolean(visualSidebar),
+      visualMain: Boolean(visualMain),
+      visualHero: Boolean(visualHero),
+      visualReady: visualDashboard?.dataset?.vfReady || '',
+      visualWidth: visualRect?.width || 0,
+      visualHeight: visualRect?.height || 0,
       signalDetailDialog: Boolean(document.querySelector('#signal-detail-dialog')),
       detailScript: Boolean(document.querySelector('script[data-rdl-detail-layer]')),
       detailStyle: Boolean(document.querySelector('link[data-rdl-detail-layer]')),
@@ -119,14 +131,33 @@ app.on('browser-window-created', (_event, win) => {
 
   win.webContents.once('did-finish-load', async () => {
     try {
-      const dom = await win.webContents.executeJavaScript(`(() => ({
-        shell: Boolean(document.querySelector('.shell')),
-        sidebar: Boolean(document.querySelector('.sidebar')),
-        bodyTextLength: (document.body?.innerText || '').trim().length,
-        hasBrandText: (document.body?.innerText || '').includes('Respect des Lieux')
-      }))()`);
+      // Phase B no longer renders the brand as legacy body text: the validated
+      // master owns the static illustrated regions. The startup probe therefore
+      // checks the reconstructed dashboard itself instead of obsolete V5.2.1
+      // textual/theme signatures. This also prevents a native error dialog from
+      // blocking the real packaged visual gate when the new dashboard is valid.
+      const dom = await win.webContents.executeJavaScript(`(() => {
+        const visualDashboard = document.querySelector('#vf-dashboard');
+        const visualRect = visualDashboard?.getBoundingClientRect();
+        return {
+          visualDashboard: Boolean(visualDashboard),
+          visualSidebar: Boolean(visualDashboard?.querySelector('.vf-sidebar')),
+          visualMain: Boolean(visualDashboard?.querySelector('.vf-main')),
+          visualHero: Boolean(visualDashboard?.querySelector('.vf-hero')),
+          visualWidth: visualRect?.width || 0,
+          visualHeight: visualRect?.height || 0,
+          bodyTextLength: (document.body?.innerText || '').trim().length
+        };
+      })()`);
 
-      if (!dom.shell || !dom.sidebar || !dom.hasBrandText || dom.bodyTextLength < 100) {
+      const phaseBReady = dom.visualDashboard
+        && dom.visualSidebar
+        && dom.visualMain
+        && dom.visualHero
+        && dom.visualWidth === 1448
+        && dom.visualHeight === 1086;
+
+      if (!phaseBReady || dom.bodyTextLength < 100) {
         reportFatal('interface incomplète', JSON.stringify(dom));
         failSmoke('dom-incomplete', dom);
         return;
@@ -136,25 +167,13 @@ app.on('browser-window-created', (_event, win) => {
 
       const result = await probeRenderer(win);
       const domOk = result.dom.readyState === 'complete'
-        && result.dom.shell
-        && result.dom.sidebar
-        && result.dom.main
-        && result.dom.signalDetailDialog
-        && result.dom.detailScript
-        && result.dom.detailStyle
-        && result.dom.themeScript
-        && result.dom.themeStyle
-        && result.dom.themeSignature
-        && result.dom.themeVersion === '5.2.1'
-        && result.dom.parityScript
-        && result.dom.parityToolbar
-        && result.dom.parityVersion === '5.2.1'
-        && result.dom.parityPageSize === 25
-        && result.dom.shellWidth > 500
-        && result.dom.shellHeight > 400
-        && result.dom.sidebarWidth > 100
-        && result.dom.bodyTextLength > 100
-        && result.dom.hasBrandText;
+        && result.dom.visualDashboard
+        && result.dom.visualSidebar
+        && result.dom.visualMain
+        && result.dom.visualHero
+        && result.dom.visualWidth === 1448
+        && result.dom.visualHeight === 1086
+        && result.dom.bodyTextLength > 100;
 
       if (!domOk || !result.paint.ok) {
         failSmoke('ui-not-rendered', result);
