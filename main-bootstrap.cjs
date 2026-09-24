@@ -6,6 +6,8 @@ const { app, dialog } = require('electron');
 app.disableHardwareAcceleration();
 
 const smokeMode = process.env.RDL_PACKAGED_SMOKE === '1';
+const visualTestMode = process.env.RDL_VISUAL_TEST === '1'
+  || process.argv.some((arg) => arg === '--rdl-visual-test' || arg === '--rdl-visual-test=1');
 let smokeFinished = false;
 let fatalShown = false;
 
@@ -16,7 +18,7 @@ function delay(ms) {
 function reportFatal(title, detail) {
   const message = String(detail || 'Erreur inconnue');
   console.error(`[RDL] ${title}: ${message}`);
-  if (!smokeMode && !fatalShown) {
+  if (!smokeMode && !visualTestMode && !fatalShown) {
     fatalShown = true;
     try {
       dialog.showErrorBox(
@@ -64,6 +66,11 @@ function responsiveSurfaceOk(dom) {
     && Number(dom.viewportHeight || 0) >= 600
     && widthDelta <= 2
     && heightDelta <= 2;
+}
+
+function masterSurfaceOk(dom) {
+  return Number(dom.visualWidth || 0) === 1448
+    && Number(dom.visualHeight || 0) === 1086;
 }
 
 async function probeNavigationContinuity(win) {
@@ -202,10 +209,9 @@ app.on('browser-window-created', (_event, win) => {
 
   win.webContents.once('did-finish-load', async () => {
     try {
-      // Phase C sépare deux responsabilités : le Fidelity Gate conserve le
-      // master immuable 1448×1086 en mode RDL_VISUAL_TEST, tandis que ce smoke
-      // test qualifie le produit réel et exige désormais que son canvas épouse
-      // exactement le viewport disponible sur la machine Windows.
+      // Deux contrats distincts et non négociables :
+      // - le gate visuel travaille sur le master immuable 1448×1086 ;
+      // - l'application réelle doit épouser le viewport Windows disponible.
       const dom = await win.webContents.executeJavaScript(`(() => {
         const visualDashboard = document.querySelector('#vf-dashboard');
         const visualRect = visualDashboard?.getBoundingClientRect();
@@ -222,15 +228,16 @@ app.on('browser-window-created', (_event, win) => {
         };
       })()`);
 
-      const phaseCReady = dom.visualDashboard
+      const surfaceReady = visualTestMode ? masterSurfaceOk(dom) : responsiveSurfaceOk(dom);
+      const uiReady = dom.visualDashboard
         && dom.visualSidebar
         && dom.visualMain
         && dom.visualHero
-        && responsiveSurfaceOk(dom);
+        && surfaceReady;
 
-      if (!phaseCReady || dom.bodyTextLength < 100) {
-        reportFatal('interface incomplète', JSON.stringify(dom));
-        failSmoke('dom-incomplete', dom);
+      if (!uiReady || dom.bodyTextLength < 100) {
+        reportFatal('interface incomplète', JSON.stringify({ ...dom, visualTestMode }));
+        failSmoke('dom-incomplete', { ...dom, visualTestMode });
         return;
       }
 
