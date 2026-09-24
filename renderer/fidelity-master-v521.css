@@ -1,0 +1,83 @@
+:root{
+  --wat-red:#8b1e24;
+  --wat-coral:#c63a32;
+}
+html,body{
+  height:100%;
+  overflow:hidden!important;
+}
+.shell{
+  height:100vh!important;
+  min-height:0!important;
+  overflow:hidden!important;
+}
+.main{
+  height:100vh!important;
+  min-height:0!important;
+  overflow:auto!important;
+}
+.sidebar{
+  height:100vh!important;
+  min-height:0!important;
+}
+.rdl-logo-area{
+  background-image:url("./assets/sidebar-logo-master.webp")!important;
+  background-repeat:no-repeat!important;
+  background-position:center!important;
+  background-size:cover!important;
+  padding:0!important;
+}
+.rdl-logo-area .watteau-mark{
+  opacity:0!important;
+}
+#view-dashboard .hero{
+  background-image:url("./assets/dashboard-hero-master.webp")!important;
+  background-repeat:no-repeat!important;
+  background-position:center center!important;
+  background-size:cover!important;
+}
+#view-dashboard .hero>.rdl-hero-copy,
+#view-dashboard .hero>.rdl-hero-art,
+#view-dashboard .hero>.rdl-hero-meta,
+#view-dashboard .hero>.rdl-hero-script{
+  opacity:0!important;
+  pointer-events:none!important;
+}
+.rdl-fidelity-sentinel{
+  position:fixed;
+  left:0;
+  top:0;
+  width:1px;
+  height:1px;
+  overflow:hidden;
+  opacity:.001;
+  pointer-events:none;
+  font-size:1px;
+  z-index:-1;
+}
+@media (max-height:860px) and (min-width:1201px){
+  .rdl-app-name{height:58px!important;font-size:16px!important}
+  .rdl-logo-area{height:178px!important;background-size:cover!important}
+  .sidebar .nav{min-height:54px!important;font-size:17px!important;padding:0 28px!important}
+  .sidebar .nav .ui-icon{width:26px!important;height:26px!important;min-width:26px!important;min-height:26px!important;max-width:26px!important;max-height:26px!important}
+  .local-seal{height:108px!important}
+  .rdl-sidebar-slogan{font-size:17px!important;bottom:18px!important}
+  .topbar{height:58px!important}
+  #view-dashboard .hero{height:245px!important;min-height:245px!important;margin-bottom:12px!important}
+  #view-dashboard .kpis{gap:10px!important;margin-bottom:12px!important}
+  #view-dashboard .kpi{min-height:108px!important;padding:14px 12px!important;grid-template-columns:44px 1fr!important}
+  .rdl-kpi-icon{width:44px!important;height:44px!important}
+  .rdl-kpi-icon .ui-icon{width:40px!important;height:40px!important;min-width:40px!important;min-height:40px!important;max-width:40px!important;max-height:40px!important}
+  #view-dashboard .kpi strong{font-size:30px!important}
+  #view-dashboard .rdl-kpi-label{font-size:12px!important;margin-top:5px!important}
+  #view-dashboard>.grid.two>.panel{min-height:285px!important}
+  #view-dashboard .panel-head,.rdl-engagement h3{height:52px!important;min-height:52px!important}
+  #view-dashboard .recent-item{min-height:52px!important;padding:5px 0!important}
+  .rdl-engagement blockquote{margin:16px 0 14px!important;font-size:17px!important}
+  .rdl-engagement-rule{margin-bottom:15px!important}
+  .rdl-value .ui-icon{width:31px!important;height:31px!important;min-width:31px!important;min-height:31px!important;max-width:31px!important;max-height:31px!important}
+}
+@media (max-width:1200px){
+  .rdl-logo-area{background-size:cover!important}
+  #view-dashboard .hero{background-size:cover!important}
+}
