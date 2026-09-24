@@ -102,7 +102,9 @@ function rectFromQuad(quad) {
 }
 
 async function documentRoot(cdp) {
-  const document = await cdp.send('DOM.getDocument', { depth: -1, pierce: true });
+  // A shallow document root is sufficient for DOM.querySelector and avoids
+  // serialising the entire Electron renderer tree on Windows CI.
+  const document = await cdp.send('DOM.getDocument', { depth: 0, pierce: true });
   return document.root.nodeId;
 }
 
