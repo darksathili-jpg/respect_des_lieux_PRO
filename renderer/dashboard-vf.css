@@ -21,8 +21,8 @@ body:not(.dashboard-mode)>#vf-dashboard{display:none!important}
 
 .vf-canvas{position:relative;width:1448px;height:1086px;overflow:hidden;background:var(--vf-cream);font-family:"Segoe UI Variable","Segoe UI",Arial,sans-serif;color:var(--vf-ink)}
 
-/* Les régions purement statiques reprennent directement le master approuvé.
-   Les zones alimentées par SQLite restent du vrai HTML/CSS. */
+/* Le mode de qualification visuelle reproduit strictement le master approuvé.
+   Aucune de ces découpes n'est utilisée par l'interface de production. */
 .vf-topbar{position:absolute;left:0;top:0;width:1448px;height:77px;background:url("../design/reference/dashboard-master.png") 0 0/1448px 1086px no-repeat}
 .vf-sidebar{position:absolute;left:0;top:77px;width:362px;height:1009px;background:linear-gradient(180deg,#1c4865 0%,#173f5d 52%,#173c58 100%);color:#fff}
 .vf-logo{height:257px;background:url("../design/reference/dashboard-master.png") 0 -77px/1448px 1086px no-repeat}
@@ -63,13 +63,9 @@ body:not(.dashboard-mode)>#vf-dashboard{display:none!important}
 .vf-engagement>*{opacity:0!important}
 .vf-engagement::after{display:none!important}
 
-/* Phase B reste volontairement verrouillée au viewport maître. Le mode
-   visual-test-mode conserve exactement cette géométrie pour le gate Electron.
-   Les règles de production ci-dessous sont explicitement exclues de ce mode. */
-
-/* --------------------------------------------------------------------------
-   PHASE C — shell responsive de production
-   -------------------------------------------------------------------------- */
+/* PHASE C — interface de production.
+   La maquette de qualification est isolée au-dessus ; ici seules les ressources
+   dédiées et les contrôles réellement fonctionnels peuvent être affichés. */
 body:not(.visual-test-mode){
   --vf-prod-sidebar:clamp(250px,18vw,340px);
   --vf-prod-topbar:72px;
@@ -81,17 +77,13 @@ body:not(.visual-test-mode){
   background:var(--vf-cream);
 }
 
-body:not(.visual-test-mode).dashboard-mode{
-  min-width:0;
-  min-height:100vh;
-  overflow:hidden;
-}
+body:not(.visual-test-mode).dashboard-mode{min-width:0;min-height:100vh;overflow:hidden}
 
 body:not(.visual-test-mode) .vf-canvas{
   width:100vw;
   height:100vh;
   min-width:0;
-  min-height:680px;
+  min-height:0;
   overflow:hidden;
   background:var(--vf-cream);
 }
@@ -101,8 +93,32 @@ body:not(.visual-test-mode) .vf-topbar{
   inset:0 0 auto 0;
   width:100%;
   height:var(--vf-prod-topbar);
-  background:url("../design/reference/dashboard-master.png") 0 0/1448px 1086px no-repeat,#faf7f3;
-  border-bottom:1px solid rgba(16,61,95,.08);
+  background:linear-gradient(180deg,#fffdf9 0%,#f8f4ef 100%);
+  border-bottom:1px solid rgba(16,61,95,.12);
+  box-shadow:0 3px 16px rgba(16,61,95,.045);
+  z-index:5;
+}
+body:not(.visual-test-mode) .vf-topbar::before{
+  content:"Respect des Lieux PRO";
+  position:absolute;
+  left:clamp(22px,2vw,34px);
+  top:50%;
+  transform:translateY(-50%);
+  color:#173f5d;
+  font-size:clamp(17px,1.25vw,22px);
+  font-weight:750;
+  letter-spacing:-.01em;
+}
+body:not(.visual-test-mode) .vf-topbar::after{
+  content:"Lycée Watteau · Valenciennes";
+  position:absolute;
+  right:clamp(22px,2.2vw,40px);
+  top:50%;
+  transform:translateY(-50%);
+  color:#718697;
+  font-size:clamp(11px,.82vw,14px);
+  font-weight:600;
+  letter-spacing:.025em;
 }
 
 body:not(.visual-test-mode) .vf-sidebar{
@@ -117,15 +133,17 @@ body:not(.visual-test-mode) .vf-sidebar{
   overflow:hidden;
   background:linear-gradient(180deg,#1d4b69 0%,#173f5d 52%,#123650 100%);
   box-shadow:8px 0 30px rgba(17,51,75,.10);
-  z-index:3;
+  z-index:4;
 }
 
 body:not(.visual-test-mode) .vf-logo{
-  flex:0 0 clamp(180px,24vh,250px);
+  flex:0 0 clamp(150px,20vh,230px);
   height:auto;
-  background:url("./assets/sidebar-logo-master.webp") center/contain no-repeat;
+  background-image:url("./assets/sidebar-logo-master.webp");
+  background-position:center;
+  background-size:contain;
+  background-repeat:no-repeat;
 }
-
 body:not(.visual-test-mode) .vf-sidebar-bottom{display:none}
 
 body:not(.visual-test-mode) .vf-nav{
@@ -135,44 +153,37 @@ body:not(.visual-test-mode) .vf-nav{
   padding:8px 0 18px;
   gap:2px;
   background:none;
+  overflow:auto;
+  scrollbar-width:thin;
 }
 
 body:not(.visual-test-mode) .vf-nav-item.nav,
 body:not(.visual-test-mode) .vf-nav-item.nav.active{
   width:100%;
-  height:clamp(58px,7.1vh,76px);
-  min-height:54px;
-  padding:0 clamp(22px,2vw,36px);
-  gap:18px;
+  height:auto;
+  min-height:60px;
+  padding:14px clamp(20px,1.8vw,34px);
+  gap:16px;
   border:0!important;
   border-radius:0!important;
-  color:rgba(255,255,255,.92)!important;
+  color:rgba(255,255,255,.94)!important;
   background:transparent!important;
-  font-size:clamp(16px,1.2vw,22px);
-  font-weight:500;
-  letter-spacing:.005em;
+  font-size:clamp(15px,1.08vw,20px);
+  font-weight:550;
+  line-height:1.22;
+  text-align:left;
   opacity:1;
-  transition:background .18s ease,color .18s ease,transform .18s ease;
+  transition:background .18s ease,color .18s ease;
 }
-
-body:not(.visual-test-mode) .vf-nav-item.nav:hover{
-  color:#fff!important;
-  background:rgba(255,255,255,.07)!important;
-}
-
+body:not(.visual-test-mode) .vf-nav-item.nav:hover{color:#fff!important;background:rgba(255,255,255,.07)!important}
 body:not(.visual-test-mode) .vf-nav-item.nav.active{
   color:#fff!important;
   background:linear-gradient(90deg,#bd2730 0%,#d95142 58%,#e57d52 100%)!important;
   box-shadow:inset 4px 0 0 rgba(255,255,255,.92)!important;
 }
-
 body:not(.visual-test-mode) .vf-nav-item .vf-icon,
-body:not(.visual-test-mode) .vf-nav-item.active .vf-icon{
-  width:34px;
-  height:34px;
-  flex:0 0 34px;
-  opacity:1;
-}
+body:not(.visual-test-mode) .vf-nav-item.active .vf-icon{width:32px;height:32px;flex:0 0 32px;opacity:1}
+body:not(.visual-test-mode) .vf-nav-item span:last-child{min-width:0;overflow-wrap:anywhere}
 
 body:not(.visual-test-mode) .vf-main{
   position:absolute;
@@ -183,28 +194,23 @@ body:not(.visual-test-mode) .vf-main{
   min-width:0;
   overflow:auto;
   background:var(--vf-cream);
+  scrollbar-gutter:stable;
 }
 
 body:not(.visual-test-mode) .vf-hero{
   width:100%;
   height:clamp(230px,30vh,323px);
   min-height:220px;
-  background:url("./assets/dashboard-hero-master.webp") center/cover no-repeat,#fbf8f4;
+  background-color:#fbf8f4;
+  background-image:url("./assets/dashboard-hero-master.webp");
+  background-position:center;
+  background-size:cover;
+  background-repeat:no-repeat;
   border-bottom:1px solid rgba(16,61,95,.06);
 }
 
-body:not(.visual-test-mode) .vf-content{
-  width:100%;
-  padding:clamp(12px,1.4vw,22px) clamp(18px,2.1vw,34px) clamp(22px,3vh,36px);
-}
-
-body:not(.visual-test-mode) .vf-kpis{
-  width:100%;
-  display:grid;
-  grid-template-columns:repeat(4,minmax(0,1fr));
-  gap:var(--vf-prod-gap);
-}
-
+body:not(.visual-test-mode) .vf-content{width:100%;padding:clamp(12px,1.4vw,22px) clamp(18px,2.1vw,34px) clamp(22px,3vh,36px)}
+body:not(.visual-test-mode) .vf-kpis{width:100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--vf-prod-gap)}
 body:not(.visual-test-mode) .vf-kpi{
   width:auto;
   height:auto;
@@ -213,25 +219,12 @@ body:not(.visual-test-mode) .vf-kpi{
   padding:clamp(16px,1.4vw,22px);
   column-gap:clamp(10px,1vw,16px);
 }
-
 body:not(.visual-test-mode) .vf-kpi-icon{width:clamp(44px,3.4vw,58px);height:clamp(44px,3.4vw,58px)}
 body:not(.visual-test-mode) .vf-kpi strong{font-size:clamp(34px,3vw,51px);margin-bottom:8px}
 body:not(.visual-test-mode) .vf-kpi p{font-size:clamp(15px,1.12vw,20px)}
 
-body:not(.visual-test-mode) .vf-lower{
-  width:100%;
-  display:grid;
-  grid-template-columns:minmax(0,1.06fr) minmax(0,.94fr);
-  gap:var(--vf-prod-gap);
-  margin-top:var(--vf-prod-gap);
-}
-
-body:not(.visual-test-mode) .vf-card{
-  width:auto;
-  height:auto;
-  min-height:330px;
-}
-
+body:not(.visual-test-mode) .vf-lower{width:100%;display:grid;grid-template-columns:minmax(0,1.06fr) minmax(0,.94fr);gap:var(--vf-prod-gap);margin-top:var(--vf-prod-gap)}
+body:not(.visual-test-mode) .vf-card{width:auto;height:auto;min-height:330px}
 body:not(.visual-test-mode) .vf-card header{height:clamp(56px,6.4vh,66px)}
 body:not(.visual-test-mode) .vf-card h2{font-size:clamp(20px,1.6vw,27px)}
 body:not(.visual-test-mode) .vf-row{height:clamp(68px,8vh,84px)}
@@ -243,29 +236,19 @@ body:not(.visual-test-mode) .vf-engagement{
   border:1px solid #ece3dc!important;
   border-radius:13px!important;
   box-shadow:0 5px 17px rgba(42,49,55,.065)!important;
-  background:
-    radial-gradient(circle at 90% 28%,rgba(197,31,39,.07),transparent 30%),
-    linear-gradient(145deg,#fffdf9 0%,#fbf6ef 100%)!important;
+  background:radial-gradient(circle at 90% 28%,rgba(197,31,39,.07),transparent 30%),linear-gradient(145deg,#fffdf9 0%,#fbf6ef 100%)!important;
   overflow:hidden;
 }
-
 body:not(.visual-test-mode) .vf-engagement>*{opacity:1!important}
 body:not(.visual-test-mode) .vf-engagement header{background:rgba(255,255,255,.54)}
-body:not(.visual-test-mode) .vf-engagement blockquote{
-  margin:34px clamp(24px,3vw,44px) 22px;
-  color:#18466a;
-  font-family:Georgia,"Times New Roman",serif;
-  font-size:clamp(23px,2vw,32px);
-  line-height:1.38;
-  font-style:italic;
-}
+body:not(.visual-test-mode) .vf-engagement blockquote{margin:34px clamp(24px,3vw,44px) 22px;color:#18466a;font-family:Georgia,"Times New Roman",serif;font-size:clamp(23px,2vw,32px);line-height:1.38;font-style:italic}
 body:not(.visual-test-mode) .vf-engagement .vf-rule{width:58px;height:5px;margin:0 clamp(24px,3vw,44px) 28px;border-radius:4px;background:#c51f27}
 body:not(.visual-test-mode) .vf-values{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 clamp(22px,2.5vw,38px) 28px}
 body:not(.visual-test-mode) .vf-value{display:flex;align-items:center;gap:10px;color:#18466a;font-size:13px;line-height:1.25}
 body:not(.visual-test-mode) .vf-value svg{width:30px;height:30px;flex:0 0 30px;color:#c84b3f}
 
-/* Une seule identité visuelle sur TOUTES les vues. Le renderer historique
-   conserve ses contrôles métier, mais n'affiche plus sa propre sidebar. */
+/* Hors Accueil, la nouvelle navigation reste l'unique shell visible et les
+   vrais contrôles métier sont rendus par l'interface fonctionnelle existante. */
 body:not(.visual-test-mode):not(.dashboard-mode)>#vf-dashboard{
   display:block!important;
   position:fixed;
@@ -275,12 +258,8 @@ body:not(.visual-test-mode):not(.dashboard-mode)>#vf-dashboard{
   z-index:1;
   pointer-events:none;
 }
-
 body:not(.visual-test-mode):not(.dashboard-mode)>#vf-dashboard .vf-topbar,
-body:not(.visual-test-mode):not(.dashboard-mode)>#vf-dashboard .vf-sidebar{
-  pointer-events:auto;
-}
-
+body:not(.visual-test-mode):not(.dashboard-mode)>#vf-dashboard .vf-sidebar{pointer-events:auto}
 body:not(.visual-test-mode):not(.dashboard-mode)>#vf-dashboard .vf-main{display:none!important}
 
 body:not(.visual-test-mode):not(.dashboard-mode)>.shell{
@@ -295,17 +274,10 @@ body:not(.visual-test-mode):not(.dashboard-mode)>.shell{
   overflow:auto;
   z-index:2;
   background:#f7f3ee;
+  scrollbar-gutter:stable;
 }
-
 body:not(.visual-test-mode):not(.dashboard-mode)>.shell>.sidebar{display:none!important}
-
-body:not(.visual-test-mode):not(.dashboard-mode)>.shell>.main{
-  width:100%;
-  min-width:0;
-  min-height:100%;
-  background:linear-gradient(180deg,#fbf8f4 0,#f3f6f8 240px,#eef3f8 100%);
-}
-
+body:not(.visual-test-mode):not(.dashboard-mode)>.shell>.main{width:100%;min-width:0;min-height:100%;background:linear-gradient(180deg,#fbf8f4 0,#f3f6f8 240px,#eef3f8 100%)}
 body:not(.visual-test-mode):not(.dashboard-mode)>.shell .topbar{
   position:sticky;
   top:0;
@@ -313,25 +285,15 @@ body:not(.visual-test-mode):not(.dashboard-mode)>.shell .topbar{
   min-height:94px;
   height:auto;
   padding:18px clamp(20px,2.2vw,36px);
-  background:rgba(255,253,249,.95);
+  background:rgba(255,253,249,.97);
   border-bottom:1px solid #eadfd7;
   box-shadow:0 8px 24px rgba(42,49,55,.05);
   backdrop-filter:blur(14px);
 }
-
-body:not(.visual-test-mode):not(.dashboard-mode)>.shell .topbar h1{
-  color:#103d5f;
-  font-size:clamp(24px,1.8vw,31px);
-  letter-spacing:-.02em;
-}
-
+body:not(.visual-test-mode):not(.dashboard-mode)>.shell .topbar h1{color:#103d5f;font-size:clamp(24px,1.8vw,31px);letter-spacing:-.02em}
 body:not(.visual-test-mode):not(.dashboard-mode)>.shell .eyebrow{color:#9b5d4a}
 body:not(.visual-test-mode):not(.dashboard-mode)>.shell .view{padding:clamp(18px,2vw,32px) clamp(20px,2.4vw,40px) 44px}
-body:not(.visual-test-mode):not(.dashboard-mode)>.shell .panel{
-  border-color:#e8ded7;
-  border-radius:14px;
-  box-shadow:0 8px 24px rgba(42,49,55,.055);
-}
+body:not(.visual-test-mode):not(.dashboard-mode)>.shell .panel{border-color:#e8ded7;border-radius:14px;box-shadow:0 8px 24px rgba(42,49,55,.055)}
 body:not(.visual-test-mode):not(.dashboard-mode)>.shell .btn.primary{background:#1d6fa7;box-shadow:0 5px 16px rgba(29,111,167,.22)}
 body:not(.visual-test-mode):not(.dashboard-mode)>.shell .btn.primary:hover{background:#155f91}
 body:not(.visual-test-mode):not(.dashboard-mode)>.shell .btn.secondary{border-color:#ddd5cf;background:#fffdfa;color:#173f5d}
@@ -340,27 +302,29 @@ body:not(.visual-test-mode):not(.dashboard-mode)>.shell .table-wrap{border-color
 body:not(.visual-test-mode):not(.dashboard-mode)>.shell th{background:#f9f5f1;color:#6d7e8c}
 body:not(.visual-test-mode):not(.dashboard-mode)>.shell tbody tr:hover{background:#fff9f3}
 
-@media (max-width:1180px){
+@media(max-width:1180px){
   body:not(.visual-test-mode){--vf-prod-sidebar:238px;--vf-prod-topbar:68px}
-  body:not(.visual-test-mode) .vf-logo{flex-basis:190px}
+  body:not(.visual-test-mode) .vf-logo{flex-basis:165px}
   body:not(.visual-test-mode) .vf-nav-item.nav,
-  body:not(.visual-test-mode) .vf-nav-item.nav.active{font-size:16px;padding-inline:22px;gap:14px}
+  body:not(.visual-test-mode) .vf-nav-item.nav.active{font-size:15px;padding:12px 20px;gap:13px;min-height:58px}
   body:not(.visual-test-mode) .vf-nav-item .vf-icon,
-  body:not(.visual-test-mode) .vf-nav-item.active .vf-icon{width:30px;height:30px;flex-basis:30px}
+  body:not(.visual-test-mode) .vf-nav-item.active .vf-icon{width:28px;height:28px;flex-basis:28px}
   body:not(.visual-test-mode) .vf-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
   body:not(.visual-test-mode) .vf-lower{grid-template-columns:1fr}
   body:not(.visual-test-mode) .vf-card{min-height:0}
 }
 
-@media (max-width:820px){
+@media(max-width:820px){
   body:not(.visual-test-mode){--vf-prod-sidebar:88px;--vf-prod-topbar:62px}
-  body:not(.visual-test-mode) .vf-logo{flex:0 0 112px;background-size:78px auto}
+  body:not(.visual-test-mode) .vf-topbar::before{font-size:15px}
+  body:not(.visual-test-mode) .vf-topbar::after{display:none}
+  body:not(.visual-test-mode) .vf-logo{flex:0 0 108px;background-size:76px auto}
   body:not(.visual-test-mode) .vf-nav{padding-top:6px}
   body:not(.visual-test-mode) .vf-nav-item.nav,
-  body:not(.visual-test-mode) .vf-nav-item.nav.active{justify-content:center;padding:0;height:60px;min-height:54px}
+  body:not(.visual-test-mode) .vf-nav-item.nav.active{justify-content:center;padding:0;min-height:58px}
   body:not(.visual-test-mode) .vf-nav-item span:last-child{display:none}
   body:not(.visual-test-mode) .vf-nav-item .vf-icon,
-  body:not(.visual-test-mode) .vf-nav-item.active .vf-icon{width:32px;height:32px;flex-basis:32px}
+  body:not(.visual-test-mode) .vf-nav-item.active .vf-icon{width:31px;height:31px;flex-basis:31px}
   body:not(.visual-test-mode) .vf-hero{height:210px;min-height:210px}
   body:not(.visual-test-mode) .vf-content{padding:12px}
   body:not(.visual-test-mode) .vf-kpis{gap:10px}
@@ -372,10 +336,15 @@ body:not(.visual-test-mode):not(.dashboard-mode)>.shell tbody tr:hover{backgroun
   body:not(.visual-test-mode):not(.dashboard-mode)>.shell .top-actions{justify-content:flex-start}
 }
 
-@media (max-height:760px){
-  body:not(.visual-test-mode) .vf-logo{flex-basis:145px}
+@media(max-width:620px){
+  body:not(.visual-test-mode) .vf-kpis{grid-template-columns:1fr}
+  body:not(.visual-test-mode) .vf-values{grid-template-columns:1fr}
+}
+
+@media(max-height:760px){
+  body:not(.visual-test-mode) .vf-logo{flex-basis:120px}
   body:not(.visual-test-mode) .vf-nav-item.nav,
-  body:not(.visual-test-mode) .vf-nav-item.nav.active{height:54px;min-height:50px}
+  body:not(.visual-test-mode) .vf-nav-item.nav.active{min-height:50px;padding-top:9px;padding-bottom:9px}
   body:not(.visual-test-mode) .vf-hero{height:205px;min-height:205px}
   body:not(.visual-test-mode) .vf-kpi{min-height:112px}
 }
