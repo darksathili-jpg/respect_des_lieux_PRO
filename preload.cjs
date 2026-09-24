@@ -30,17 +30,22 @@ contextBridge.exposeInMainWorld('rdl', Object.freeze({
   health: () => ipcRenderer.invoke('rdl:system:health')
 }));
 
+function appendLocalScript(src, datasetKey, datasetValue) {
+  const selector = `script[data-${datasetKey}]`;
+  if (document.querySelector(selector)) return;
+  const script = document.createElement('script');
+  script.src = src;
+  script.defer = true;
+  script.setAttribute(`data-${datasetKey}`, datasetValue);
+  document.body.appendChild(script);
+}
+
 function installUiLayers() {
   setTimeout(() => {
-    // V5.2.1 visual layer. It deliberately lives above the validated local
-    // database/storage foundation so the graphic redesign cannot alter data.
-    if (!document.querySelector('script[data-rdl-theme-layer]')) {
-      const theme = document.createElement('script');
-      theme.src = './theme-v521.js';
-      theme.defer = true;
-      theme.dataset.rdlThemeLayer = 'active';
-      document.body.appendChild(theme);
-    }
+    // V5.2.1 visual and UX layers deliberately sit above the validated local
+    // database/storage foundation. They must never become data dependencies.
+    appendLocalScript('./theme-v521.js', 'rdl-theme-layer', 'active');
+    appendLocalScript('./parity-v521.js', 'rdl-parity-layer', 'active');
 
     if (!document.querySelector('link[data-rdl-detail-layer]')) {
       const style = document.createElement('link');
@@ -50,13 +55,7 @@ function installUiLayers() {
       document.head.appendChild(style);
     }
 
-    if (!document.querySelector('script[data-rdl-detail-layer]')) {
-      const script = document.createElement('script');
-      script.src = './detail.js';
-      script.dataset.rdlDetailLayer = 'script';
-      script.defer = true;
-      document.body.appendChild(script);
-    }
+    appendLocalScript('./detail.js', 'rdl-detail-layer', 'script');
   }, 0);
 }
 
