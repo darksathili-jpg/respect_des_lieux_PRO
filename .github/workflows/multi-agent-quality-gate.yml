@@ -1,0 +1,92 @@
+name: Multi-Agent Quality Gate
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "renderer/**"
+      - "src/**"
+      - "scripts/**"
+      - "quality/**"
+      - "package.json"
+      - "main.cjs"
+      - "main-bootstrap.cjs"
+      - "preload.cjs"
+      - ".github/workflows/multi-agent-quality-gate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  architect:
+    name: 1 · Architecte / contrat
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24.21.0"
+      - run: node scripts/quality-contract.mjs --role architecture
+
+  ui-ux:
+    name: 2 · UI / UX guardian
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24.21.0"
+      - run: node scripts/quality-contract.mjs --role ui
+
+  functional:
+    name: 3 · Functional guardian
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24.21.0"
+      - run: node scripts/quality-contract.mjs --role functional
+
+  data-security:
+    name: 4 · Data / security guardian
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24.21.0"
+      - run: node scripts/quality-contract.mjs --role data
+
+  electron:
+    name: 5 · Electron / packaging guardian
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24.21.0"
+      - run: node scripts/quality-contract.mjs --role electron
+
+  redteam:
+    name: 6 · Adversarial QA
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24.21.0"
+      - run: node scripts/quality-contract.mjs --role redteam
+
+  release-coordinator:
+    name: Release coordinator · all green required
+    needs: [architect, ui-ux, functional, data-security, electron, redteam]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24.21.0"
+      - name: Consolidated contract gate
+        run: node scripts/quality-contract.mjs --role all
