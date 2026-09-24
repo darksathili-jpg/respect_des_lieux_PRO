@@ -24,6 +24,6 @@ test('UI Phase C : le shell de production utilise les assets validés', () => {
   assert.match(css, /sidebar-logo-master\.webp/);
   assert.match(css, /dashboard-hero-master\.webp/);
   assert.match(css, /grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
-  assert.match(css, /@media \(max-width:1180px\)/);
-  assert.match(css, /@media \(max-width:820px\)/);
+  assert.match(css, /@media\s*\(max-width:1180px\)/);
+  assert.match(css, /@media\s*\(max-width:820px\)/);
 });
