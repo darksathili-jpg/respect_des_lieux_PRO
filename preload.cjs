@@ -30,8 +30,18 @@ contextBridge.exposeInMainWorld('rdl', Object.freeze({
   health: () => ipcRenderer.invoke('rdl:system:health')
 }));
 
-function installSignalementDetailLayer() {
+function installUiLayers() {
   setTimeout(() => {
+    // V5.2.1 visual layer. It deliberately lives above the validated local
+    // database/storage foundation so the graphic redesign cannot alter data.
+    if (!document.querySelector('script[data-rdl-theme-layer]')) {
+      const theme = document.createElement('script');
+      theme.src = './theme-v521.js';
+      theme.defer = true;
+      theme.dataset.rdlThemeLayer = 'active';
+      document.body.appendChild(theme);
+    }
+
     if (!document.querySelector('link[data-rdl-detail-layer]')) {
       const style = document.createElement('link');
       style.rel = 'stylesheet';
@@ -51,7 +61,7 @@ function installSignalementDetailLayer() {
 }
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', installSignalementDetailLayer, { once: true });
+  document.addEventListener('DOMContentLoaded', installUiLayers, { once: true });
 } else {
-  installSignalementDetailLayer();
+  installUiLayers();
 }
