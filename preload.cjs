@@ -40,21 +40,25 @@ function appendLocalScript(src, datasetKey, datasetValue) {
   document.body.appendChild(script);
 }
 
+function appendLocalStyle(href, datasetKey, datasetValue) {
+  const selector = `link[data-${datasetKey}]`;
+  if (document.querySelector(selector)) return;
+  const style = document.createElement('link');
+  style.rel = 'stylesheet';
+  style.href = href;
+  style.setAttribute(`data-${datasetKey}`, datasetValue);
+  document.head.appendChild(style);
+}
+
 function installUiLayers() {
   setTimeout(() => {
     // V5.2.1 visual and UX layers deliberately sit above the validated local
     // database/storage foundation. They must never become data dependencies.
     appendLocalScript('./theme-v521.js', 'rdl-theme-layer', 'active');
+    appendLocalStyle('./fidelity-master-v521.css', 'rdl-fidelity-style', 'master');
+    appendLocalScript('./fidelity-master-v521.js', 'rdl-fidelity-layer', 'master');
     appendLocalScript('./parity-v521.js', 'rdl-parity-layer', 'active');
-
-    if (!document.querySelector('link[data-rdl-detail-layer]')) {
-      const style = document.createElement('link');
-      style.rel = 'stylesheet';
-      style.href = './detail.css';
-      style.dataset.rdlDetailLayer = 'style';
-      document.head.appendChild(style);
-    }
-
+    appendLocalStyle('./detail.css', 'rdl-detail-layer', 'style');
     appendLocalScript('./detail.js', 'rdl-detail-layer', 'script');
   }, 0);
 }
