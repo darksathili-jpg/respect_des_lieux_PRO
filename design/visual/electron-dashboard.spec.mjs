@@ -21,14 +21,20 @@ function stopProcess(child) {
   }
 }
 
-async function discoverRendererTarget(processLog) {
+async function discoverDevTools(processLog) {
   let lastError = null;
   for (let attempt = 0; attempt < 40; attempt += 1) {
     try {
-      const response = await fetch(`http://127.0.0.1:${DEBUG_PORT}/json/list`, { signal: AbortSignal.timeout(1000) });
-      const targets = await response.json();
+      const [targetsResponse, versionResponse] = await Promise.all([
+        fetch(`http://127.0.0.1:${DEBUG_PORT}/json/list`, { signal: AbortSignal.timeout(1000) }),
+        fetch(`http://127.0.0.1:${DEBUG_PORT}/json/version`, { signal: AbortSignal.timeout(1000) })
+      ]);
+      const targets = await targetsResponse.json();
+      const version = await versionResponse.json();
       const target = targets.find((item) => item.type === 'page' && String(item.url || '').includes('/renderer/index.html'));
-      if (target?.webSocketDebuggerUrl) return target;
+      if (target?.id && version?.webSocketDebuggerUrl) {
+        return { target, browserWebSocketUrl: version.webSocketDebuggerUrl };
+      }
     } catch (error) {
       lastError = error;
     }
@@ -71,7 +77,7 @@ class CdpClient {
     return new CdpClient(socket);
   }
 
-  send(method, params = {}, timeoutMs = 5000) {
+  send(method, params = {}, { timeoutMs = 5000, sessionId = null } = {}) {
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -79,7 +85,9 @@ class CdpClient {
         reject(new Error(`Timeout CDP ${method}`));
       }, timeoutMs);
       this.pending.set(id, { resolve, reject, timer, method });
-      this.socket.send(JSON.stringify({ id, method, params }));
+      const payload = { id, method, params };
+      if (sessionId) payload.sessionId = sessionId;
+      this.socket.send(JSON.stringify(payload));
     });
   }
 
@@ -101,32 +109,32 @@ function rectFromQuad(quad) {
   };
 }
 
-async function documentRoot(cdp) {
-  const document = await cdp.send('DOM.getDocument', { depth: 0, pierce: true });
+async function documentRoot(cdp, sessionId) {
+  const document = await cdp.send('DOM.getDocument', { depth: 0, pierce: true }, { sessionId });
   return document.root.nodeId;
 }
 
-async function queryNode(cdp, rootId, selector) {
-  const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: rootId, selector });
+async function queryNode(cdp, sessionId, rootId, selector) {
+  const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: rootId, selector }, { sessionId });
   if (!nodeId) throw new Error(`Élément introuvable dans Electron empaqueté: ${selector}`);
   return nodeId;
 }
 
-async function box(cdp, rootId, selector) {
-  const nodeId = await queryNode(cdp, rootId, selector);
-  const model = await cdp.send('DOM.getBoxModel', { nodeId });
+async function box(cdp, sessionId, rootId, selector) {
+  const nodeId = await queryNode(cdp, sessionId, rootId, selector);
+  const model = await cdp.send('DOM.getBoxModel', { nodeId }, { sessionId });
   return rectFromQuad(model.model.border);
 }
 
-async function outerHTML(cdp, rootId, selector) {
-  const nodeId = await queryNode(cdp, rootId, selector);
-  const result = await cdp.send('DOM.getOuterHTML', { nodeId });
+async function outerHTML(cdp, sessionId, rootId, selector) {
+  const nodeId = await queryNode(cdp, sessionId, rootId, selector);
+  const result = await cdp.send('DOM.getOuterHTML', { nodeId }, { sessionId });
   return result.outerHTML;
 }
 
-async function attributes(cdp, rootId, selector) {
-  const nodeId = await queryNode(cdp, rootId, selector);
-  const { attributes: flat } = await cdp.send('DOM.getAttributes', { nodeId });
+async function attributes(cdp, sessionId, rootId, selector) {
+  const nodeId = await queryNode(cdp, sessionId, rootId, selector);
+  const { attributes: flat } = await cdp.send('DOM.getAttributes', { nodeId }, { sessionId });
   const result = {};
   for (let index = 0; index < flat.length; index += 2) result[flat[index]] = flat[index + 1];
   return result;
@@ -149,10 +157,7 @@ test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo
     '--force-device-scale-factor=1',
     '--rdl-visual-test=1'
   ], {
-    env: {
-      ...process.env,
-      RDL_VISUAL_TEST: '1'
-    },
+    env: { ...process.env, RDL_VISUAL_TEST: '1' },
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: false
   });
@@ -160,19 +165,23 @@ test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo
   child.stderr?.on('data', (chunk) => { output += chunk.toString(); });
 
   let cdp = null;
+  let sessionId = null;
   try {
-    const target = await discoverRendererTarget(() => output);
+    const { target, browserWebSocketUrl } = await discoverDevTools(() => output);
     console.log(`[gate] cible renderer trouvée: ${target.url}`);
-    cdp = await CdpClient.connect(target.webSocketDebuggerUrl);
-    console.log('[gate] protocole DevTools direct actif');
+    cdp = await CdpClient.connect(browserWebSocketUrl);
+    const attached = await cdp.send('Target.attachToTarget', { targetId: target.id, flatten: true }, { timeoutMs: 5000 });
+    sessionId = attached.sessionId;
+    if (!sessionId) throw new Error('Session CDP renderer non créée');
+    console.log('[gate] session DevTools navigateur → renderer active');
 
     let rootId = 0;
     let ready = false;
     let lastAttrs = {};
     for (let attempt = 0; attempt < 40; attempt += 1) {
       try {
-        rootId = await documentRoot(cdp);
-        lastAttrs = await attributes(cdp, rootId, '#vf-dashboard');
+        rootId = await documentRoot(cdp, sessionId);
+        lastAttrs = await attributes(cdp, sessionId, rootId, '#vf-dashboard');
         ready = lastAttrs['data-vf-ready'] === 'true';
         if (ready) break;
       } catch {}
@@ -180,9 +189,9 @@ test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo
     }
     if (!ready) throw new Error(`Dashboard Electron non prêt après 5 s. Attributs=${JSON.stringify(lastAttrs)}\n${output}`);
 
-    const pendingHtml = await outerHTML(cdp, rootId, '#vf-kpi-pending');
-    const interventionsHtml = await outerHTML(cdp, rootId, '#vf-kpi-interventions');
-    const resolvedHtml = await outerHTML(cdp, rootId, '#vf-kpi-resolved');
+    const pendingHtml = await outerHTML(cdp, sessionId, rootId, '#vf-kpi-pending');
+    const interventionsHtml = await outerHTML(cdp, sessionId, rootId, '#vf-kpi-interventions');
+    const resolvedHtml = await outerHTML(cdp, sessionId, rootId, '#vf-kpi-resolved');
     const diagnostic = {
       url: target.url,
       vfReady: lastAttrs['data-vf-ready'] || null,
@@ -197,11 +206,11 @@ test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo
     expect(diagnostic.interventions).toBe('8');
     expect(diagnostic.resolved).toBe('48');
 
-    expect(await box(cdp, rootId, '#vf-dashboard')).toEqual({ x: 0, y: 0, width: 1448, height: 1086 });
-    expect(await box(cdp, rootId, '.vf-sidebar')).toEqual({ x: 0, y: 77, width: 362, height: 1009 });
-    expect(await box(cdp, rootId, '.vf-main')).toEqual({ x: 362, y: 77, width: 1086, height: 1009 });
-    expect(await box(cdp, rootId, '.vf-hero')).toEqual({ x: 362, y: 77, width: 1086, height: 323 });
-    expect(await box(cdp, rootId, '.vf-kpi')).toEqual({ x: 376, y: 412, width: 242, height: 165 });
+    expect(await box(cdp, sessionId, rootId, '#vf-dashboard')).toEqual({ x: 0, y: 0, width: 1448, height: 1086 });
+    expect(await box(cdp, sessionId, rootId, '.vf-sidebar')).toEqual({ x: 0, y: 77, width: 362, height: 1009 });
+    expect(await box(cdp, sessionId, rootId, '.vf-main')).toEqual({ x: 362, y: 77, width: 1086, height: 1009 });
+    expect(await box(cdp, sessionId, rootId, '.vf-hero')).toEqual({ x: 362, y: 77, width: 1086, height: 323 });
+    expect(await box(cdp, sessionId, rootId, '.vf-kpi')).toEqual({ x: 376, y: 412, width: 242, height: 165 });
     console.log('[gate] géométrie et données de contrôle validées');
 
     const capture = await cdp.send('Page.captureScreenshot', {
@@ -209,7 +218,7 @@ test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo
       fromSurface: true,
       captureBeyondViewport: true,
       clip: { x: 0, y: 0, width: 1448, height: 1086, scale: 1 }
-    }, 10_000);
+    }, { timeoutMs: 10_000, sessionId });
     const actualBuffer = Buffer.from(capture.data, 'base64');
     const actualPath = testInfo.outputPath('electron-dashboard-actual.png');
     fs.writeFileSync(actualPath, actualBuffer);
@@ -230,6 +239,9 @@ test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo
     expect(ratio).toBeLessThanOrEqual(0.04);
     console.log('[gate] comparaison maître validée');
   } finally {
+    if (cdp && sessionId) {
+      try { await cdp.send('Target.detachFromTarget', { sessionId }, { timeoutMs: 1000 }); } catch {}
+    }
     await testInfo.attach('electron-process-log', { body: Buffer.from(output || '(aucune sortie processus)', 'utf8'), contentType: 'text/plain' });
     cdp?.close();
     stopProcess(child);
