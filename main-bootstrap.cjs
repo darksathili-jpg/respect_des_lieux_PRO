@@ -57,6 +57,15 @@ function paintProbe(nativeImage) {
   return { ok: samples >= 20 && range >= 80, range, samples, min, max };
 }
 
+function responsiveSurfaceOk(dom) {
+  const widthDelta = Math.abs(Number(dom.visualWidth || 0) - Number(dom.viewportWidth || 0));
+  const heightDelta = Math.abs(Number(dom.visualHeight || 0) - Number(dom.viewportHeight || 0));
+  return Number(dom.viewportWidth || 0) >= 800
+    && Number(dom.viewportHeight || 0) >= 600
+    && widthDelta <= 2
+    && heightDelta <= 2;
+}
+
 async function probeRenderer(win) {
   await delay(1800);
   const dom = await win.webContents.executeJavaScript(`(() => {
@@ -84,6 +93,8 @@ async function probeRenderer(win) {
       visualReady: visualDashboard?.dataset?.vfReady || '',
       visualWidth: visualRect?.width || 0,
       visualHeight: visualRect?.height || 0,
+      viewportWidth: window.innerWidth || 0,
+      viewportHeight: window.innerHeight || 0,
       signalDetailDialog: Boolean(document.querySelector('#signal-detail-dialog')),
       detailScript: Boolean(document.querySelector('script[data-rdl-detail-layer]')),
       detailStyle: Boolean(document.querySelector('link[data-rdl-detail-layer]')),
@@ -131,11 +142,10 @@ app.on('browser-window-created', (_event, win) => {
 
   win.webContents.once('did-finish-load', async () => {
     try {
-      // Phase B no longer renders the brand as legacy body text: the validated
-      // master owns the static illustrated regions. The startup probe therefore
-      // checks the reconstructed dashboard itself instead of obsolete V5.2.1
-      // textual/theme signatures. This also prevents a native error dialog from
-      // blocking the real packaged visual gate when the new dashboard is valid.
+      // Phase C sépare deux responsabilités : le Fidelity Gate conserve le
+      // master immuable 1448×1086 en mode RDL_VISUAL_TEST, tandis que ce smoke
+      // test qualifie le produit réel et exige désormais que son canvas épouse
+      // exactement le viewport disponible sur la machine Windows.
       const dom = await win.webContents.executeJavaScript(`(() => {
         const visualDashboard = document.querySelector('#vf-dashboard');
         const visualRect = visualDashboard?.getBoundingClientRect();
@@ -146,18 +156,19 @@ app.on('browser-window-created', (_event, win) => {
           visualHero: Boolean(visualDashboard?.querySelector('.vf-hero')),
           visualWidth: visualRect?.width || 0,
           visualHeight: visualRect?.height || 0,
+          viewportWidth: window.innerWidth || 0,
+          viewportHeight: window.innerHeight || 0,
           bodyTextLength: (document.body?.innerText || '').trim().length
         };
       })()`);
 
-      const phaseBReady = dom.visualDashboard
+      const phaseCReady = dom.visualDashboard
         && dom.visualSidebar
         && dom.visualMain
         && dom.visualHero
-        && dom.visualWidth === 1448
-        && dom.visualHeight === 1086;
+        && responsiveSurfaceOk(dom);
 
-      if (!phaseBReady || dom.bodyTextLength < 100) {
+      if (!phaseCReady || dom.bodyTextLength < 100) {
         reportFatal('interface incomplète', JSON.stringify(dom));
         failSmoke('dom-incomplete', dom);
         return;
@@ -171,8 +182,7 @@ app.on('browser-window-created', (_event, win) => {
         && result.dom.visualSidebar
         && result.dom.visualMain
         && result.dom.visualHero
-        && result.dom.visualWidth === 1448
-        && result.dom.visualHeight === 1086
+        && responsiveSurfaceOk(result.dom)
         && result.dom.bodyTextLength > 100;
 
       if (!domOk || !result.paint.ok) {
