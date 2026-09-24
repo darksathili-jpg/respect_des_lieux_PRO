@@ -1,6 +1,6 @@
 {
   "name": "respect-des-lieux-pro",
-  "version": "5.2.1-alpha.4",
+  "version": "5.2.1-alpha.5",
   "private": true,
   "description": "Application desktop locale de suivi des dégradations en établissement scolaire — données stockées uniquement sur le poste utilisateur.",
   "main": "main-bootstrap.cjs",
