@@ -278,145 +278,122 @@ function eventLabel(type) {
     purge_reapplied_after_restore: 'Suppression réappliquée après restauration',
     access_review_exported: 'Dossier de revue exporté',
     encrypted_backup_exported: 'Sauvegarde chiffrée exportée',
-    encrypted_backup_restored: 'Sauvegarde chiffrée restaurée'
+    encrypted_restore_prepared: 'Restauration chiffrée préparée'
   };
   return labels[type] || type;
 }
 
 function renderPrivacyEvents() {
   const rows = state.privacyEvents || [];
-  $('#privacy-events').innerHTML = rows.length ? rows.slice(0, 12).map((event) => `
-    <div class="event-row">
-      <div><strong>${esc(eventLabel(event.event_type))}</strong>${event.dossier_num ? `<small>${esc(event.dossier_num)}</small>` : ''}</div>
-      <time>${dateFr(event.created_at)}</time>
-    </div>`).join('') : 'Aucune opération.';
+  $('#privacy-events-body').innerHTML = rows.length ? rows.map((row) => `
+    <tr>
+      <td>${esc(new Date(row.created_at).toLocaleString('fr-FR'))}</td>
+      <td>${esc(eventLabel(row.event_type))}</td>
+      <td>${esc(row.signalement_num || '—')}</td>
+      <td>${esc(row.details || '—')}</td>
+    </tr>`).join('') : '<tr><td colspan="4">Aucun événement de confidentialité.</td></tr>';
 }
 
 async function reload() {
-  state.bootstrap = await window.rdl.bootstrap();
-  state.signalements = state.bootstrap.signalements;
-  state.reparations = state.bootstrap.reparations;
-  state.lifecycle = state.bootstrap.lifecycle || { policy: state.bootstrap.retention || { active: false }, rows: [] };
-  state.privacyEvents = state.bootstrap.privacyEvents || [];
+  const [bootstrap, signalements, reparations, lifecycle, privacyEvents] = await Promise.all([
+    window.rdl.bootstrap(),
+    window.rdl.listSignalements(5000),
+    window.rdl.listReparations(10000),
+    window.rdl.lifecycleReview(),
+    window.rdl.listPrivacyEvents(200)
+  ]);
+  state.bootstrap = bootstrap;
+  state.signalements = signalements;
+  state.reparations = reparations;
+  state.lifecycle = lifecycle;
+  state.privacyEvents = privacyEvents;
   renderDashboard();
   renderSignalements();
   renderReparations();
   renderRetention();
   renderLifecycle();
   renderPrivacyEvents();
-  updatePrivacyButton();
 }
 
 function formPayload(form) {
   return Object.fromEntries(new FormData(form).entries());
 }
 
-async function createBackup() {
-  try {
-    const result = await window.rdl.createBackup();
-    toast(`Sauvegarde créée : ${result.folder}`);
-  } catch (error) {
-    toast(`Sauvegarde impossible : ${error.message}`, true);
-  }
-}
-
-function toggleRetentionFields() {
-  const active = $('#retention-enabled').checked;
-  $('#retention-months').disabled = !active;
-  $('#retention-note').disabled = !active;
-  $('#retention-confirmed').disabled = !active;
-  if (!active) $('#retention-confirmed').checked = false;
-}
-
 function askSecret(mode) {
   secretMode = mode;
   const dialog = $('#secret-dialog');
-  const title = $('#secret-title');
-  const description = $('#secret-description');
-  const confirmRow = $('#secret-confirm-row');
-  const pass = $('#secret-passphrase');
-  const confirm = $('#secret-confirm');
-  const submit = $('#secret-submit');
-  pass.value = '';
-  confirm.value = '';
-
-  if (mode === 'export') {
-    title.textContent = 'Protéger la sauvegarde externe';
-    description.textContent = 'Choisissez une phrase secrète d’au moins 12 caractères. Elle sera nécessaire pour toute restauration et n’est jamais enregistrée par l’application.';
-    confirmRow.hidden = false;
-    confirm.required = true;
-    submit.textContent = 'Créer la sauvegarde chiffrée';
-  } else {
-    title.textContent = 'Déverrouiller une sauvegarde';
-    description.textContent = 'Saisissez la phrase secrète utilisée lors de l’export. La sauvegarde sera vérifiée avant toute restauration.';
-    confirmRow.hidden = true;
-    confirm.required = false;
-    submit.textContent = 'Vérifier et préparer';
-  }
-
+  const form = $('#secret-form');
+  form.reset();
+  $('#secret-title').textContent = mode === 'export' ? 'Créer une sauvegarde chiffrée' : 'Restaurer une sauvegarde chiffrée';
+  $('#secret-description').textContent = mode === 'export'
+    ? 'Choisissez une phrase secrète d’au moins 12 caractères. Elle ne sera pas stockée dans l’application.'
+    : 'Saisissez la phrase secrète utilisée lors de la création du fichier .rdlbackup.';
+  $('#secret-confirm-row').hidden = mode !== 'export';
+  $('#secret-warning').textContent = mode === 'export'
+    ? 'Conservez cette phrase dans un endroit sûr et distinct de la sauvegarde. Sans elle, le fichier chiffré ne peut pas être restauré.'
+    : 'La restauration est vérifiée avant remplacement et crée d’abord une sauvegarde de sécurité de l’état actuel.';
   dialog.showModal();
-  setTimeout(() => pass.focus(), 0);
-  return new Promise((resolve) => {
-    secretResolver = resolve;
-  });
-}
-
-function settleSecret(value) {
-  const resolve = secretResolver;
-  secretResolver = null;
-  if (resolve) resolve(value);
+  setTimeout(() => $('#secret-passphrase').focus(), 50);
+  return new Promise((resolve) => { secretResolver = resolve; });
 }
 
 function bindSecretDialog() {
-  const dialog = $('#secret-dialog');
-  const form = $('#secret-form');
-  form.addEventListener('submit', (event) => {
+  $('#secret-form').addEventListener('submit', (event) => {
     event.preventDefault();
-    const pass = $('#secret-passphrase').value;
-    const confirm = $('#secret-confirm').value;
-    if (pass.length < 12) {
+    const passphrase = $('#secret-passphrase').value;
+    const confirmation = $('#secret-confirm').value;
+    if (passphrase.length < 12) {
       toast('La phrase secrète doit contenir au moins 12 caractères.', true);
       return;
     }
-    if (secretMode === 'export' && pass !== confirm) {
+    if (secretMode === 'export' && passphrase !== confirmation) {
       toast('Les deux phrases secrètes ne correspondent pas.', true);
       return;
     }
-    dialog.close();
-    settleSecret(pass);
-    $('#secret-passphrase').value = '';
-    $('#secret-confirm').value = '';
+    $('#secret-dialog').close('ok');
+    secretResolver?.(passphrase);
+    secretResolver = null;
   });
-  dialog.addEventListener('close', () => {
-    if (secretResolver) settleSecret(null);
-    $('#secret-passphrase').value = '';
-    $('#secret-confirm').value = '';
+  $('#secret-dialog').addEventListener('close', () => {
+    if (secretResolver) secretResolver(null);
+    secretResolver = null;
   });
+}
+
+function toggleRetentionFields() {
+  const enabled = $('#retention-enabled').checked;
+  $('#retention-months').disabled = !enabled;
+  $('#retention-note').disabled = !enabled;
+  $('#retention-confirmed').disabled = !enabled;
 }
 
 function bindStaticEvents() {
   $$('.nav').forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
   $$('[data-goto]').forEach((button) => button.addEventListener('click', () => setView(button.dataset.goto)));
-
   $('#privacy-toggle').addEventListener('click', () => {
     state.identitiesVisible = !state.identitiesVisible;
     updatePrivacyButton();
     renderSignalements();
     renderReparations();
   });
-
+  $('#signal-search').addEventListener('input', renderSignalements);
   $('#new-signalement').addEventListener('click', () => {
     const form = $('#signal-form');
     form.reset();
     form.elements.date.value = new Date().toISOString().slice(0, 10);
     $('#signal-dialog').showModal();
   });
-
-  $('#signal-search').addEventListener('input', renderSignalements);
-  $('#backup-now').addEventListener('click', createBackup);
-  $('#backup-view-action').addEventListener('click', createBackup);
-  $('#open-backups').addEventListener('click', () => window.rdl.openBackupsFolder());
+  $('#backup-now').addEventListener('click', async () => {
+    try {
+      await window.rdl.createBackup();
+      await reload();
+      toast('Sauvegarde locale créée.');
+    } catch (error) {
+      toast(`Sauvegarde impossible : ${error.message}`, true);
+    }
+  });
   $('#open-data').addEventListener('click', () => window.rdl.openDataFolder());
+  $('#open-backups').addEventListener('click', () => window.rdl.openBackupsFolder());
   $('#open-exports').addEventListener('click', () => window.rdl.openExportsFolder());
 
   $('#encrypted-backup').addEventListener('click', async () => {
@@ -559,6 +536,16 @@ function bindStaticEvents() {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
+  // Le gate visuel empaqueté doit être indépendant des I/O SQLite et de toute
+  // sauvegarde quotidienne : il qualifie uniquement le rendu Electron. Les
+  // valeurs de contrôle viennent du master et la branche normale continue à
+  // charger les vraies statistiques locales par IPC.
+  if (visualTestMode) {
+    setView('dashboard');
+    renderVisualDashboard();
+    return;
+  }
+
   bindSecretDialog();
   bindStaticEvents();
   updatePrivacyButton();
