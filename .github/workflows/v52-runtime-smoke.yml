@@ -57,9 +57,12 @@ jobs:
             'renderer/index.html',
             'renderer/styles.css',
             'renderer/v51.css',
+            'renderer/dashboard-vf.css',
             'renderer/app.js',
             'renderer/detail.js',
             'renderer/detail.css',
+            'renderer/assets/dashboard-hero-master.webp',
+            'renderer/assets/sidebar-logo-master.webp',
             'src/database.cjs',
             'src/storage.cjs',
             'src/portable-backup.cjs'
@@ -111,3 +114,14 @@ jobs:
           }
 
           Write-Host "Packaged DOM + painted UI smoke: PASS"
+
+      - name: Upload packaged runtime diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: packaged-runtime-diagnostics
+          path: |
+            ${{ runner.temp }}/rdl-stdout.txt
+            ${{ runner.temp }}/rdl-stderr.txt
+          if-no-files-found: ignore
+          retention-days: 14
