@@ -8,6 +8,14 @@ app.disableHardwareAcceleration();
 const smokeMode = process.env.RDL_PACKAGED_SMOKE === '1';
 const visualTestMode = process.env.RDL_VISUAL_TEST === '1'
   || process.argv.some((arg) => arg === '--rdl-visual-test' || arg === '--rdl-visual-test=1');
+const EXPECTED_NAV_LABELS = Object.freeze([
+  'Accueil',
+  'Signalements',
+  'Réparations',
+  'Sauvegardes',
+  'Protection des données',
+  'Système local'
+]);
 let smokeFinished = false;
 let fatalShown = false;
 
@@ -73,6 +81,13 @@ function masterSurfaceOk(dom) {
     && Number(dom.visualHeight || 0) === 1086;
 }
 
+function productionUiContractOk(dom) {
+  if (visualTestMode) return true;
+  return JSON.stringify(dom.navLabels || []) === JSON.stringify(EXPECTED_NAV_LABELS)
+    && String(dom.heroBackgroundImage || '').includes('dashboard-hero-master.webp')
+    && !String(dom.topbarBackgroundImage || '').includes('dashboard-master.png');
+}
+
 async function probeNavigationContinuity(win) {
   const clickResult = await win.webContents.executeJavaScript(`(() => {
     const target = document.querySelector('#vf-dashboard .vf-nav-item[data-view="signalements"]');
@@ -102,6 +117,7 @@ async function probeNavigationContinuity(win) {
       signalementsDisplay: signalements ? getComputedStyle(signalements).display : 'missing',
       signalementsActive: Boolean(signalements?.classList.contains('active')),
       signalementsNavActive: Boolean(nav?.classList.contains('active')),
+      navLabels: [...document.querySelectorAll('#vf-dashboard .vf-nav-item span:last-child')].map((node) => node.textContent.trim()),
       visualWidth: visualRect?.width || 0,
       viewportWidth: window.innerWidth || 0,
       sidebarRight: sidebarRect?.right || 0,
@@ -110,6 +126,7 @@ async function probeNavigationContinuity(win) {
   })()`);
 
   const geometryAligned = Math.abs(Number(state.shellLeft || 0) - Number(state.sidebarRight || 0)) <= 2;
+  const labelsOk = JSON.stringify(state.navLabels || []) === JSON.stringify(EXPECTED_NAV_LABELS);
   const ok = Boolean(clickResult?.clicked)
     && state.dashboardMode === false
     && state.visualDashboardDisplay !== 'none'
@@ -119,6 +136,7 @@ async function probeNavigationContinuity(win) {
     && state.signalementsDisplay !== 'none'
     && state.signalementsActive
     && state.signalementsNavActive
+    && labelsOk
     && geometryAligned;
 
   // Revenir sur l'accueil afin que la capture peinture vérifie également que
@@ -128,7 +146,7 @@ async function probeNavigationContinuity(win) {
   })()`);
   await delay(120);
 
-  return { ok, clickResult, state, geometryAligned };
+  return { ok, clickResult, state, labelsOk, geometryAligned };
 }
 
 async function probeRenderer(win) {
@@ -142,6 +160,7 @@ async function probeRenderer(win) {
     const visualSidebar = visualDashboard?.querySelector('.vf-sidebar');
     const visualMain = visualDashboard?.querySelector('.vf-main');
     const visualHero = visualDashboard?.querySelector('.vf-hero');
+    const visualTopbar = visualDashboard?.querySelector('.vf-topbar');
     const shellRect = shell?.getBoundingClientRect();
     const sidebarRect = sidebar?.getBoundingClientRect();
     const visualRect = visualDashboard?.getBoundingClientRect();
@@ -160,6 +179,9 @@ async function probeRenderer(win) {
       visualHeight: visualRect?.height || 0,
       viewportWidth: window.innerWidth || 0,
       viewportHeight: window.innerHeight || 0,
+      navLabels: [...document.querySelectorAll('#vf-dashboard .vf-nav-item span:last-child')].map((node) => node.textContent.trim()),
+      heroBackgroundImage: visualHero ? getComputedStyle(visualHero).backgroundImage : '',
+      topbarBackgroundImage: visualTopbar ? getComputedStyle(visualTopbar).backgroundImage : '',
       signalDetailDialog: Boolean(document.querySelector('#signal-detail-dialog')),
       detailScript: Boolean(document.querySelector('script[data-rdl-detail-layer]')),
       detailStyle: Boolean(document.querySelector('link[data-rdl-detail-layer]')),
@@ -211,33 +233,41 @@ app.on('browser-window-created', (_event, win) => {
     try {
       // Deux contrats distincts et non négociables :
       // - le gate visuel travaille sur le master immuable 1448×1086 ;
-      // - l'application réelle doit épouser le viewport Windows disponible.
+      // - l'application réelle doit épouser le viewport Windows disponible et
+      //   n'afficher que les catégories, assets et contrôles réellement prévus.
       const dom = await win.webContents.executeJavaScript(`(() => {
         const visualDashboard = document.querySelector('#vf-dashboard');
         const visualRect = visualDashboard?.getBoundingClientRect();
+        const visualHero = visualDashboard?.querySelector('.vf-hero');
+        const visualTopbar = visualDashboard?.querySelector('.vf-topbar');
         return {
           visualDashboard: Boolean(visualDashboard),
           visualSidebar: Boolean(visualDashboard?.querySelector('.vf-sidebar')),
           visualMain: Boolean(visualDashboard?.querySelector('.vf-main')),
-          visualHero: Boolean(visualDashboard?.querySelector('.vf-hero')),
+          visualHero: Boolean(visualHero),
           visualWidth: visualRect?.width || 0,
           visualHeight: visualRect?.height || 0,
           viewportWidth: window.innerWidth || 0,
           viewportHeight: window.innerHeight || 0,
+          navLabels: [...document.querySelectorAll('#vf-dashboard .vf-nav-item span:last-child')].map((node) => node.textContent.trim()),
+          heroBackgroundImage: visualHero ? getComputedStyle(visualHero).backgroundImage : '',
+          topbarBackgroundImage: visualTopbar ? getComputedStyle(visualTopbar).backgroundImage : '',
           bodyTextLength: (document.body?.innerText || '').trim().length
         };
       })()`);
 
       const surfaceReady = visualTestMode ? masterSurfaceOk(dom) : responsiveSurfaceOk(dom);
+      const productionReady = productionUiContractOk(dom);
       const uiReady = dom.visualDashboard
         && dom.visualSidebar
         && dom.visualMain
         && dom.visualHero
-        && surfaceReady;
+        && surfaceReady
+        && productionReady;
 
       if (!uiReady || dom.bodyTextLength < 100) {
-        reportFatal('interface incomplète', JSON.stringify({ ...dom, visualTestMode }));
-        failSmoke('dom-incomplete', { ...dom, visualTestMode });
+        reportFatal('interface incomplète', JSON.stringify({ ...dom, visualTestMode, productionReady }));
+        failSmoke('dom-incomplete', { ...dom, visualTestMode, productionReady });
         return;
       }
 
@@ -249,7 +279,9 @@ app.on('browser-window-created', (_event, win) => {
         && result.dom.visualSidebar
         && result.dom.visualMain
         && result.dom.visualHero
+        && result.dom.signalDetailDialog
         && responsiveSurfaceOk(result.dom)
+        && productionUiContractOk(result.dom)
         && result.dom.bodyTextLength > 100;
 
       if (!domOk || !result.navigation.ok || !result.paint.ok) {
