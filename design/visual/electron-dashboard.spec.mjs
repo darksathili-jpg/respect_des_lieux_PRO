@@ -11,6 +11,8 @@ const EXECUTABLE = path.resolve(HERE, '../../dist/win-unpacked/Respect des Lieux
 const MASTER = path.resolve(HERE, '../reference/dashboard-master.png');
 const DEBUG_PORT = 9222;
 const ENDPOINT = `http://127.0.0.1:${DEBUG_PORT}`;
+const MASTER_WIDTH = 1448;
+const MASTER_HEIGHT = 1086;
 
 async function delay(ms) {
   await new Promise((resolve) => setTimeout(resolve, ms));
@@ -42,6 +44,27 @@ async function roundedBox(locator, label) {
   const value = await locator.boundingBox();
   if (!value) throw new Error(`Élément introuvable ou invisible: ${label}`);
   return Object.fromEntries(Object.entries(value).map(([key, number]) => [key, Math.round(number)]));
+}
+
+async function captureMasterSurface(context, page, outputPath) {
+  // GitHub's hosted Windows desktop can expose a physical viewport as small as
+  // 1024×681 even while the packaged renderer correctly owns a 1448×1086
+  // master canvas. page.screenshot({ clip }) is clipped to that host viewport
+  // and therefore cannot qualify fidelity. CDP's captureBeyondViewport asks the
+  // *real packaged Electron renderer* to rasterize the complete CSS surface,
+  // without resizing/rebuilding the DOM and without weakening the visual gate.
+  const session = await context.newCDPSession(page);
+  try {
+    const shot = await session.send('Page.captureScreenshot', {
+      format: 'png',
+      fromSurface: true,
+      captureBeyondViewport: true,
+      clip: { x: 0, y: 0, width: MASTER_WIDTH, height: MASTER_HEIGHT, scale: 1 }
+    });
+    fs.writeFileSync(outputPath, Buffer.from(shot.data, 'base64'));
+  } finally {
+    await session.detach();
+  }
 }
 
 test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo) => {
@@ -97,7 +120,7 @@ test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo
     expect(diagnostic.interventions).toBe('8');
     expect(diagnostic.resolved).toBe('48');
 
-    expect(await roundedBox(dashboard, '#vf-dashboard')).toEqual({ x: 0, y: 0, width: 1448, height: 1086 });
+    expect(await roundedBox(dashboard, '#vf-dashboard')).toEqual({ x: 0, y: 0, width: MASTER_WIDTH, height: MASTER_HEIGHT });
     expect(await roundedBox(page.locator('.vf-sidebar'), '.vf-sidebar')).toEqual({ x: 0, y: 77, width: 362, height: 1009 });
     expect(await roundedBox(page.locator('.vf-main'), '.vf-main')).toEqual({ x: 362, y: 77, width: 1086, height: 1009 });
     expect(await roundedBox(page.locator('.vf-hero'), '.vf-hero')).toEqual({ x: 362, y: 77, width: 1086, height: 323 });
@@ -105,19 +128,13 @@ test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo
     console.log('[gate] géométrie et données de contrôle validées');
 
     const actualPath = testInfo.outputPath('electron-dashboard-actual.png');
-    await page.screenshot({
-      path: actualPath,
-      clip: { x: 0, y: 0, width: 1448, height: 1086 },
-      animations: 'disabled',
-      caret: 'hide',
-      scale: 'css'
-    });
+    await captureMasterSurface(context, page, actualPath);
     await testInfo.attach('electron-dashboard-actual', { path: actualPath, contentType: 'image/png' });
 
     const master = PNG.sync.read(fs.readFileSync(MASTER));
     const actual = PNG.sync.read(fs.readFileSync(actualPath));
-    expect({ width: actual.width, height: actual.height }).toEqual({ width: 1448, height: 1086 });
-    expect({ width: master.width, height: master.height }).toEqual({ width: 1448, height: 1086 });
+    expect({ width: actual.width, height: actual.height }).toEqual({ width: MASTER_WIDTH, height: MASTER_HEIGHT });
+    expect({ width: master.width, height: master.height }).toEqual({ width: MASTER_WIDTH, height: MASTER_HEIGHT });
 
     const diff = new PNG({ width: master.width, height: master.height });
     const diffPixels = pixelmatch(master.data, actual.data, diff.data, master.width, master.height, { threshold: 0.15 });
