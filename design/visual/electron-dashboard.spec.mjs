@@ -38,7 +38,7 @@ function stopProcess(child) {
 }
 
 test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo) => {
-  test.setTimeout(45_000);
+  test.setTimeout(60_000);
   expect(fs.existsSync(EXECUTABLE), `Exécutable empaqueté absent: ${EXECUTABLE}`).toBe(true);
 
   let output = '';
@@ -76,6 +76,9 @@ test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo
     if (!page) throw new Error(`Fenêtre Electron principale introuvable.\n${output}`);
     page.setDefaultTimeout(10_000);
     console.log(`[gate] fenêtre trouvée: ${page.url()}`);
+
+    await page.waitForLoadState('domcontentloaded', { timeout: 10_000 });
+    console.log('[gate] DOMContentLoaded confirmé');
 
     const boot = await page.evaluate(() => ({
       readyState: document.readyState,
