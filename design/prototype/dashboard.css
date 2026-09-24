@@ -16,17 +16,20 @@ button{font:inherit}
 svg{display:block;width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .vf-canvas{position:relative;width:1448px;height:1086px;overflow:hidden;background:var(--cream)}
 
-/* Complex brand/illustration regions reuse the approved master itself as a local sprite.
-   This avoids approximate redraws while all data-bearing cards remain real HTML/CSS. */
+/* Phase A utilise le master validé comme sprite uniquement pour les régions
+   purement statiques/illustrées. Les zones destinées à recevoir des données
+   métier restent du vrai HTML/CSS. */
 .vf-topbar{position:absolute;left:0;top:0;width:1448px;height:77px;background:url("../reference/dashboard-master.png") 0 0/1448px 1086px no-repeat}
 .vf-sidebar{position:absolute;left:0;top:77px;width:362px;height:1009px;background:linear-gradient(180deg,#1c4865 0%,#173f5d 52%,#173c58 100%);color:#fff}
 .vf-logo{height:257px;background:url("../reference/dashboard-master.png") 0 -77px/1448px 1086px no-repeat}
 .vf-sidebar-bottom{position:absolute;left:0;bottom:0;width:362px;height:266px;background:url("../reference/dashboard-master.png") 0 -820px/1448px 1086px no-repeat;pointer-events:none}
 
-.vf-nav{display:flex;flex-direction:column;margin:0;padding:0}
-.vf-nav-item{height:79px;border:0;background:transparent;color:#fff;display:flex;align-items:center;gap:22px;padding:0 38px;text-align:left;font-size:23px;font-weight:400;line-height:1}
-.vf-nav-item.active{height:74px;background:linear-gradient(90deg,#c33d35,#dc6f54);font-weight:650}
-.vf-icon{width:38px;height:38px;flex:0 0 38px}
+/* Navigation : libellés/icônes sont statiques. Le rendu vient donc directement
+   du master approuvé ; les vrais boutons restent présents comme hotspots DOM. */
+.vf-nav{display:flex;flex-direction:column;margin:0;padding:0;height:486px;background:url("../reference/dashboard-master.png") 0 -334px/1448px 1086px no-repeat}
+.vf-nav-item,.vf-nav-item.active{height:79px;border:0!important;background:transparent!important;color:transparent!important;display:flex;align-items:center;gap:22px;padding:0 38px;text-align:left;font-size:23px;font-weight:400;line-height:1;outline:0;box-shadow:none!important}
+.vf-nav-item.active{height:74px}
+.vf-nav-item .vf-icon{width:38px;height:38px;flex:0 0 38px;opacity:0}
 .vf-nav-item.active .vf-icon{width:42px;height:42px;flex-basis:42px}
 
 .vf-main{position:absolute;left:362px;top:77px;width:1086px;height:1009px;background:var(--cream)}
@@ -51,12 +54,12 @@ svg{display:block;width:100%;height:100%;fill:none;stroke:currentColor;stroke-wi
 .vf-pill{display:inline-flex;align-items:center;justify-content:center;min-width:96px;height:38px;border-radius:999px;padding:0 14px;font-size:14px;white-space:nowrap}
 .vf-pill.new{background:#fde4df;color:#d52e31}.vf-pill.progress{background:#fff0db;color:#e67900}.vf-pill.handled{background:#e5f3de;color:#23853a;min-width:124px}.vf-pill.resolved{background:#dff1d9;color:#248038;min-width:87px}
 
-.vf-engagement{position:relative}.vf-engagement::after{content:"";position:absolute;right:-70px;top:82px;width:270px;height:270px;border:22px solid #d88b75;border-radius:50%;opacity:.07}
-.vf-engagement blockquote{position:relative;z-index:2;margin:25px 28px 22px;font-family:Georgia,"Times New Roman",serif;font-size:24px;line-height:1.45;font-style:italic;color:#153f61}
-.vf-rule{width:58px;height:4px;border-radius:4px;background:#c51f27;margin:0 0 30px 28px}
-.vf-values{position:relative;z-index:2;display:grid;grid-template-columns:repeat(3,1fr);margin:0 19px}
-.vf-value{text-align:center;color:#153f60;font-size:14px;line-height:1.42;padding:0 10px;border-right:1px solid #e8dfd8}.vf-value:last-child{border-right:0}
-.vf-value svg{width:45px;height:45px;margin:0 auto 10px;color:#c71d23}
+/* « Notre engagement » est un panneau éditorial entièrement statique. Son
+   crop exact est conservé comme asset visuel ; son contenu sémantique reste
+   dans le DOM mais ne double pas le rendu. */
+.vf-engagement{position:relative;border:0!important;border-radius:0!important;box-shadow:none!important;background:url("../reference/dashboard-master.png") -903px -596px/1448px 1086px no-repeat!important}
+.vf-engagement>*{opacity:0!important}
+.vf-engagement::after{display:none!important}
 
-/* Phase A is intentionally fixed to the approved 1448 × 1086 master viewport.
-   Responsive scaling is deferred until fidelity has passed. */
+/* Phase A est volontairement figée au viewport maître 1448 × 1086.
+   Le responsive sera travaillé seulement après validation de fidélité. */
