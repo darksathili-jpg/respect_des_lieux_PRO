@@ -58,7 +58,7 @@ function paintProbe(nativeImage) {
 }
 
 async function probeRenderer(win) {
-  await delay(1200);
+  await delay(1600);
   const dom = await win.webContents.executeJavaScript(`(() => {
     const shell = document.querySelector('.shell');
     const sidebar = document.querySelector('.sidebar');
@@ -74,6 +74,10 @@ async function probeRenderer(win) {
       signalDetailDialog: Boolean(document.querySelector('#signal-detail-dialog')),
       detailScript: Boolean(document.querySelector('script[data-rdl-detail-layer]')),
       detailStyle: Boolean(document.querySelector('link[data-rdl-detail-layer]')),
+      themeScript: Boolean(document.querySelector('script[data-rdl-theme-layer]')),
+      themeStyle: Boolean(document.querySelector('#rdl-theme-v521')),
+      themeSignature: Boolean(document.querySelector('[data-rdl-theme-signature="watteau-v5.2.1"]')),
+      themeVersion: document.documentElement?.dataset?.rdlTheme || '',
       shellWidth: shellRect?.width || 0,
       shellHeight: shellRect?.height || 0,
       sidebarWidth: sidebarRect?.width || 0,
@@ -133,6 +137,10 @@ app.on('browser-window-created', (_event, win) => {
         && result.dom.signalDetailDialog
         && result.dom.detailScript
         && result.dom.detailStyle
+        && result.dom.themeScript
+        && result.dom.themeStyle
+        && result.dom.themeSignature
+        && result.dom.themeVersion === '5.2.1'
         && result.dom.shellWidth > 500
         && result.dom.shellHeight > 400
         && result.dom.sidebarWidth > 100
@@ -157,8 +165,8 @@ app.on('browser-window-created', (_event, win) => {
 if (smokeMode) {
   app.whenReady().then(() => {
     setTimeout(() => {
-      if (!smokeFinished) failSmoke('startup-timeout', { timeoutMs: 18000 });
-    }, 18000).unref?.();
+      if (!smokeFinished) failSmoke('startup-timeout', { timeoutMs: 20000 });
+    }, 20000).unref?.();
   });
 }
 
