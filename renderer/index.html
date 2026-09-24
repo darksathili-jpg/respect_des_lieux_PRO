@@ -7,8 +7,62 @@
   <title>Respect des Lieux PRO</title>
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./v51.css">
+  <link rel="stylesheet" href="./detail.css">
+  <link rel="stylesheet" href="./dashboard-vf.css">
 </head>
-<body>
+<body class="dashboard-mode">
+  <div id="vf-dashboard" class="vf-canvas" data-vf-master="dashboard-master-2026-09-24" data-vf-ready="false">
+    <div class="vf-topbar" aria-label="Barre d’application"></div>
+
+    <aside class="vf-sidebar">
+      <div class="vf-logo" aria-label="Lycée Watteau Valenciennes"></div>
+      <nav class="vf-nav" aria-label="Navigation principale">
+        <button class="nav vf-nav-item active" data-view="dashboard"><span class="vf-icon"><svg viewBox="0 0 24 24"><path d="m3 11 9-8 9 8"/><path d="M5 10v11h14V10M9 21v-7h6v7"/></svg></span><span>Accueil</span></button>
+        <button class="nav vf-nav-item" data-view="signalements"><span class="vf-icon"><svg viewBox="0 0 24 24"><path d="M4 13v-2l11-5v12L4 13Zm0 0v5m11-7 4-2v6l-4-2M7 14v5"/></svg></span><span>Signalements</span></button>
+        <button class="nav vf-nav-item" data-view="reparations"><span class="vf-icon"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5-5L12 3.6 9.6 6 7.3 3.7a4 4 0 0 0 5 5L3 18l3 3 8.7-9.3Z"/></svg></span><span>Interventions</span></button>
+        <button class="nav vf-nav-item" data-view="sauvegardes"><span class="vf-icon"><svg viewBox="0 0 24 24"><path d="M4 20V10m5 10V4m5 16v-7m5 7V7"/><path d="M2 20h20"/></svg></span><span>Suivi</span></button>
+        <button class="nav vf-nav-item" data-view="confidentialite"><span class="vf-icon"><svg viewBox="0 0 24 24"><path d="M4 21V9l8-5 8 5v12M2 21h20M8 21v-8h8v8M8 10h.01M12 10h.01M16 10h.01"/></svg></span><span>Établissement</span></button>
+        <button class="nav vf-nav-item" data-view="systeme"><span class="vf-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><path d="m5.4 5.4 1.5 1.5M17.1 17.1l1.5 1.5M18.6 5.4l-1.5 1.5M6.9 17.1l-1.5 1.5M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></span><span>Paramètres</span></button>
+      </nav>
+      <div class="vf-sidebar-bottom" aria-hidden="true"></div>
+    </aside>
+
+    <main class="vf-main">
+      <section class="vf-hero" aria-label="Accueil"></section>
+      <section class="vf-content">
+        <div class="vf-kpis">
+          <article class="vf-kpi"><div class="vf-kpi-icon red"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-4 2.3-6 6-6s6 2 6 6M16 5a3 3 0 0 1 0 6m1 3c2.5.5 4 2.4 4 5"/></svg></div><div><strong id="vf-kpi-pending">12</strong><p>Signalements<br>en attente</p></div></article>
+          <article class="vf-kpi"><div class="vf-kpi-icon blue"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5-5L12 3.6 9.6 6 7.3 3.7a4 4 0 0 0 5 5L3 18l3 3 8.7-9.3Z"/></svg></div><div><strong id="vf-kpi-interventions">8</strong><p>Interventions<br>en cours</p></div></article>
+          <article class="vf-kpi"><div class="vf-kpi-icon green"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></svg></div><div><strong id="vf-kpi-resolved">48</strong><p>Résolus<br>ce mois-ci</p></div></article>
+          <article class="vf-kpi"><div class="vf-kpi-icon cyan"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-4 2.3-6 6-6s6 2 6 6M16 5a3 3 0 0 1 0 6m1 3c2.5.5 4 2.4 4 5"/></svg></div><div><strong>100%</strong><p>Mobilisés pour un<br>lycée plus propre</p></div></article>
+        </div>
+
+        <div class="vf-lower">
+          <article class="vf-card vf-recent">
+            <header><h2>Signalements récents</h2><button class="vf-link" type="button" data-goto="signalements">Voir tout →</button></header>
+            <div id="vf-recent-list">
+              <div class="vf-row"><div class="vf-row-icon red"><svg viewBox="0 0 24 24"><path d="M4 5h6a3 3 0 0 1 3 3v11a3 3 0 0 0-3-3H4z"/><path d="M20 5h-6a3 3 0 0 0-3 3v11a3 3 0 0 1 3-3h6z"/></svg></div><div class="vf-row-copy"><strong>Salle B201 - Table dégradée</strong><small>Aujourd’hui - 09:14</small></div><span class="vf-pill new">Nouveau</span></div>
+              <div class="vf-row"><div class="vf-row-icon orange"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 22h4"/><path d="M8 14c-2-1-3-3-3-5a7 7 0 0 1 14 0c0 2-1 4-3 5-1 1-1 2-1 3H9c0-1 0-2-1-3Z"/></svg></div><div class="vf-row-copy"><strong>Cour - Éclairage défectueux</strong><small>Aujourd’hui - 08:37</small></div><span class="vf-pill progress">En cours</span></div>
+              <div class="vf-row"><div class="vf-row-icon blue"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6"/></svg></div><div class="vf-row-copy"><strong>Toilettes - Propreté</strong><small>Hier - 16:22</small></div><span class="vf-pill handled">Pris en charge</span></div>
+              <div class="vf-row"><div class="vf-row-icon coral"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1"/><path d="M12 4v16M4 12h16"/></svg></div><div class="vf-row-copy"><strong>Hall - Vitrage fissuré</strong><small>Hier - 14:10</small></div><span class="vf-pill resolved">Résolu</span></div>
+            </div>
+          </article>
+
+          <article class="vf-card vf-engagement">
+            <header><h2>Notre engagement</h2></header>
+            <blockquote>“Un environnement respecté<br>favorise la réussite de chacun.”</blockquote>
+            <div class="vf-rule"></div>
+            <div class="vf-values">
+              <div class="vf-value"><svg viewBox="0 0 24 24"><path d="M20 4C12 4 5 8 5 15c0 3 2 5 5 5 7 0 10-8 10-16Z"/><path d="M4 21c3-5 7-8 12-10"/></svg><span>Un lycée<br>plus propre</span></div>
+              <div class="vf-value"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-4 2.3-6 6-6s6 2 6 6M16 5a3 3 0 0 1 0 6m1 3c2.5.5 4 2.4 4 5"/></svg><span>Une communauté<br>responsable</span></div>
+              <div class="vf-value"><svg viewBox="0 0 24 24"><path d="m2 9 10-5 10 5-10 5L2 9Z"/><path d="M6 11v5c3 3 9 3 12 0v-5M22 9v6"/></svg><span>Des réussites<br>durables</span></div>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
   <div class="shell">
     <aside class="sidebar">
       <div class="brand">
@@ -289,5 +343,6 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="./app.js"></script>
+  <script src="./detail.js"></script>
 </body>
 </html>
