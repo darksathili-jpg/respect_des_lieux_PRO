@@ -46,7 +46,8 @@ test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo
   const child = spawn(EXECUTABLE, [
     `--remote-debugging-port=${DEBUG_PORT}`,
     '--remote-allow-origins=*',
-    '--force-device-scale-factor=1'
+    '--force-device-scale-factor=1',
+    '--rdl-visual-test=1'
   ], {
     env: {
       ...process.env,
@@ -75,6 +76,14 @@ test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo
     if (!page) throw new Error(`Fenêtre Electron principale introuvable.\n${output}`);
     page.setDefaultTimeout(10_000);
     console.log(`[gate] fenêtre trouvée: ${page.url()}`);
+
+    const boot = await page.evaluate(() => ({
+      readyState: document.readyState,
+      visualTest: Boolean(window.rdl?.visualTest),
+      vfReady: document.querySelector('#vf-dashboard')?.dataset.vfReady || null
+    }));
+    console.log(`[gate] bootstrap renderer ${JSON.stringify(boot)}`);
+    expect(boot.visualTest).toBe(true);
 
     await expect(page.locator('#vf-dashboard')).toHaveAttribute('data-vf-ready', 'true', { timeout: 10_000 });
     await page.evaluate(() => document.fonts.ready);
