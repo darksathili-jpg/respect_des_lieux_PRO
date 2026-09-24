@@ -22,9 +22,6 @@ test('qualification packaging : fuses Electron cohérents avec le renderer file:
   assert.equal(fuses.enableEmbeddedAsarIntegrityValidation, true);
   assert.equal(fuses.onlyLoadAppFromAsar, true);
   assert.equal(fuses.loadBrowserProcessSpecificV8Snapshot, false);
-  // Tant que createWindow utilise BrowserWindow.loadFile(file://), ce fuse doit
-  // rester activé. Le désactiver produit une fenêtre vide / ERR_FILE_NOT_FOUND
-  // sur les fichiers pourtant présents dans app.asar sous Windows.
   assert.equal(fuses.grantFileProtocolExtraPrivileges, true);
 });
 
@@ -48,22 +45,30 @@ test('qualification packaging : arbre applicatif complet, UI non exclue', () => 
     'renderer/app.js',
     'renderer/detail.js',
     'renderer/detail.css',
-    'renderer/theme-v521.js'
+    'renderer/theme-v521.js',
+    'renderer/parity-v521.js'
   ]) {
     assert.ok(fs.existsSync(requiredOnDisk), `fichier runtime absent du dépôt : ${requiredOnDisk}`);
   }
 });
 
-test('qualification UI : la charte Watteau V5.2.1 et la fiche sont chargées localement', () => {
+test('qualification UI : charte Watteau, parité UX et fiche sont chargées localement', () => {
   const preload = fs.readFileSync('preload.cjs', 'utf8');
   const detail = fs.readFileSync('renderer/detail.js', 'utf8');
   const theme = fs.readFileSync('renderer/theme-v521.js', 'utf8');
+  const parity = fs.readFileSync('renderer/parity-v521.js', 'utf8');
   assert.match(preload, /theme-v521\.js/);
+  assert.match(preload, /parity-v521\.js/);
   assert.match(preload, /detail\.js/);
   assert.match(preload, /detail\.css/);
   assert.match(theme, /watteau-v5\.2\.1/);
   assert.match(theme, /--wat-red:#8b1e24/);
   assert.match(theme, /Des lieux/);
+  assert.match(parity, /PAGE_SIZE = 25/);
+  assert.match(parity, /parity-status/);
+  assert.match(parity, /parity-gravity/);
+  assert.match(parity, /parity-sort/);
+  assert.match(parity, /RDL_PARITY/);
   assert.match(detail, /signal-detail-dialog/);
   assert.match(detail, /data-fiche/);
   assert.match(detail, /listPhotos/);
@@ -71,9 +76,10 @@ test('qualification UI : la charte Watteau V5.2.1 et la fiche sont chargées loc
   assert.match(detail, /listReparations/);
   assert.match(pkg.scripts.check, /renderer\/detail\.js/);
   assert.match(pkg.scripts.check, /renderer\/theme-v521\.js/);
+  assert.match(pkg.scripts.check, /renderer\/parity-v521\.js/);
 });
 
-test('qualification packaging : aucune publication automatique', () => {
+test('qualification packaging : aucune publication automatique hors workflow de qualification', () => {
   assert.equal(pkg.build?.publish, undefined);
   assert.match(pkg.scripts['dist:win'], /--publish never/);
 });
