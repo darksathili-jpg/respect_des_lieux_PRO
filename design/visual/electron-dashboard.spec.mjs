@@ -47,6 +47,11 @@ function rectFromQuad(quad) {
   };
 }
 
+async function documentRoot(cdp) {
+  const document = await cdp.send('DOM.getDocument', { depth: -1, pierce: true });
+  return document.root.nodeId;
+}
+
 async function queryNode(cdp, rootId, selector) {
   const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: rootId, selector });
   if (!nodeId) throw new Error(`Élément introuvable dans Electron empaqueté: ${selector}`);
@@ -116,21 +121,32 @@ test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo
     }
     if (!page) throw new Error(`Fenêtre Electron principale introuvable.\n${output}`);
     console.log(`[gate] fenêtre trouvée: ${page.url()}`);
-    await page.waitForLoadState('domcontentloaded', { timeout: 10_000 });
 
     const cdp = await context.newCDPSession(page);
     await cdp.send('DOM.enable');
     await cdp.send('Page.enable');
-    const document = await cdp.send('DOM.getDocument', { depth: -1, pierce: true });
-    const rootId = document.root.nodeId;
+    console.log('[gate] session CDP DOM/Page active');
 
-    const dashboardAttrs = await attributes(cdp, rootId, '#vf-dashboard');
+    let rootId = 0;
+    let ready = false;
+    let lastAttrs = {};
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      try {
+        rootId = await documentRoot(cdp);
+        lastAttrs = await attributes(cdp, rootId, '#vf-dashboard');
+        ready = lastAttrs['data-vf-ready'] === 'true';
+        if (ready) break;
+      } catch {}
+      await delay(125);
+    }
+    if (!ready) throw new Error(`Dashboard Electron non prêt après 5 s. Attributs=${JSON.stringify(lastAttrs)}\n${output}`);
+
     const pendingHtml = await outerHTML(cdp, rootId, '#vf-kpi-pending');
     const interventionsHtml = await outerHTML(cdp, rootId, '#vf-kpi-interventions');
     const resolvedHtml = await outerHTML(cdp, rootId, '#vf-kpi-resolved');
     const diagnostic = {
       url: page.url(),
-      vfReady: dashboardAttrs['data-vf-ready'] || null,
+      vfReady: lastAttrs['data-vf-ready'] || null,
       pending: textFromOuterHTML(pendingHtml),
       interventions: textFromOuterHTML(interventionsHtml),
       resolved: textFromOuterHTML(resolvedHtml)
