@@ -3,16 +3,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import pixelmatch from 'pixelmatch';
+import { PNG } from 'pngjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const EXECUTABLE = path.resolve(HERE, '../../dist/win-unpacked/Respect des Lieux PRO.exe');
+const MASTER = path.resolve(HERE, '../reference/dashboard-master.png');
 const DEBUG_PORT = 9222;
-
-async function box(locator, label) {
-  const value = await locator.boundingBox();
-  if (!value) throw new Error(`Élément introuvable: ${label}`);
-  return Object.fromEntries(Object.entries(value).map(([key, number]) => [key, Math.round(number)]));
-}
 
 async function delay(ms) {
   await new Promise((resolve) => setTimeout(resolve, ms));
@@ -37,9 +34,53 @@ function stopProcess(child) {
   }
 }
 
+function rectFromQuad(quad) {
+  const xs = [quad[0], quad[2], quad[4], quad[6]];
+  const ys = [quad[1], quad[3], quad[5], quad[7]];
+  const x = Math.round(Math.min(...xs));
+  const y = Math.round(Math.min(...ys));
+  return {
+    x,
+    y,
+    width: Math.round(Math.max(...xs) - Math.min(...xs)),
+    height: Math.round(Math.max(...ys) - Math.min(...ys))
+  };
+}
+
+async function queryNode(cdp, rootId, selector) {
+  const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: rootId, selector });
+  if (!nodeId) throw new Error(`Élément introuvable dans Electron empaqueté: ${selector}`);
+  return nodeId;
+}
+
+async function box(cdp, rootId, selector) {
+  const nodeId = await queryNode(cdp, rootId, selector);
+  const model = await cdp.send('DOM.getBoxModel', { nodeId });
+  return rectFromQuad(model.model.border);
+}
+
+async function outerHTML(cdp, rootId, selector) {
+  const nodeId = await queryNode(cdp, rootId, selector);
+  const result = await cdp.send('DOM.getOuterHTML', { nodeId });
+  return result.outerHTML;
+}
+
+async function attributes(cdp, rootId, selector) {
+  const nodeId = await queryNode(cdp, rootId, selector);
+  const { attributes: flat } = await cdp.send('DOM.getAttributes', { nodeId });
+  const result = {};
+  for (let index = 0; index < flat.length; index += 2) result[flat[index]] = flat[index + 1];
+  return result;
+}
+
+function textFromOuterHTML(html) {
+  return html.replace(/<[^>]+>/g, '').replaceAll('&nbsp;', ' ').trim();
+}
+
 test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo) => {
   test.setTimeout(60_000);
   expect(fs.existsSync(EXECUTABLE), `Exécutable empaqueté absent: ${EXECUTABLE}`).toBe(true);
+  expect(fs.existsSync(MASTER), `Master absent: ${MASTER}`).toBe(true);
 
   let output = '';
   console.log('[gate] lancement du binaire empaqueté');
@@ -74,50 +115,64 @@ test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo
       page = context.pages()[0] || null;
     }
     if (!page) throw new Error(`Fenêtre Electron principale introuvable.\n${output}`);
-    page.setDefaultTimeout(10_000);
     console.log(`[gate] fenêtre trouvée: ${page.url()}`);
-
     await page.waitForLoadState('domcontentloaded', { timeout: 10_000 });
-    console.log('[gate] DOMContentLoaded confirmé');
 
-    const boot = await page.evaluate(() => ({
-      readyState: document.readyState,
-      visualTest: Boolean(window.rdl?.visualTest),
-      vfReady: document.querySelector('#vf-dashboard')?.dataset.vfReady || null
-    }));
-    console.log(`[gate] bootstrap renderer ${JSON.stringify(boot)}`);
-    expect(boot.visualTest).toBe(true);
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('DOM.enable');
+    await cdp.send('Page.enable');
+    const document = await cdp.send('DOM.getDocument', { depth: -1, pierce: true });
+    const rootId = document.root.nodeId;
 
-    await expect(page.locator('#vf-dashboard')).toHaveAttribute('data-vf-ready', 'true', { timeout: 10_000 });
-    await page.evaluate(() => document.fonts.ready);
-    console.log(`[gate] viewport Electron ${await page.evaluate(() => `${innerWidth}x${innerHeight}`)}`);
+    const dashboardAttrs = await attributes(cdp, rootId, '#vf-dashboard');
+    const pendingHtml = await outerHTML(cdp, rootId, '#vf-kpi-pending');
+    const interventionsHtml = await outerHTML(cdp, rootId, '#vf-kpi-interventions');
+    const resolvedHtml = await outerHTML(cdp, rootId, '#vf-kpi-resolved');
+    const diagnostic = {
+      url: page.url(),
+      vfReady: dashboardAttrs['data-vf-ready'] || null,
+      pending: textFromOuterHTML(pendingHtml),
+      interventions: textFromOuterHTML(interventionsHtml),
+      resolved: textFromOuterHTML(resolvedHtml)
+    };
+    console.log(`[gate] DOM empaqueté ${JSON.stringify(diagnostic)}`);
 
-    expect(await box(page.locator('#vf-dashboard'), '#vf-dashboard')).toEqual({ x: 0, y: 0, width: 1448, height: 1086 });
-    expect(await box(page.locator('.vf-sidebar'), '.vf-sidebar')).toEqual({ x: 0, y: 77, width: 362, height: 1009 });
-    expect(await box(page.locator('.vf-main'), '.vf-main')).toEqual({ x: 362, y: 77, width: 1086, height: 1009 });
-    expect(await box(page.locator('.vf-hero'), '.vf-hero')).toEqual({ x: 362, y: 77, width: 1086, height: 323 });
+    expect(diagnostic.vfReady).toBe('true');
+    expect(diagnostic.pending).toBe('12');
+    expect(diagnostic.interventions).toBe('8');
+    expect(diagnostic.resolved).toBe('48');
 
-    const firstKpi = await box(page.locator('.vf-kpi').first(), '.vf-kpi:first');
-    expect(firstKpi).toEqual({ x: 376, y: 412, width: 242, height: 165 });
+    expect(await box(cdp, rootId, '#vf-dashboard')).toEqual({ x: 0, y: 0, width: 1448, height: 1086 });
+    expect(await box(cdp, rootId, '.vf-sidebar')).toEqual({ x: 0, y: 77, width: 362, height: 1009 });
+    expect(await box(cdp, rootId, '.vf-main')).toEqual({ x: 362, y: 77, width: 1086, height: 1009 });
+    expect(await box(cdp, rootId, '.vf-hero')).toEqual({ x: 362, y: 77, width: 1086, height: 323 });
+    expect(await box(cdp, rootId, '.vf-kpi')).toEqual({ x: 376, y: 412, width: 242, height: 165 });
+    console.log('[gate] géométrie et données de contrôle validées par CDP');
 
-    await expect(page.locator('#vf-kpi-pending')).toHaveText('12');
-    await expect(page.locator('#vf-kpi-interventions')).toHaveText('8');
-    await expect(page.locator('#vf-kpi-resolved')).toHaveText('48');
-    console.log('[gate] géométrie et données de contrôle validées');
-
-    const actual = testInfo.outputPath('electron-dashboard-actual.png');
-    await page.locator('#vf-dashboard').screenshot({ path: actual, animations: 'disabled', caret: 'hide', timeout: 10_000 });
-    await testInfo.attach('electron-dashboard-actual', { path: actual, contentType: 'image/png' });
-    console.log('[gate] capture réelle obtenue');
-
-    await expect(page.locator('#vf-dashboard')).toHaveScreenshot('dashboard-master.png', {
-      animations: 'disabled',
-      caret: 'hide',
-      scale: 'css',
-      threshold: 0.15,
-      maxDiffPixelRatio: 0.04,
-      timeout: 10_000
+    const capture = await cdp.send('Page.captureScreenshot', {
+      format: 'png',
+      fromSurface: true,
+      captureBeyondViewport: true,
+      clip: { x: 0, y: 0, width: 1448, height: 1086, scale: 1 }
     });
+    const actualBuffer = Buffer.from(capture.data, 'base64');
+    const actualPath = testInfo.outputPath('electron-dashboard-actual.png');
+    fs.writeFileSync(actualPath, actualBuffer);
+    await testInfo.attach('electron-dashboard-actual', { path: actualPath, contentType: 'image/png' });
+
+    const master = PNG.sync.read(fs.readFileSync(MASTER));
+    const actual = PNG.sync.read(actualBuffer);
+    expect({ width: actual.width, height: actual.height }).toEqual({ width: 1448, height: 1086 });
+    expect({ width: master.width, height: master.height }).toEqual({ width: 1448, height: 1086 });
+
+    const diff = new PNG({ width: master.width, height: master.height });
+    const diffPixels = pixelmatch(master.data, actual.data, diff.data, master.width, master.height, { threshold: 0.15 });
+    const ratio = diffPixels / (master.width * master.height);
+    const diffPath = testInfo.outputPath('electron-dashboard-diff.png');
+    fs.writeFileSync(diffPath, PNG.sync.write(diff));
+    await testInfo.attach('electron-dashboard-diff', { path: diffPath, contentType: 'image/png' });
+    console.log(`[gate] divergence pixels = ${(ratio * 100).toFixed(4)}% (${diffPixels} pixels)`);
+    expect(ratio).toBeLessThanOrEqual(0.04);
     console.log('[gate] comparaison maître validée');
   } finally {
     await testInfo.attach('electron-process-log', { body: Buffer.from(output || '(aucune sortie processus)', 'utf8'), contentType: 'text/plain' });
