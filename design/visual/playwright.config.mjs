@@ -25,7 +25,7 @@ export default defineConfig({
       caret: 'hide',
       scale: 'css',
       threshold: 0.15,
-      maxDiffPixelRatio: 0.08
+      maxDiffPixelRatio: 0.04
     }
   }
 });
