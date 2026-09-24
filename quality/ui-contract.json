@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "application": "Respect des Lieux PRO",
+  "navigation": [
+    { "view": "dashboard", "label": "Accueil" },
+    { "view": "signalements", "label": "Signalements" },
+    { "view": "reparations", "label": "Réparations" },
+    { "view": "sauvegardes", "label": "Sauvegardes" },
+    { "view": "confidentialite", "label": "Protection des données" },
+    { "view": "systeme", "label": "Système local" }
+  ],
+  "forbiddenNavigationLabels": [
+    "Interventions",
+    "Suivi",
+    "Établissement",
+    "Paramètres"
+  ],
+  "forbiddenProductionPersona": [
+    "Mme Dupont",
+    "Personnel",
+    "Mardi 15 avril 2025",
+    "14 °C"
+  ],
+  "requiredViews": [
+    "view-signalements",
+    "view-reparations",
+    "view-sauvegardes",
+    "view-confidentialite",
+    "view-systeme"
+  ],
+  "requiredControls": [
+    "privacy-toggle",
+    "backup-now",
+    "new-signalement",
+    "signal-search",
+    "backup-view-action",
+    "open-backups",
+    "encrypted-backup",
+    "encrypted-restore"
+  ],
+  "requiredProductionAssets": [
+    "renderer/assets/dashboard-hero-master.webp",
+    "renderer/assets/sidebar-logo-master.webp"
+  ],
+  "productionRules": {
+    "masterScreenshotMayBeUsedOnlyForVisualTest": true,
+    "responsiveMinimumWidthAllowed": 0,
+    "detailDialogRequiresStableScrollbar": true,
+    "detailDialogRequiresSingleColumnFallback": true,
+    "releaseMustRunQualityGate": true
+  }
+}
