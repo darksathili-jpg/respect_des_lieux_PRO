@@ -1,0 +1,62 @@
+:root{
+  --navy:#173f5d;
+  --ink:#103d5f;
+  --cream:#fbf8f4;
+  --paper:#fffdf9;
+  --border:#eee5de;
+  --red:#c51f27;
+  --blue:#0e73cf;
+  --cyan:#178ac5;
+  --green:#079833;
+  --orange:#ee9000;
+}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;min-width:1448px;height:100%;min-height:1086px;background:var(--cream);font-family:"Segoe UI Variable","Segoe UI",Arial,sans-serif;color:var(--ink)}
+button{font:inherit}
+svg{display:block;width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.vf-canvas{position:relative;width:1448px;height:1086px;overflow:hidden;background:var(--cream)}
+
+/* Complex brand/illustration regions reuse the approved master itself as a local sprite.
+   This avoids approximate redraws while all data-bearing cards remain real HTML/CSS. */
+.vf-topbar{position:absolute;left:0;top:0;width:1448px;height:77px;background:url("../reference/dashboard-master.png") 0 0/1448px 1086px no-repeat}
+.vf-sidebar{position:absolute;left:0;top:77px;width:362px;height:1009px;background:linear-gradient(180deg,#1c4865 0%,#173f5d 52%,#173c58 100%);color:#fff}
+.vf-logo{height:257px;background:url("../reference/dashboard-master.png") 0 -77px/1448px 1086px no-repeat}
+.vf-sidebar-bottom{position:absolute;left:0;bottom:0;width:362px;height:266px;background:url("../reference/dashboard-master.png") 0 -820px/1448px 1086px no-repeat;pointer-events:none}
+
+.vf-nav{display:flex;flex-direction:column;margin:0;padding:0}
+.vf-nav-item{height:79px;border:0;background:transparent;color:#fff;display:flex;align-items:center;gap:22px;padding:0 38px;text-align:left;font-size:23px;font-weight:400;line-height:1}
+.vf-nav-item.active{height:74px;background:linear-gradient(90deg,#c33d35,#dc6f54);font-weight:650}
+.vf-icon{width:38px;height:38px;flex:0 0 38px}
+.vf-nav-item.active .vf-icon{width:42px;height:42px;flex-basis:42px}
+
+.vf-main{position:absolute;left:362px;top:77px;width:1086px;height:1009px;background:var(--cream)}
+.vf-hero{height:323px;background:url("../reference/dashboard-master.png") -362px -77px/1448px 1086px no-repeat}
+.vf-content{padding:12px 64px 0 14px}
+.vf-kpis{display:grid;grid-template-columns:repeat(4,242px);gap:13px}
+.vf-kpi{height:165px;background:var(--paper);border:1px solid #ece3dc;border-radius:13px;box-shadow:0 5px 17px rgba(42,49,55,.07);display:grid;grid-template-columns:60px 1fr;align-items:center;padding:20px 16px 18px 22px;column-gap:12px}
+.vf-kpi-icon{width:58px;height:58px}.vf-kpi-icon.red{color:#d21f28}.vf-kpi-icon.blue{color:#0a70d2}.vf-kpi-icon.green{color:#079833}.vf-kpi-icon.cyan{color:#168ac3}
+.vf-kpi strong{display:block;margin:0 0 10px;font-size:51px;line-height:.92;font-weight:700;letter-spacing:-1.4px;color:#0e3c60}
+.vf-kpi p{margin:0;font-size:20px;line-height:1.28;color:#123d5e;font-weight:400}
+
+.vf-lower{display:grid;grid-template-columns:512px 482px;gap:15px;margin-top:19px}
+.vf-card{height:404px;background:var(--paper);border:1px solid #ece3dc;border-radius:13px;box-shadow:0 5px 17px rgba(42,49,55,.065);overflow:hidden}
+.vf-card header{height:66px;border-bottom:1px solid #eee5de;display:flex;align-items:center;justify-content:space-between;padding:0 22px}
+.vf-card h2{margin:0;font-size:27px;letter-spacing:-.7px;font-weight:700;color:#0d3d61}
+.vf-card header span{font-size:16px;color:#1d628f}
+.vf-row{height:84px;display:grid;grid-template-columns:50px 1fr auto;align-items:center;gap:12px;padding:0 22px;border-bottom:1px solid #efe7e0}
+.vf-row:last-child{border-bottom:0}
+.vf-row-icon{width:40px;height:40px}.vf-row-icon.red{color:#e3212b}.vf-row-icon.orange{color:#f09700}.vf-row-icon.blue{color:#0c73d1}.vf-row-icon.coral{color:#e84c1e}
+.vf-row-copy strong{display:block;font-size:17px;line-height:1.15;color:#143f61;font-weight:650}
+.vf-row-copy small{display:block;margin-top:7px;font-size:14px;color:#7890a2}
+.vf-pill{display:inline-flex;align-items:center;justify-content:center;min-width:96px;height:38px;border-radius:999px;padding:0 14px;font-size:14px;white-space:nowrap}
+.vf-pill.new{background:#fde4df;color:#d52e31}.vf-pill.progress{background:#fff0db;color:#e67900}.vf-pill.handled{background:#e5f3de;color:#23853a;min-width:124px}.vf-pill.resolved{background:#dff1d9;color:#248038;min-width:87px}
+
+.vf-engagement{position:relative}.vf-engagement::after{content:"";position:absolute;right:-70px;top:82px;width:270px;height:270px;border:22px solid #d88b75;border-radius:50%;opacity:.07}
+.vf-engagement blockquote{position:relative;z-index:2;margin:25px 28px 22px;font-family:Georgia,"Times New Roman",serif;font-size:24px;line-height:1.45;font-style:italic;color:#153f61}
+.vf-rule{width:58px;height:4px;border-radius:4px;background:#c51f27;margin:0 0 30px 28px}
+.vf-values{position:relative;z-index:2;display:grid;grid-template-columns:repeat(3,1fr);margin:0 19px}
+.vf-value{text-align:center;color:#153f60;font-size:14px;line-height:1.42;padding:0 10px;border-right:1px solid #e8dfd8}.vf-value:last-child{border-right:0}
+.vf-value svg{width:45px;height:45px;margin:0 auto 10px;color:#c71d23}
+
+/* Phase A is intentionally fixed to the approved 1448 × 1086 master viewport.
+   Responsive scaling is deferred until fidelity has passed. */
