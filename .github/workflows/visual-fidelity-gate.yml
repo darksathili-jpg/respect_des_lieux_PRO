@@ -1,0 +1,67 @@
+name: Visual Fidelity Reconstruction Gate
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "design/prototype/**"
+      - "design/reference/dashboard-master.png"
+      - "design/visual/**"
+      - "docs/AUDIT-VISUAL-FIDELITY-RECONSTRUCTION.md"
+      - ".github/workflows/visual-fidelity-gate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  visual-fidelity:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Node 24.21
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24.21.0"
+
+      - name: Verify approved master identity
+        shell: pwsh
+        run: |
+          $master = "design/reference/dashboard-master.png"
+          if (-not (Test-Path $master)) { throw "Master visuel absent: $master" }
+          $hash = (Get-FileHash $master -Algorithm SHA256).Hash.ToLowerInvariant()
+          $expected = "1106a0bcbc52d34ef6ea95f56ac999b2abc228034bd1a673023d3c761f155944"
+          Write-Host "dashboard-master.png SHA-256: $hash"
+          if ($hash -ne $expected) { throw "La source de vérité visuelle a changé sans validation explicite." }
+
+      - name: Install pinned Playwright harness
+        shell: pwsh
+        working-directory: design/visual
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install chromium
+
+      - name: Prepare immutable snapshot baseline
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "design/visual/snapshots" | Out-Null
+          Copy-Item "design/reference/dashboard-master.png" "design/visual/snapshots/dashboard-master.png" -Force
+
+      - name: Compare autonomous HTML/CSS reconstruction to master
+        shell: pwsh
+        working-directory: design/visual
+        run: npx playwright test --config=playwright.config.mjs
+
+      - name: Upload visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-fidelity-evidence
+          path: |
+            design/visual/artifacts/**
+            design/visual/playwright-report/**
+          if-no-files-found: ignore
+          retention-days: 14
