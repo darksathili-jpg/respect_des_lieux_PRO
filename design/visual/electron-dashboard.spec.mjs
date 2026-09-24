@@ -102,8 +102,6 @@ function rectFromQuad(quad) {
 }
 
 async function documentRoot(cdp) {
-  // A shallow document root is sufficient for DOM.querySelector and avoids
-  // serialising the entire Electron renderer tree on Windows CI.
   const document = await cdp.send('DOM.getDocument', { depth: 0, pierce: true });
   return document.root.nodeId;
 }
@@ -166,8 +164,6 @@ test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo
     const target = await discoverRendererTarget(() => output);
     console.log(`[gate] cible renderer trouvée: ${target.url}`);
     cdp = await CdpClient.connect(target.webSocketDebuggerUrl);
-    await cdp.send('DOM.enable');
-    await cdp.send('Page.enable');
     console.log('[gate] protocole DevTools direct actif');
 
     let rootId = 0;
