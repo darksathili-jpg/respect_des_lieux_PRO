@@ -54,7 +54,7 @@ test('qualification packaging : arbre applicatif complet et nouveau dashboard pr
   }
 });
 
-test('qualification UI Phase B : intégration statique, CSP stricte et aucune injection de couche graphique', () => {
+test('qualification UI Phase B/C : intégration statique, CSP stricte et preload sans injection graphique', () => {
   const preload = fs.readFileSync('preload.cjs', 'utf8');
   const index = fs.readFileSync('renderer/index.html', 'utf8');
   const dashboardCss = fs.readFileSync('renderer/dashboard-vf.css', 'utf8');
@@ -68,7 +68,15 @@ test('qualification UI Phase B : intégration statique, CSP stricte et aucune in
   assert.match(index, /data-vf-master="dashboard-master-2026-09-24"/);
   assert.match(index, /<script src="\.\/detail\.js"><\/script>/);
 
-  assert.doesNotMatch(preload, /document\./);
+  // Le preload n'injecte toujours aucune couche graphique. Phase C lui permet
+  // seulement de poser le marqueur visual-test-mode qui isole le master figé
+  // de l'interface responsive de production. Toute extension de cet accès DOM
+  // doit faire échouer ce gate et être revue explicitement.
+  const documentRefs = preload.match(/document\./g) || [];
+  assert.equal(documentRefs.length, 2, 'le preload ne doit contenir que les deux accès DOM du marqueur de qualification');
+  assert.match(preload, /document\.body\?\.classList\.toggle\('visual-test-mode', visualTest\)/);
+  assert.match(preload, /document\.readyState === 'loading'/);
+  assert.doesNotMatch(preload, /createElement|appendChild|insertAdjacent|innerHTML|outerHTML|insertCSS/);
   assert.doesNotMatch(preload, /appendLocalStyle|appendLocalScript|installUiLayers/);
   assert.doesNotMatch(preload, /theme-v521|fidelity-master-v521|parity-v521/);
 
@@ -76,6 +84,8 @@ test('qualification UI Phase B : intégration statique, CSP stricte et aucune in
   assert.match(dashboardCss, /dashboard-master\.png/);
   assert.match(dashboardCss, /grid-template-columns:repeat\(4,242px\)/);
   assert.match(dashboardCss, /grid-template-columns:512px 482px/);
+  assert.match(dashboardCss, /body:not\(\.visual-test-mode\)\.dashboard-mode/);
+  assert.match(dashboardCss, /body:not\(\.visual-test-mode\):not\(\.dashboard-mode\)>#vf-dashboard/);
 
   assert.match(app, /visualTestMode/);
   assert.match(app, /vf-kpi-pending/);
