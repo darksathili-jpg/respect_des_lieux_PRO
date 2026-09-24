@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('rdl', Object.freeze({
+  visualTest: process.env.RDL_VISUAL_TEST === '1',
   bootstrap: () => ipcRenderer.invoke('rdl:bootstrap'),
   listSignalements: (limit) => ipcRenderer.invoke('rdl:signalements:list', limit),
   createSignalement: (payload) => ipcRenderer.invoke('rdl:signalements:create', payload),
