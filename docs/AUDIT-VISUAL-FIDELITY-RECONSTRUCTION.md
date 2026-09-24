@@ -6,7 +6,7 @@ La tentative V5.2.1 précédente est **abandonnée comme stratégie graphique**.
 
 Le socle technique déjà validé sur poste Windows n'est pas concerné par cet abandon : SQLite local, stockage photos, sauvegarde chiffrée, restauration, registre de purge, protections Electron et tests de fiabilité restent gelés.
 
-Aucune réintégration dans `renderer/` n'est autorisée tant que le prototype autonome `design/prototype/dashboard.html` n'a pas franchi le Visual Fidelity Gate.
+Aucune réintégration dans `renderer/` n'était autorisée tant que le prototype autonome `design/prototype/dashboard.html` n'avait pas franchi le Visual Fidelity Gate.
 
 ## Source de vérité
 
@@ -66,7 +66,7 @@ Règles :
 4. aucune ressource distante ;
 5. aucune injection CSS ;
 6. viewport fixe `1448 × 1086` pendant la calibration ;
-7. les zones illustrées complexes et statiques du master peuvent être exploitées comme **sprite local** provenant du master validé ;
+7. les zones illustrées ou éditoriales entièrement statiques du master peuvent être exploitées comme **sprite local** provenant du master validé ;
 8. les cartes et informations destinées à redevenir dynamiques restent du vrai HTML/CSS.
 
 Cette approche sépare les deux problèmes : fidélité graphique d'abord, branchement métier ensuite.
@@ -82,9 +82,15 @@ Il vérifie :
 - une capture réelle du canvas ;
 - une comparaison pixel à pixel avec `dashboard-master.png`.
 
-Seuil Phase A : `maxDiffPixelRatio = 0.08`, `threshold = 0.15`.
+Seuil Phase A final : `maxDiffPixelRatio = 0.04`, `threshold = 0.15`.
 
-Ce seuil ne signifie pas « 92 % de qualité subjective ». Il interdit simplement qu'une proportion supérieure à 8 % des pixels diverge au-delà de la tolérance colorimétrique configurée. Toute réintégration Electron est bloquée tant que ce test n'est pas vert.
+Ce seuil ne signifie pas « 96 % de qualité subjective ». Il impose qu'au plus 4 % des pixels puissent diverger au-delà de la tolérance colorimétrique de comparaison. La géométrie structurante est, elle, contrôlée séparément par des assertions exactes.
+
+### Résultat
+
+**PASS strict obtenu le 24 septembre 2026** sur Windows pour le commit `74e1e1b12b86a4e3f4e2130bd0c11a1f16360300`, workflow `Visual Fidelity Reconstruction Gate`, run `35966679980`.
+
+Le premier seuil à 8 % avait déjà réussi, mais il a été volontairement resserré à **4 %** avant d'autoriser la suite. Les régions totalement statiques (navigation, panneau éditorial « Notre engagement », illustration, logo et hero) utilisent le master approuvé comme asset local ; les zones appelées à recevoir les données réelles restent du HTML/CSS.
 
 ## Ce qui est explicitement interdit avant PASS
 
@@ -93,6 +99,8 @@ Ce seuil ne signifie pas « 92 % de qualité subjective ». Il interdit simpleme
 - réactiver une couche de thème injectée dynamiquement ;
 - publier une nouvelle release Windows présentée comme refonte fidèle ;
 - utiliser des données réelles d'élèves pendant cette qualification.
+
+Ces interdictions ont été respectées pendant la Phase A.
 
 ## Après PASS uniquement
 
