@@ -33,14 +33,13 @@ test('dashboard master — geometry + visual fidelity', async ({ page }, testInf
   await page.locator('.vf-canvas').screenshot({ path: actual, animations: 'disabled', caret: 'hide' });
   await testInfo.attach('dashboard-actual', { path: actual, contentType: 'image/png' });
 
-  // Gate de fidélité réel. Le seuil est volontairement strict pour une première
-  // reconstruction HTML/CSS : moins de 8 % des pixels peuvent diverger au-delà
-  // du seuil couleur. L'interface Electron ne sera pas réintégrée avant PASS.
+  // Gate de fidélité réel : au maximum 4 % des pixels peuvent diverger au-delà
+  // du seuil colorimétrique. L'interface Electron ne sera pas réintégrée avant PASS.
   await expect(page.locator('.vf-canvas')).toHaveScreenshot('dashboard-master.png', {
     animations: 'disabled',
     caret: 'hide',
     scale: 'css',
     threshold: 0.15,
-    maxDiffPixelRatio: 0.08
+    maxDiffPixelRatio: 0.04
   });
 });
