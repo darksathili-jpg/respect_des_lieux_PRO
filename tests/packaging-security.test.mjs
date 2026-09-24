@@ -12,6 +12,8 @@ test('qualification packaging : versions critiques épinglées', () => {
   assert.doesNotMatch(pkg.devDependencies['electron-builder'], /^[~^]/);
   assert.match(pkg.scripts['dist:win'], /--x64/);
   assert.match(pkg.scripts['dist:win'], /--publish never/);
+  assert.match(pkg.scripts['dist:win:dir'], /--win dir/);
+  assert.match(pkg.scripts['dist:win:dir'], /--publish never/);
 });
 
 test('qualification packaging : fuses Electron cohérents avec le renderer file://', () => {
@@ -25,11 +27,11 @@ test('qualification packaging : fuses Electron cohérents avec le renderer file:
   assert.equal(fuses.grantFileProtocolExtraPrivileges, true);
 });
 
-test('qualification packaging : arbre applicatif complet, UI non exclue', () => {
+test('qualification packaging : arbre applicatif complet et nouveau dashboard présents', () => {
   assert.equal(pkg.main, 'main-bootstrap.cjs');
   const files = pkg.build?.files || [];
   assert.ok(files.includes('**/*'), 'le package doit partir de l’arbre applicatif complet');
-  for (const forbidden of ['!renderer/**', '!renderer/**/*', '!src/**', '!src/**/*']) {
+  for (const forbidden of ['!renderer/**', '!renderer/**/*', '!src/**', '!src/**/*', '!design/**', '!design/**/*']) {
     assert.ok(!files.includes(forbidden), `exclusion interdite : ${forbidden}`);
   }
   for (const requiredOnDisk of [
@@ -42,58 +44,68 @@ test('qualification packaging : arbre applicatif complet, UI non exclue', () => 
     'renderer/index.html',
     'renderer/styles.css',
     'renderer/v51.css',
+    'renderer/dashboard-vf.css',
     'renderer/app.js',
     'renderer/detail.js',
     'renderer/detail.css',
-    'renderer/theme-v521.js',
-    'renderer/fidelity-master-v521.css',
-    'renderer/fidelity-master-v521.js',
-    'renderer/assets/dashboard-hero-master.webp',
-    'renderer/assets/sidebar-logo-master.webp',
-    'renderer/parity-v521.js'
+    'design/reference/dashboard-master.png'
   ]) {
     assert.ok(fs.existsSync(requiredOnDisk), `fichier runtime absent du dépôt : ${requiredOnDisk}`);
   }
 });
 
-test('qualification UI : charte Watteau, fidélité maître, parité UX et fiche sont chargées localement', () => {
+test('qualification UI Phase B : intégration statique, CSP stricte et aucune injection de couche graphique', () => {
   const preload = fs.readFileSync('preload.cjs', 'utf8');
+  const index = fs.readFileSync('renderer/index.html', 'utf8');
+  const dashboardCss = fs.readFileSync('renderer/dashboard-vf.css', 'utf8');
+  const app = fs.readFileSync('renderer/app.js', 'utf8');
   const detail = fs.readFileSync('renderer/detail.js', 'utf8');
-  const theme = fs.readFileSync('renderer/theme-v521.js', 'utf8');
-  const fidelityCss = fs.readFileSync('renderer/fidelity-master-v521.css', 'utf8');
-  const fidelityJs = fs.readFileSync('renderer/fidelity-master-v521.js', 'utf8');
-  const parity = fs.readFileSync('renderer/parity-v521.js', 'utf8');
-  assert.match(preload, /theme-v521\.js/);
-  assert.match(preload, /fidelity-master-v521\.css/);
-  assert.match(preload, /fidelity-master-v521\.js/);
-  assert.match(preload, /parity-v521\.js/);
-  assert.match(preload, /detail\.js/);
-  assert.match(preload, /detail\.css/);
-  assert.match(theme, /watteau-v5\.2\.1/);
-  assert.match(theme + '\n' + fidelityCss, /--wat-red:#8b1e24/);
-  assert.match(theme, /Des lieux/);
-  assert.match(fidelityCss, /dashboard-hero-master\.webp/);
-  assert.match(fidelityCss, /sidebar-logo-master\.webp/);
-  assert.match(fidelityCss, /height:100vh!important/);
-  assert.match(fidelityJs, /master-dashboard-2026-09-24/);
-  assert.match(fidelityJs, /Respect des Lieux PRO/);
-  assert.match(parity, /PAGE_SIZE = 25/);
-  assert.match(parity, /parity-status/);
-  assert.match(parity, /parity-gravity/);
-  assert.match(parity, /parity-sort/);
-  assert.match(parity, /RDL_PARITY/);
+
+  assert.match(index, /style-src 'self'/);
+  assert.match(index, /\.\/dashboard-vf\.css/);
+  assert.match(index, /\.\/detail\.css/);
+  assert.match(index, /id="vf-dashboard"/);
+  assert.match(index, /data-vf-master="dashboard-master-2026-09-24"/);
+  assert.match(index, /<script src="\.\/detail\.js"><\/script>/);
+
+  assert.doesNotMatch(preload, /document\./);
+  assert.doesNotMatch(preload, /appendLocalStyle|appendLocalScript|installUiLayers/);
+  assert.doesNotMatch(preload, /theme-v521|fidelity-master-v521|parity-v521/);
+
+  assert.match(dashboardCss, /width:1448px;height:1086px/);
+  assert.match(dashboardCss, /dashboard-master\.png/);
+  assert.match(dashboardCss, /grid-template-columns:repeat\(4,242px\)/);
+  assert.match(dashboardCss, /grid-template-columns:512px 482px/);
+
+  assert.match(app, /visualTestMode/);
+  assert.match(app, /vf-kpi-pending/);
+  assert.match(app, /state\.reparations\.filter/);
+  assert.match(app, /closed_at/);
+  assert.match(app, /dashboard-mode/);
   assert.match(detail, /signal-detail-dialog/);
   assert.match(detail, /data-fiche/);
   assert.match(detail, /listPhotos/);
   assert.match(detail, /openPhoto/);
   assert.match(detail, /listReparations/);
+
+  assert.match(pkg.scripts.check, /renderer\/app\.js/);
   assert.match(pkg.scripts.check, /renderer\/detail\.js/);
-  assert.match(pkg.scripts.check, /renderer\/theme-v521\.js/);
-  assert.match(pkg.scripts.check, /renderer\/fidelity-master-v521\.js/);
-  assert.match(pkg.scripts.check, /renderer\/parity-v521\.js/);
+  assert.doesNotMatch(pkg.scripts.check, /theme-v521|fidelity-master-v521|parity-v521/);
+});
+
+test('qualification UI Phase B : anciennes couches V5.2.1 supprimées du runtime', () => {
+  for (const obsolete of [
+    'renderer/theme-v521.js',
+    'renderer/fidelity-master-v521.css',
+    'renderer/fidelity-master-v521.js',
+    'renderer/parity-v521.js'
+  ]) {
+    assert.equal(fs.existsSync(obsolete), false, `ancienne couche encore présente : ${obsolete}`);
+  }
 });
 
 test('qualification packaging : aucune publication automatique hors workflow de qualification', () => {
   assert.equal(pkg.build?.publish, undefined);
   assert.match(pkg.scripts['dist:win'], /--publish never/);
+  assert.match(pkg.scripts['dist:win:dir'], /--publish never/);
 });
