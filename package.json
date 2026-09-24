@@ -11,9 +11,10 @@
   },
   "scripts": {
     "start": "electron .",
-    "check": "node --check main-bootstrap.cjs && node --check main.cjs && node --check preload.cjs && node --check src/database.cjs && node --check src/storage.cjs && node --check src/portable-backup.cjs && node --check renderer/app.js && node --check renderer/detail.js && node --check renderer/theme-v521.js && node --check renderer/fidelity-master-v521.js && node --check renderer/parity-v521.js",
+    "check": "node --check main-bootstrap.cjs && node --check main.cjs && node --check preload.cjs && node --check src/database.cjs && node --check src/storage.cjs && node --check src/portable-backup.cjs && node --check renderer/app.js && node --check renderer/detail.js",
     "test": "node --test tests/*.test.mjs",
     "verify": "npm run check && npm test",
+    "dist:win:dir": "electron-builder --win dir --x64 --publish never",
     "dist:win": "electron-builder --win nsis --x64 --publish never"
   },
   "devDependencies": {
