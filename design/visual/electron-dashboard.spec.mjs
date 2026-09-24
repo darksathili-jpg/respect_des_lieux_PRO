@@ -73,7 +73,8 @@ test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo
       page = context.pages()[0] || null;
     }
     if (!page) throw new Error(`Fenêtre Electron principale introuvable.\n${output}`);
-    console.log(`[gate] fenêtre trouvée: ${await page.title()}`);
+    page.setDefaultTimeout(10_000);
+    console.log(`[gate] fenêtre trouvée: ${page.url()}`);
 
     await expect(page.locator('#vf-dashboard')).toHaveAttribute('data-vf-ready', 'true', { timeout: 10_000 });
     await page.evaluate(() => document.fonts.ready);
