@@ -46,24 +46,37 @@ test('qualification packaging : arbre applicatif complet, UI non exclue', () => 
     'renderer/detail.js',
     'renderer/detail.css',
     'renderer/theme-v521.js',
+    'renderer/fidelity-master-v521.css',
+    'renderer/fidelity-master-v521.js',
+    'renderer/assets/dashboard-hero-master.webp',
+    'renderer/assets/sidebar-logo-master.webp',
     'renderer/parity-v521.js'
   ]) {
     assert.ok(fs.existsSync(requiredOnDisk), `fichier runtime absent du dépôt : ${requiredOnDisk}`);
   }
 });
 
-test('qualification UI : charte Watteau, parité UX et fiche sont chargées localement', () => {
+test('qualification UI : charte Watteau, fidélité maître, parité UX et fiche sont chargées localement', () => {
   const preload = fs.readFileSync('preload.cjs', 'utf8');
   const detail = fs.readFileSync('renderer/detail.js', 'utf8');
   const theme = fs.readFileSync('renderer/theme-v521.js', 'utf8');
+  const fidelityCss = fs.readFileSync('renderer/fidelity-master-v521.css', 'utf8');
+  const fidelityJs = fs.readFileSync('renderer/fidelity-master-v521.js', 'utf8');
   const parity = fs.readFileSync('renderer/parity-v521.js', 'utf8');
   assert.match(preload, /theme-v521\.js/);
+  assert.match(preload, /fidelity-master-v521\.css/);
+  assert.match(preload, /fidelity-master-v521\.js/);
   assert.match(preload, /parity-v521\.js/);
   assert.match(preload, /detail\.js/);
   assert.match(preload, /detail\.css/);
   assert.match(theme, /watteau-v5\.2\.1/);
-  assert.match(theme, /--wat-red:#8b1e24/);
+  assert.match(theme + '\n' + fidelityCss, /--wat-red:#8b1e24/);
   assert.match(theme, /Des lieux/);
+  assert.match(fidelityCss, /dashboard-hero-master\.webp/);
+  assert.match(fidelityCss, /sidebar-logo-master\.webp/);
+  assert.match(fidelityCss, /height:100vh!important/);
+  assert.match(fidelityJs, /master-dashboard-2026-09-24/);
+  assert.match(fidelityJs, /Respect des Lieux PRO/);
   assert.match(parity, /PAGE_SIZE = 25/);
   assert.match(parity, /parity-status/);
   assert.match(parity, /parity-gravity/);
@@ -76,6 +89,7 @@ test('qualification UI : charte Watteau, parité UX et fiche sont chargées loca
   assert.match(detail, /listReparations/);
   assert.match(pkg.scripts.check, /renderer\/detail\.js/);
   assert.match(pkg.scripts.check, /renderer\/theme-v521\.js/);
+  assert.match(pkg.scripts.check, /renderer\/fidelity-master-v521\.js/);
   assert.match(pkg.scripts.check, /renderer\/parity-v521\.js/);
 });
 
