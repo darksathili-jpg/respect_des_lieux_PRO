@@ -11,6 +11,10 @@ on:
       - "src/**"
       - "renderer/**"
       - "tests/**"
+      - "design/reference/dashboard-master.png"
+      - "design/visual/electron-dashboard.spec.mjs"
+      - "design/visual/playwright.electron.config.mjs"
+      - "design/visual/package.json"
       - ".github/workflows/v52-windows-qualification.yml"
   workflow_dispatch:
 
@@ -29,6 +33,17 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: "24.21.0"
+          package-manager-cache: false
+
+      - name: Verify approved master identity
+        shell: pwsh
+        run: |
+          $master = "design/reference/dashboard-master.png"
+          if (-not (Test-Path $master)) { throw "Master visuel absent: $master" }
+          $hash = (Get-FileHash $master -Algorithm SHA256).Hash.ToLowerInvariant()
+          $expected = "1106a0bcbc52d34ef6ea95f56ac999b2abc228034bd1a673023d3c761f155944"
+          Write-Host "dashboard-master.png SHA-256: $hash"
+          if ($hash -ne $expected) { throw "La source de vérité visuelle a changé sans validation explicite." }
 
       - name: Install pinned desktop toolchain
         shell: pwsh
@@ -40,9 +55,11 @@ jobs:
 
       - name: Build unpacked Windows runtime
         shell: pwsh
-        run: npx electron-builder --win dir --x64 --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npm run dist:win:dir
 
-      - name: Rendered UI gate
+      - name: Rendered UI smoke gate
         shell: pwsh
         run: |
           $exe = Get-ChildItem -Path dist -Recurse -Filter "Respect des Lieux PRO.exe" -File | Select-Object -First 1
@@ -64,6 +81,33 @@ jobs:
           if ($p.ExitCode -ne 0 -or $out -notmatch 'RDL_SMOKE_PASS') {
             throw "Qualification refusée : l'interface empaquetée n'a pas fourni de preuve de rendu valide."
           }
+
+      - name: Install pinned Playwright fidelity harness
+        shell: pwsh
+        working-directory: design/visual
+        run: npm install --no-audit --no-fund
+
+      - name: Prepare immutable Electron snapshot baseline
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "design/visual/electron-snapshots" | Out-Null
+          Copy-Item "design/reference/dashboard-master.png" "design/visual/electron-snapshots/dashboard-master.png" -Force
+
+      - name: Electron master fidelity gate
+        shell: pwsh
+        working-directory: design/visual
+        run: npx playwright test --config=playwright.electron.config.mjs
+
+      - name: Upload Electron visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-qualification-fidelity-evidence
+          path: |
+            design/visual/electron-artifacts/**
+            design/visual/playwright-report/**
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Build x64 NSIS qualification installer
         shell: pwsh
@@ -97,13 +141,16 @@ jobs:
           if (-not $exe) { throw "Installateur introuvable pour la publication." }
 
           gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
-          if ($LASTEXITCODE -ne 0) {
-            gh release create $tag `
-              --repo $env:GITHUB_REPOSITORY `
-              --target $env:GITHUB_SHA `
-              --title $title `
-              --prerelease `
-              --notes "Version de qualification Windows non signée. Utiliser uniquement des données fictives pour les essais."
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "La release $tag existe déjà : publication ignorée afin de ne jamais remplacer silencieusement un installateur déjà distribué."
+            exit 0
           }
 
-          gh release upload $tag $exe.FullName --repo $env:GITHUB_REPOSITORY --clobber
+          gh release create $tag `
+            --repo $env:GITHUB_REPOSITORY `
+            --target $env:GITHUB_SHA `
+            --title $title `
+            --prerelease `
+            --notes "Version de qualification Windows non signée. Le dashboard empaqueté a franchi le Visual Fidelity Gate face au master approuvé. Utiliser uniquement des données fictives pour les essais."
+
+          gh release upload $tag $exe.FullName --repo $env:GITHUB_REPOSITORY
