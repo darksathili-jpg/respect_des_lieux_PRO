@@ -7,57 +7,20 @@ code{font-family:Consolas,"Courier New",monospace;background:#eef2f6;border-radi
 .secret-field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(85,125,183,.1)}
 .secret-field[hidden]{display:none}
 
-/* Phase C production truth: no fictive master chrome outside the visual gate. */
+/* Frontière stricte production / master de qualification.
+   En production, aucune découpe de dashboard-master.png n'est autorisée :
+   le logo et le hero utilisent uniquement leurs assets dédiés empaquetés. */
+body:not(.visual-test-mode) #vf-dashboard .vf-logo{
+  background:url("./assets/sidebar-logo-master.webp") center/contain no-repeat!important;
+}
+body:not(.visual-test-mode).dashboard-mode #vf-dashboard .vf-hero{
+  background:url("./assets/dashboard-hero-master.webp") center/cover no-repeat #fbf8f4!important;
+}
+
+/* Le bandeau de production est un vrai composant, jamais une tranche de la
+   capture maître. Les libellés de navigation restent ceux du HTML réel. */
 body:not(.visual-test-mode) #vf-dashboard .vf-topbar{
   background:linear-gradient(180deg,#fffdf9 0%,#faf6f1 100%)!important;
   border-bottom:1px solid #eadfd7!important;
   box-shadow:0 4px 18px rgba(27,58,79,.05)!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:space-between!important;
-  padding:0 clamp(20px,2.2vw,36px)!important;
-  color:#123f60!important;
 }
-body:not(.visual-test-mode) #vf-dashboard .vf-topbar::before{
-  content:"Respect des Lieux PRO";
-  font-size:clamp(18px,1.25vw,23px);
-  font-weight:750;
-  letter-spacing:-.02em;
-}
-body:not(.visual-test-mode) #vf-dashboard .vf-topbar::after{
-  content:"Lycée Watteau · Valenciennes · données locales";
-  font-size:clamp(11px,.82vw,14px);
-  font-weight:600;
-  color:#667f91;
-}
-
-/* Production artwork uses the approved PNG directly: avoids packaged WebP regressions. */
-body:not(.visual-test-mode) #vf-dashboard .vf-logo{
-  background-image:url("../design/reference/dashboard-master.png")!important;
-  background-size:400% auto!important;
-  background-position:left 9.5%!important;
-  background-repeat:no-repeat!important;
-}
-body:not(.visual-test-mode).dashboard-mode #vf-dashboard .vf-hero{
-  background-image:url("../design/reference/dashboard-master.png")!important;
-  background-size:133.333% auto!important;
-  background-position:right 9.5%!important;
-  background-repeat:no-repeat!important;
-  background-color:#fbf8f4!important;
-}
-
-/* The visible categories must match the real application views exactly. */
-body:not(.visual-test-mode) #vf-dashboard .vf-nav-item>span:last-child{display:none!important}
-body:not(.visual-test-mode) #vf-dashboard .vf-nav-item::after{
-  display:block;
-  color:inherit;
-  font:inherit;
-  white-space:nowrap;
-}
-body:not(.visual-test-mode) #vf-dashboard .vf-nav-item[data-view="dashboard"]::after{content:"Accueil"}
-body:not(.visual-test-mode) #vf-dashboard .vf-nav-item[data-view="signalements"]::after{content:"Signalements"}
-body:not(.visual-test-mode) #vf-dashboard .vf-nav-item[data-view="reparations"]::after{content:"Réparations"}
-body:not(.visual-test-mode) #vf-dashboard .vf-nav-item[data-view="sauvegardes"]::after{content:"Sauvegardes"}
-body:not(.visual-test-mode) #vf-dashboard .vf-nav-item[data-view="confidentialite"]::after{content:"Protection des données"}
-body:not(.visual-test-mode) #vf-dashboard .vf-nav-item[data-view="systeme"]::after{content:"Système local"}
-@media(max-width:820px){body:not(.visual-test-mode) #vf-dashboard .vf-nav-item::after{display:none!important}}
