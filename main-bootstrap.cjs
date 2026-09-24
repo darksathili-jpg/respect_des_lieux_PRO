@@ -58,7 +58,7 @@ function paintProbe(nativeImage) {
 }
 
 async function probeRenderer(win) {
-  await delay(1600);
+  await delay(1800);
   const dom = await win.webContents.executeJavaScript(`(() => {
     const shell = document.querySelector('.shell');
     const sidebar = document.querySelector('.sidebar');
@@ -66,6 +66,7 @@ async function probeRenderer(win) {
     const title = document.querySelector('#page-title');
     const shellRect = shell?.getBoundingClientRect();
     const sidebarRect = sidebar?.getBoundingClientRect();
+    const parity = window.RDL_PARITY?.snapshot?.() || null;
     return {
       readyState: document.readyState,
       shell: Boolean(shell),
@@ -78,6 +79,10 @@ async function probeRenderer(win) {
       themeStyle: Boolean(document.querySelector('#rdl-theme-v521')),
       themeSignature: Boolean(document.querySelector('[data-rdl-theme-signature="watteau-v5.2.1"]')),
       themeVersion: document.documentElement?.dataset?.rdlTheme || '',
+      parityScript: Boolean(document.querySelector('script[data-rdl-parity-layer]')),
+      parityToolbar: Boolean(document.querySelector('[data-rdl-parity="v5.2.1"]')),
+      parityVersion: parity?.version || '',
+      parityPageSize: parity?.pageSize || 0,
       shellWidth: shellRect?.width || 0,
       shellHeight: shellRect?.height || 0,
       sidebarWidth: sidebarRect?.width || 0,
@@ -141,6 +146,10 @@ app.on('browser-window-created', (_event, win) => {
         && result.dom.themeStyle
         && result.dom.themeSignature
         && result.dom.themeVersion === '5.2.1'
+        && result.dom.parityScript
+        && result.dom.parityToolbar
+        && result.dom.parityVersion === '5.2.1'
+        && result.dom.parityPageSize === 25
         && result.dom.shellWidth > 500
         && result.dom.shellHeight > 400
         && result.dom.sidebarWidth > 100
@@ -165,8 +174,8 @@ app.on('browser-window-created', (_event, win) => {
 if (smokeMode) {
   app.whenReady().then(() => {
     setTimeout(() => {
-      if (!smokeFinished) failSmoke('startup-timeout', { timeoutMs: 20000 });
-    }, 20000).unref?.();
+      if (!smokeFinished) failSmoke('startup-timeout', { timeoutMs: 22000 });
+    }, 22000).unref?.();
   });
 }
 
