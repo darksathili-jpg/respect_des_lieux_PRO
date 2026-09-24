@@ -1,0 +1,8 @@
+{
+  "name": "respect-des-lieux-visual-fidelity-gate",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}
