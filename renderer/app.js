@@ -7,6 +7,15 @@ const state = {
   identitiesVisible: false
 };
 
+const visualTestMode = Boolean(window.rdl?.visualTest);
+
+const visualMasterRows = Object.freeze([
+  { lieu: 'Salle B201 - Table dégradée', vfWhen: 'Aujourd’hui - 09:14', vfStatus: 'Nouveau', vfPill: 'new', vfIcon: 'book' },
+  { lieu: 'Cour - Éclairage défectueux', vfWhen: 'Aujourd’hui - 08:37', vfStatus: 'En cours', vfPill: 'progress', vfIcon: 'light' },
+  { lieu: 'Toilettes - Propreté', vfWhen: 'Hier - 16:22', vfStatus: 'Pris en charge', vfPill: 'handled', vfIcon: 'trash' },
+  { lieu: 'Hall - Vitrage fissuré', vfWhen: 'Hier - 14:10', vfStatus: 'Résolu', vfPill: 'resolved', vfIcon: 'window' }
+]);
+
 let secretResolver = null;
 let secretMode = 'export';
 
@@ -41,6 +50,62 @@ function dateFr(value) {
   return date.toLocaleDateString('fr-FR');
 }
 
+function vfIcon(name = 'book') {
+  const icons = {
+    book: '<div class="vf-row-icon red"><svg viewBox="0 0 24 24"><path d="M4 5h6a3 3 0 0 1 3 3v11a3 3 0 0 0-3-3H4z"/><path d="M20 5h-6a3 3 0 0 0-3 3v11a3 3 0 0 1 3-3h6z"/></svg></div>',
+    light: '<div class="vf-row-icon orange"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 22h4"/><path d="M8 14c-2-1-3-3-3-5a7 7 0 0 1 14 0c0 2-1 4-3 5-1 1-1 2-1 3H9c0-1 0-2-1-3Z"/></svg></div>',
+    trash: '<div class="vf-row-icon blue"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6"/></svg></div>',
+    window: '<div class="vf-row-icon coral"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1"/><path d="M12 4v16M4 12h16"/></svg></div>'
+  };
+  return icons[name] || icons.book;
+}
+
+function vfStatus(row) {
+  if (row.vfStatus) return { label: row.vfStatus, cls: row.vfPill || 'new' };
+  const status = String(row.statut || 'Ouvert');
+  if (status === 'Clos' || status === 'Résolu' || status === 'Terminée') return { label: 'Résolu', cls: 'resolved' };
+  if (status === 'En cours') return { label: 'En cours', cls: 'progress' };
+  if (status === 'Pris en charge') return { label: 'Pris en charge', cls: 'handled' };
+  return { label: status === 'Ouvert' ? 'Nouveau' : status, cls: 'new' };
+}
+
+function vfWhen(row) {
+  if (row.vfWhen) return row.vfWhen;
+  const date = row.date ? dateFr(row.date) : '—';
+  const time = String(row.heure || '').trim();
+  return time ? `${date} - ${time}` : date;
+}
+
+function renderVisualDashboard() {
+  const master = $('#vf-dashboard');
+  if (!master) return;
+
+  const stats = state.bootstrap?.stats || {};
+  const monthPrefix = new Date().toISOString().slice(0, 7);
+  const metrics = visualTestMode
+    ? { pending: 12, interventions: 8, resolved: 48 }
+    : {
+        pending: Number(stats.ouverts || 0),
+        interventions: state.reparations.filter((row) => String(row.statut || '') === 'En cours').length,
+        resolved: state.signalements.filter((row) => String(row.closed_at || '').startsWith(monthPrefix)).length
+      };
+
+  $('#vf-kpi-pending').textContent = String(metrics.pending);
+  $('#vf-kpi-interventions').textContent = String(metrics.interventions);
+  $('#vf-kpi-resolved').textContent = String(metrics.resolved);
+
+  const rows = visualTestMode ? visualMasterRows : state.signalements.slice(0, 4);
+  const recent = $('#vf-recent-list');
+  recent.innerHTML = rows.length
+    ? rows.map((row) => {
+        const status = vfStatus(row);
+        return `<div class="vf-row">${vfIcon(row.vfIcon)}<div class="vf-row-copy"><strong>${esc(row.lieu || row.type || row.num || 'Signalement')}</strong><small>${esc(vfWhen(row))}</small></div><span class="vf-pill ${status.cls}">${esc(status.label)}</span></div>`;
+      }).join('')
+    : '<div class="vf-row-empty">Aucun signalement récent.</div>';
+
+  master.dataset.vfReady = 'true';
+}
+
 function statusBadge(status) {
   const normalized = String(status || '').toLowerCase();
   const cls = normalized === 'clos' || normalized === 'terminée' ? 'closed' : 'open';
@@ -69,6 +134,7 @@ function hideIdentities() {
 }
 
 function setView(name) {
+  document.body.classList.toggle('dashboard-mode', name === 'dashboard');
   $$('.nav').forEach((button) => button.classList.toggle('active', button.dataset.view === name));
   $$('.view').forEach((view) => view.classList.toggle('active', view.id === `view-${name}`));
   const labels = {
@@ -115,6 +181,8 @@ function renderDashboard() {
   const health = $('#health-pill');
   health.textContent = state.bootstrap?.integrity?.ok ? 'Base locale saine' : 'Contrôle requis';
   health.className = `health ${state.bootstrap?.integrity?.ok ? 'ok' : 'ko'}`;
+
+  renderVisualDashboard();
 }
 
 function renderSignalements() {
@@ -495,6 +563,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   bindStaticEvents();
   updatePrivacyButton();
   toggleRetentionFields();
+  setView('dashboard');
   try {
     await reload();
   } catch (error) {
