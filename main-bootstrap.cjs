@@ -66,6 +66,64 @@ function responsiveSurfaceOk(dom) {
     && heightDelta <= 2;
 }
 
+async function probeNavigationContinuity(win) {
+  const clickResult = await win.webContents.executeJavaScript(`(() => {
+    const target = document.querySelector('#vf-dashboard .vf-nav-item[data-view="signalements"]');
+    if (!target) return { clicked: false, reason: 'signalements-button-missing' };
+    target.click();
+    return { clicked: true };
+  })()`);
+
+  await delay(180);
+
+  const state = await win.webContents.executeJavaScript(`(() => {
+    const visualDashboard = document.querySelector('#vf-dashboard');
+    const visualSidebar = visualDashboard?.querySelector('.vf-sidebar');
+    const legacyShell = document.querySelector('body > .shell');
+    const legacySidebar = legacyShell?.querySelector(':scope > .sidebar');
+    const signalements = document.querySelector('#view-signalements');
+    const nav = visualDashboard?.querySelector('.vf-nav-item[data-view="signalements"]');
+    const visualRect = visualDashboard?.getBoundingClientRect();
+    const sidebarRect = visualSidebar?.getBoundingClientRect();
+    const shellRect = legacyShell?.getBoundingClientRect();
+    return {
+      dashboardMode: document.body.classList.contains('dashboard-mode'),
+      visualDashboardDisplay: visualDashboard ? getComputedStyle(visualDashboard).display : 'missing',
+      visualSidebarDisplay: visualSidebar ? getComputedStyle(visualSidebar).display : 'missing',
+      legacyShellDisplay: legacyShell ? getComputedStyle(legacyShell).display : 'missing',
+      legacySidebarDisplay: legacySidebar ? getComputedStyle(legacySidebar).display : 'missing',
+      signalementsDisplay: signalements ? getComputedStyle(signalements).display : 'missing',
+      signalementsActive: Boolean(signalements?.classList.contains('active')),
+      signalementsNavActive: Boolean(nav?.classList.contains('active')),
+      visualWidth: visualRect?.width || 0,
+      viewportWidth: window.innerWidth || 0,
+      sidebarRight: sidebarRect?.right || 0,
+      shellLeft: shellRect?.left || 0
+    };
+  })()`);
+
+  const geometryAligned = Math.abs(Number(state.shellLeft || 0) - Number(state.sidebarRight || 0)) <= 2;
+  const ok = Boolean(clickResult?.clicked)
+    && state.dashboardMode === false
+    && state.visualDashboardDisplay !== 'none'
+    && state.visualSidebarDisplay !== 'none'
+    && state.legacyShellDisplay !== 'none'
+    && state.legacySidebarDisplay === 'none'
+    && state.signalementsDisplay !== 'none'
+    && state.signalementsActive
+    && state.signalementsNavActive
+    && geometryAligned;
+
+  // Revenir sur l'accueil afin que la capture peinture vérifie également que
+  // la navigation aller-retour ne casse pas le dashboard responsive.
+  await win.webContents.executeJavaScript(`(() => {
+    document.querySelector('#vf-dashboard .vf-nav-item[data-view="dashboard"]')?.click();
+  })()`);
+  await delay(120);
+
+  return { ok, clickResult, state, geometryAligned };
+}
+
 async function probeRenderer(win) {
   await delay(1800);
   const dom = await win.webContents.executeJavaScript(`(() => {
@@ -115,11 +173,13 @@ async function probeRenderer(win) {
     };
   })()`);
 
+  const navigation = await probeNavigationContinuity(win);
+
   win.show();
   await delay(900);
   const image = await win.webContents.capturePage();
   const paint = paintProbe(image);
-  return { dom, paint, imageSize: image.getSize() };
+  return { dom, navigation, paint, imageSize: image.getSize() };
 }
 
 app.on('browser-window-created', (_event, win) => {
@@ -185,7 +245,7 @@ app.on('browser-window-created', (_event, win) => {
         && responsiveSurfaceOk(result.dom)
         && result.dom.bodyTextLength > 100;
 
-      if (!domOk || !result.paint.ok) {
+      if (!domOk || !result.navigation.ok || !result.paint.ok) {
         failSmoke('ui-not-rendered', result);
         return;
       }
