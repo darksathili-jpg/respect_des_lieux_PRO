@@ -86,6 +86,10 @@ async function probeShell(win) {
     const shellRect = shell?.getBoundingClientRect();
     const sidebarRect = sidebar?.getBoundingClientRect();
     const mainRect = main?.getBoundingClientRect();
+    const rootStyles = getComputedStyle(document.documentElement);
+    const brandMark = document.querySelector('.brand-mark');
+    const hero = document.querySelector('#view-dashboard .hero');
+    const heroAfter = hero ? getComputedStyle(hero, '::after') : null;
     return {
       readyState: document.readyState,
       shellCount: shells.length,
@@ -109,7 +113,13 @@ async function probeShell(win) {
       detailDialog: Boolean(document.querySelector('#signal-detail-dialog')),
       bodyTextLength: (document.body?.innerText || '').trim().length,
       documentScrollWidth: document.documentElement?.scrollWidth || 0,
-      bodyScrollWidth: document.body?.scrollWidth || 0
+      bodyScrollWidth: document.body?.scrollWidth || 0,
+      designSystem: {
+        ready: rootStyles.getPropertyValue('--rdl-ds-ready').trim(),
+        focusRing: rootStyles.getPropertyValue('--rdl-focus').trim(),
+        brandAsset: brandMark ? getComputedStyle(brandMark).backgroundImage : '',
+        heroAsset: heroAfter?.backgroundImage || ''
+      }
     };
   })()`);
 }
@@ -121,6 +131,10 @@ function shellContractOk(dom) {
   const widthAligned = Math.abs(Number(dom.shellWidth || 0) - layoutWidth) <= 2;
   const geometryAligned = Math.abs(Number(dom.sidebarRight || 0) - Number(dom.mainLeft || 0)) <= 2;
   const noGlobalHorizontalOverflow = Math.max(Number(dom.documentScrollWidth || 0), Number(dom.bodyScrollWidth || 0)) <= layoutWidth + 2;
+  const designSystemOk = dom.designSystem?.ready === 'r2'
+    && Boolean(dom.designSystem?.focusRing)
+    && String(dom.designSystem?.brandAsset || '').includes('sidebar-logo-production.svg')
+    && String(dom.designSystem?.heroAsset || '').includes('dashboard-hero-production.svg');
   return dom.readyState === 'complete'
     && dom.shellCount === 1
     && dom.mainRegionCount === 1
@@ -137,7 +151,8 @@ function shellContractOk(dom) {
     && dom.bodyTextLength > 100
     && widthAligned
     && geometryAligned
-    && noGlobalHorizontalOverflow;
+    && noGlobalHorizontalOverflow
+    && designSystemOk;
 }
 
 async function probeNavigationContinuity(win) {

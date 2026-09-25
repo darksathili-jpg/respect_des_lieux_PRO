@@ -11,6 +11,7 @@ on:
       - "preload.cjs"
       - "src/**"
       - "renderer/**"
+      - "scripts/capture-packaged-ui.mjs"
       - ".github/workflows/v52-runtime-smoke.yml"
   pull_request:
     branches: ["main"]
@@ -22,6 +23,7 @@ on:
       - "preload.cjs"
       - "src/**"
       - "renderer/**"
+      - "scripts/capture-packaged-ui.mjs"
       - ".github/workflows/v52-runtime-smoke.yml"
   workflow_dispatch:
 
@@ -88,7 +90,8 @@ jobs:
             'renderer/assets/sidebar-logo-master.webp',
             'design/reference/dashboard-master.png',
             'quality/ui-contract.json',
-            'scripts/quality-contract.mjs'
+            'scripts/quality-contract.mjs',
+            'scripts/capture-packaged-ui.mjs'
           ];
           const missing = required.filter((p) => !files.includes(p));
           const leaked = forbidden.filter((p) => files.includes(p));
@@ -143,13 +146,46 @@ jobs:
 
           Write-Host "Packaged single-shell DOM + navigation + painted UI smoke: PASS"
 
-      - name: Upload packaged runtime diagnostics
+      - name: Capture true packaged Accueil R2 visual evidence
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path dist -Recurse -Filter "Respect des Lieux PRO.exe" -File | Select-Object -First 1
+          if (-not $exe) { throw "Exécutable unpacked introuvable pour la preuve visuelle." }
+
+          Remove-Item Env:RDL_PACKAGED_SMOKE -ErrorAction SilentlyContinue
+          $port = 9333
+          $evidence = Join-Path $env:RUNNER_TEMP "rdl-visual-evidence"
+          New-Item -ItemType Directory -Path $evidence -Force | Out-Null
+          Write-Host "Launching real packaged renderer for visual evidence: $($exe.FullName)"
+          $p = Start-Process -FilePath $exe.FullName -ArgumentList "--remote-debugging-port=$port" -PassThru
+          try {
+            node scripts/capture-packaged-ui.mjs --port $port --out $evidence
+            if ($LASTEXITCODE -ne 0) { throw "Le harnais de preuve visuelle a échoué (code $LASTEXITCODE)." }
+            $required = @(
+              (Join-Path $evidence "home-desktop-1440x900.png"),
+              (Join-Path $evidence "home-desktop-keyboard-focus.png"),
+              (Join-Path $evidence "home-reduced-1024x720.png"),
+              (Join-Path $evidence "visual-evidence.json")
+            )
+            foreach ($file in $required) {
+              if (-not (Test-Path $file)) { throw "Preuve visuelle absente: $file" }
+            }
+            Write-Host "True packaged Accueil R2 visual evidence: PASS"
+          }
+          finally {
+            if ($p -and -not $p.HasExited) {
+              try { Stop-Process -Id $p.Id -Force } catch {}
+            }
+          }
+
+      - name: Upload packaged runtime evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: packaged-runtime-diagnostics
+          name: packaged-runtime-evidence
           path: |
             ${{ runner.temp }}/rdl-stdout.txt
             ${{ runner.temp }}/rdl-stderr.txt
+            ${{ runner.temp }}/rdl-visual-evidence/**
           if-no-files-found: ignore
           retention-days: 14
