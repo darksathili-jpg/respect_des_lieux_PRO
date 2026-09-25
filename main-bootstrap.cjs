@@ -94,6 +94,7 @@ async function probeShell(win) {
       shellWidth: shellRect?.width || 0,
       shellHeight: shellRect?.height || 0,
       viewportWidth: window.innerWidth || 0,
+      layoutViewportWidth: document.documentElement?.clientWidth || 0,
       viewportHeight: window.innerHeight || 0,
       sidebarRight: sidebarRect?.right || 0,
       mainLeft: mainRect?.left || 0,
@@ -114,9 +115,12 @@ async function probeShell(win) {
 }
 
 function shellContractOk(dom) {
-  const widthAligned = Math.abs(Number(dom.shellWidth || 0) - Number(dom.viewportWidth || 0)) <= 2;
+  // innerWidth inclut la gouttière du scrollbar vertical dans Chromium.
+  // clientWidth représente la largeur de mise en page réellement disponible.
+  const layoutWidth = Number(dom.layoutViewportWidth || dom.viewportWidth || 0);
+  const widthAligned = Math.abs(Number(dom.shellWidth || 0) - layoutWidth) <= 2;
   const geometryAligned = Math.abs(Number(dom.sidebarRight || 0) - Number(dom.mainLeft || 0)) <= 2;
-  const noGlobalHorizontalOverflow = Math.max(Number(dom.documentScrollWidth || 0), Number(dom.bodyScrollWidth || 0)) <= Number(dom.viewportWidth || 0) + 2;
+  const noGlobalHorizontalOverflow = Math.max(Number(dom.documentScrollWidth || 0), Number(dom.bodyScrollWidth || 0)) <= layoutWidth + 2;
   return dom.readyState === 'complete'
     && dom.shellCount === 1
     && dom.mainRegionCount === 1
