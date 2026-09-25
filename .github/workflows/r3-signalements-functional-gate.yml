@@ -1,0 +1,50 @@
+name: R3 Signalements Functional Gate
+
+on:
+  push:
+    branches: ["r3-signalements"]
+    paths:
+      - "src/**"
+      - "renderer/**"
+      - "preload.cjs"
+      - "main.cjs"
+      - "tests/**"
+      - "scripts/r3-signalements-gate.mjs"
+      - "quality/r3-signalements-contract.json"
+      - "docs/R3-SIGNALEMENTS-AUDIT.md"
+      - ".github/workflows/r3-signalements-functional-gate.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "src/**"
+      - "renderer/**"
+      - "preload.cjs"
+      - "main.cjs"
+      - "tests/**"
+      - "scripts/r3-signalements-gate.mjs"
+      - "quality/r3-signalements-contract.json"
+      - "docs/R3-SIGNALEMENTS-AUDIT.md"
+      - ".github/workflows/r3-signalements-functional-gate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  functional-contract:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Node 24.21
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24.21.0"
+
+      - name: R3 Signalements contract — functional first, CSS forbidden while red
+        shell: pwsh
+        run: node scripts/r3-signalements-gate.mjs
