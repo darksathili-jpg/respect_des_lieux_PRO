@@ -3,7 +3,7 @@
 #view-dashboard.active{display:block}
 #view-dashboard .hero{min-height:250px;position:relative;isolation:isolate;display:flex;align-items:center;overflow:hidden;border:1px solid rgba(255,255,255,.08);border-radius:var(--rdl-radius-xl);padding:clamp(26px,3vw,42px);background:linear-gradient(132deg,var(--rdl-navy-950) 0%,var(--rdl-navy-800) 62%,#245a7f 100%);color:#fff;box-shadow:var(--rdl-shadow-md)}
 #view-dashboard .hero::before{content:'';position:absolute;inset:0;z-index:-2;background:radial-gradient(circle at 22% 20%,rgba(255,255,255,.10),transparent 34%),linear-gradient(110deg,rgba(255,255,255,.03),transparent 45%)}
-#view-dashboard .hero::after{content:'';position:absolute;z-index:-1;top:16px;right:16px;bottom:16px;width:min(45%,560px);border-radius:18px;background-color:#fff;background-image:url('./assets/dashboard-hero-production.svg');background-repeat:no-repeat;background-size:cover;background-position:68% center;box-shadow:0 14px 34px rgba(4,17,29,.22);opacity:.98}
+#view-dashboard .hero::after{content:'';position:absolute;z-index:-1;top:16px;right:16px;bottom:16px;width:min(45%,560px);border-radius:18px;background-color:#fbf5ee;background-image:url('./assets/dashboard-hero-production.svg');background-repeat:no-repeat;background-size:contain;background-position:center;box-shadow:0 14px 34px rgba(4,17,29,.22);opacity:.98}
 #view-dashboard .hero>div:first-child{max-width:min(52%,650px);position:relative;z-index:1}
 #view-dashboard .hero .eyebrow{color:#bfd3e2}
 #view-dashboard .hero h2{max-width:620px;margin:8px 0 12px;font-size:clamp(29px,3.1vw,42px);line-height:1.04;letter-spacing:-.035em;color:#fff}
@@ -35,14 +35,14 @@
 #view-dashboard .facts div{grid-template-columns:112px minmax(0,1fr)}
 
 @media (max-width:1220px){
-  #view-dashboard .hero::after{width:41%;background-position:70% center}
+  #view-dashboard .hero::after{width:41%}
   #view-dashboard .hero>div:first-child{max-width:57%}
   #view-dashboard .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 
 @media (max-width:980px){
   #view-dashboard .hero{min-height:275px;align-items:flex-start}
-  #view-dashboard .hero::after{top:auto;left:16px;right:16px;bottom:16px;width:auto;height:94px;background-size:cover;background-position:74% 58%;opacity:.86}
+  #view-dashboard .hero::after{top:auto;left:16px;right:16px;bottom:16px;width:auto;height:94px;background-size:cover;background-position:center 58%;opacity:.90}
   #view-dashboard .hero>div:first-child{max-width:100%;padding-bottom:98px}
   #view-dashboard .hero-badge{right:28px;bottom:30px}
   #view-dashboard .grid.two{grid-template-columns:1fr}

@@ -9,7 +9,7 @@ img,svg{max-width:100%}
 ::selection{background:var(--rdl-blue-100);color:var(--rdl-text-strong)}
 
 :where(button,input,select,textarea,[tabindex]):focus{outline:none}
-:where(button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid transparent;box-shadow:var(--rdl-focus)}
+:where(button,input,select,textarea,[tabindex]):focus-visible{outline:3px solid var(--rdl-focus-ring);outline-offset:2px}
 
 .eyebrow{margin:0;color:var(--rdl-text-soft);font-size:10px;font-weight:800;line-height:1.3;letter-spacing:.13em;text-transform:uppercase}
 

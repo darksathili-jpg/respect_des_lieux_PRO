@@ -12,6 +12,7 @@
 .nav:hover{background:rgba(255,255,255,.07);color:#fff}
 .nav.active{background:rgba(255,255,255,.10);border-color:rgba(255,255,255,.08);color:#fff;box-shadow:0 7px 22px rgba(0,0,0,.08)}
 .nav.active::before{height:20px}
+.sidebar .nav:focus-visible{outline-color:var(--rdl-focus-ring-dark)}
 .local-seal{margin-top:auto;display:flex;gap:10px;align-items:flex-start;padding:14px;border:1px solid rgba(255,255,255,.10);border-radius:var(--rdl-radius-md);background:rgba(255,255,255,.05)}
 .local-seal .dot{width:9px;height:9px;flex:0 0 9px;border-radius:50%;background:#66cf92;margin-top:4px;box-shadow:0 0 0 4px rgba(102,207,146,.12)}
 .local-seal strong,.local-seal small{display:block}

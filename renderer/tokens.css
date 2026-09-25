@@ -56,6 +56,8 @@
   --rdl-shadow-md:0 14px 36px rgba(12,31,48,.09);
   --rdl-shadow-lg:0 24px 70px rgba(8,24,39,.16);
   --rdl-focus:0 0 0 3px rgba(47,120,170,.22),0 0 0 1px #2f78aa;
+  --rdl-focus-ring:#2f78aa;
+  --rdl-focus-ring-dark:#8fd3ff;
 
   --rdl-sidebar-width:272px;
   --rdl-content-max:1540px;

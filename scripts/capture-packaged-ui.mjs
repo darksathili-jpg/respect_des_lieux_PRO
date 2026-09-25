@@ -194,11 +194,15 @@ async function captureKeyboardFocus(cdp) {
   await wait(150);
 
   const evaluated = await cdp.send('Runtime.evaluate', {
-    expression: `(() => { const el = document.activeElement; const style = el ? getComputedStyle(el) : null; return { tag: el?.tagName || '', id: el?.id || '', className: typeof el?.className === 'string' ? el.className : '', dataView: el?.dataset?.view || '', text: (el?.textContent || '').trim().slice(0,80), focusVisible: Boolean(el?.matches?.(':focus-visible')), outline: style?.outline || '', boxShadow: style?.boxShadow || '' }; })()`,
+    expression: `(() => { const el = document.activeElement; const style = el ? getComputedStyle(el) : null; return { tag: el?.tagName || '', id: el?.id || '', className: typeof el?.className === 'string' ? el.className : '', dataView: el?.dataset?.view || '', text: (el?.textContent || '').trim().slice(0,80), focusVisible: Boolean(el?.matches?.(':focus-visible')), outline: style?.outline || '', outlineStyle: style?.outlineStyle || '', outlineWidth: style?.outlineWidth || '', outlineColor: style?.outlineColor || '', outlineOffset: style?.outlineOffset || '', boxShadow: style?.boxShadow || '' }; })()`,
     returnByValue: true
   });
   const focus = evaluated.result?.value || {};
-  if (!focus.tag || !focus.focusVisible) throw new Error(`Focus clavier non visible: ${JSON.stringify(focus)}`);
+  const outlineWidth = Number.parseFloat(String(focus.outlineWidth || '0')) || 0;
+  const transparentOutline = !focus.outlineColor || focus.outlineColor === 'transparent' || focus.outlineColor === 'rgba(0, 0, 0, 0)';
+  if (!focus.tag || !focus.focusVisible || focus.outlineStyle === 'none' || outlineWidth < 2 || transparentOutline) {
+    throw new Error(`Focus clavier non perceptible: ${JSON.stringify(focus)}`);
+  }
 
   const shot = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false });
   const png = Buffer.from(shot.data || '', 'base64');
