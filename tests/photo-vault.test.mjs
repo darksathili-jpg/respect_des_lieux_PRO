@@ -68,6 +68,20 @@ test('coffre photo : un JPEG identique n’est pas dupliqué', () => {
   }
 });
 
+test('coffre photo : un dossier clos refuse toute nouvelle photo au niveau domaine', () => {
+  const ctx = fixture();
+  try {
+    const s = ctx.db.createSignalement({ date: '2026-09-23', lieu: 'Salle fermée' });
+    const source = path.join(ctx.root, 'closed.jpg');
+    fs.writeFileSync(source, tinyJpeg(9));
+    ctx.db.setSignalementStatus(s.id, 'Clos');
+    assert.throws(() => ctx.photos.attach(s.id, source, ctx.db), /clos|rouvr/i);
+    assert.equal(ctx.db.listPhotos(s.id).length, 0);
+  } finally {
+    cleanup(ctx);
+  }
+});
+
 test('coffre photo : simulation disque presque plein, écriture refusée avant copie', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rdl-low-disk-'));
   const original = fs.statfsSync;
