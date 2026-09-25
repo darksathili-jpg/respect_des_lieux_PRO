@@ -36,7 +36,7 @@ function jpegWithExif() {
   return Buffer.concat([Buffer.from([0xff, 0xd8]), app1, scanAndEnd]);
 }
 
-test('schéma local V5.1 et intégrité SQLite', () => {
+test('schéma local R3 et intégrité SQLite', () => {
   const ctx = fixture();
   try {
     assert.equal(ctx.db.integrityCheck().ok, true);
@@ -49,10 +49,12 @@ test('schéma local V5.1 et intégrité SQLite', () => {
       photosBytes: 0
     });
     const version = ctx.db.db.prepare("SELECT value FROM schema_meta WHERE key='schema_version'").get();
-    assert.equal(version.value, '2');
+    assert.equal(version.value, '3');
     const cols = new Set(ctx.db.db.prepare('PRAGMA table_info(signalements)').all().map((r) => r.name));
     assert.equal(cols.has('closed_at'), true);
     assert.equal(cols.has('identity_reduced_at'), true);
+    const tables = new Set(ctx.db.db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map((r) => r.name));
+    assert.equal(tables.has('signalement_events'), true, 'R3 doit conserver un historique minimal des mutations métier');
   } finally {
     cleanup(ctx);
   }
@@ -136,7 +138,7 @@ test('clôture tracée et échéance calculée sans purge automatique', () => {
   const ctx = fixture();
   try {
     const s = ctx.db.createSignalement({ date: '2026-09-23', lieu: 'Cour' });
-    const closed = ctx.db.updateSignalement(s.id, { statut: 'Clos' });
+    const closed = ctx.db.setSignalementStatus(s.id, 'Clos');
     assert.match(closed.closed_at, /^\d{4}-/);
     ctx.db.configureRetentionPolicy({ enabled: true, months: 1, confirmed: true });
     const future = new Date(new Date(closed.closed_at).getTime() + 70 * 86400000);
@@ -150,17 +152,26 @@ test('clôture tracée et échéance calculée sans purge automatique', () => {
   }
 });
 
-test('réduction des identifiants structurés réservée aux dossiers clos', () => {
+test('réduction des identifiants structurés réservée aux dossiers clos et inclut signalé par', () => {
   const ctx = fixture();
   try {
-    const s = ctx.db.createSignalement({ date: '2026-09-23', lieu: 'Hall', eleve: 'Nom Élève', classe: 'T1' });
+    const s = ctx.db.createSignalement({
+      date: '2026-09-23',
+      lieu: 'Hall',
+      eleve: 'Nom Élève',
+      classe: 'T1',
+      signale_par: 'Nom adulte'
+    });
     assert.throws(() => ctx.db.reduceDirectIdentifiers(s.id), /dossiers clos/i);
-    ctx.db.updateSignalement(s.id, { statut: 'Clos' });
+    ctx.db.setSignalementStatus(s.id, 'Clos');
     const reduced = ctx.db.reduceDirectIdentifiers(s.id);
     assert.equal(reduced.eleve, '');
     assert.equal(reduced.classe, '');
+    assert.equal(reduced.signale_par, '');
     assert.match(reduced.identity_reduced_at, /^\d{4}-/);
     assert.equal(ctx.db.listPrivacyEvents(10)[0].event_type, 'direct_identifiers_reduced');
+    const eventTypes = ctx.db.listSignalementEvents(s.id, 20).map((event) => event.event_type);
+    assert.ok(eventTypes.includes('identities_reduced'));
   } finally {
     cleanup(ctx);
   }
@@ -173,7 +184,7 @@ test('suppression contrôlée exige numéro exact et permet staging photo réver
     const source = path.join(ctx.root, 'preuve.jpg');
     fs.writeFileSync(source, jpegWithExif());
     const photo = ctx.photos.attach(s.id, source, ctx.db);
-    ctx.db.updateSignalement(s.id, { statut: 'Clos' });
+    ctx.db.setSignalementStatus(s.id, 'Clos');
 
     assert.throws(() => ctx.db.getPurgePlan(s.id, 'mauvais'), /confirmation invalide/i);
     const plan = ctx.db.getPurgePlan(s.id, s.num);
