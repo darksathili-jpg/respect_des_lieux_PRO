@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">Accueil Respect des Lieux PRO</title>
+  <desc id="desc">Illustration du lycée Watteau et message d'accueil, sans identité ni météo fictive.</desc>
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fffdfa"/>
+      <stop offset="1" stop-color="#f8f1e9"/>
+    </linearGradient>
+    <linearGradient id="brick" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#bf3b30"/>
+      <stop offset="1" stop-color="#9d2d28"/>
+    </linearGradient>
+    <linearGradient id="tower" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f4d3bd"/>
+      <stop offset="1" stop-color="#c96753"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="7" stdDeviation="8" flood-color="#643728" flood-opacity=".16"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="360" fill="url(#paper)"/>
+
+  <g opacity=".44" fill="#ead7c9">
+    <circle cx="165" cy="300" r="60"/><circle cx="225" cy="305" r="78"/><circle cx="300" cy="312" r="53"/>
+    <circle cx="1025" cy="304" r="76"/><circle cx="1090" cy="306" r="58"/><circle cx="1150" cy="318" r="65"/>
+  </g>
+
+  <g fill="#173f5d" font-family="Segoe UI, Arial, sans-serif">
+    <text x="58" y="105" font-size="58" font-weight="760" letter-spacing="-2">Bonjour !</text>
+    <text x="60" y="148" font-size="27" font-weight="430">Ensemble, prenons soin de notre lycée</text>
+  </g>
+  <rect x="60" y="180" width="66" height="7" rx="3.5" fill="#c51f27"/>
+
+  <g filter="url(#shadow)">
+    <g transform="translate(655 20)">
+      <ellipse cx="80" cy="30" rx="55" ry="14" fill="#a82f2b"/>
+      <path d="M33 31h94l-8 18H41z" fill="#c74f42"/>
+      <rect x="43" y="48" width="74" height="136" rx="34" fill="url(#tower)" stroke="#9f302a" stroke-width="3"/>
+      <ellipse cx="80" cy="49" rx="37" ry="11" fill="#efc7ad" stroke="#9f302a" stroke-width="3"/>
+      <g stroke="#9f302a" stroke-width="5" stroke-linecap="round">
+        <path d="M58 76v16M79 73v20M101 76v16M58 113v18M79 110v21M101 113v18M58 151v18M79 148v21M101 151v18"/>
+      </g>
+      <rect x="52" y="178" width="56" height="16" fill="#9d2d28"/>
+    </g>
+
+    <g transform="translate(720 132)">
+      <path d="M0 64 118 6l122 58v164H0z" fill="url(#brick)" stroke="#8f2a26" stroke-width="3"/>
+      <path d="M240 70 318 27l114 56v145H240z" fill="#b43a31" stroke="#8f2a26" stroke-width="3"/>
+      <path d="M100 16h38v-26h32v43" fill="#a52e29"/>
+      <path d="M103 9h72l-36-30z" fill="#8e2926"/>
+      <path d="M304 34h55v-18h26v31" fill="#9e2d29"/>
+      <g fill="#fff8ee" stroke="#6d7680" stroke-width="2">
+        <rect x="34" y="90" width="26" height="42" rx="10"/><rect x="84" y="76" width="26" height="48" rx="10"/>
+        <rect x="137" y="64" width="28" height="53" rx="11"/><rect x="190" y="79" width="27" height="48" rx="10"/>
+        <rect x="35" y="151" width="27" height="47" rx="10"/><rect x="87" y="142" width="27" height="49" rx="10"/>
+        <rect x="139" y="135" width="29" height="55" rx="11"/><rect x="191" y="145" width="27" height="47" rx="10"/>
+        <rect x="273" y="101" width="27" height="46" rx="10"/><rect x="326" y="83" width="27" height="52" rx="10"/>
+        <rect x="380" y="97" width="27" height="47" rx="10"/><rect x="273" y="161" width="27" height="43" rx="10"/>
+        <rect x="328" y="149" width="29" height="54" rx="11"/><rect x="381" y="159" width="27" height="44" rx="10"/>
+      </g>
+      <path d="M116 228v-58c0-21 16-38 36-38s36 17 36 38v58z" fill="#f6eadc" stroke="#813029" stroke-width="3"/>
+      <path d="M139 228v-61c0-8 6-14 13-14s13 6 13 14v61z" fill="#173f5d" opacity=".82"/>
+    </g>
+  </g>
+
+  <g fill="#b13a32" opacity=".95">
+    <circle cx="565" cy="257" r="34"/><circle cx="525" cy="279" r="28"/><circle cx="610" cy="287" r="42"/>
+    <circle cx="1110" cy="276" r="36"/><circle cx="1153" cy="294" r="29"/>
+  </g>
+  <g stroke="#8f342d" stroke-width="8" stroke-linecap="round">
+    <path d="M565 279v56M610 312v30M1111 302v38"/>
+  </g>
+
+  <g fill="#173f5d" text-anchor="middle">
+    <text x="1060" y="125" font-family="Georgia, Times New Roman, serif" font-size="28" font-style="italic" transform="rotate(-5 1060 125)">Un cadre serein</text>
+    <text x="1060" y="160" font-family="Georgia, Times New Roman, serif" font-size="28" font-style="italic" transform="rotate(-5 1060 160)">pour tous</text>
+  </g>
+  <path d="M1037 184q58-20 116-4" fill="none" stroke="#c51f27" stroke-width="4" stroke-linecap="round"/>
+</svg>
