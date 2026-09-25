@@ -61,6 +61,7 @@ test('garde-fous SQLite et photos présents', () => {
 test('minimisation scolaire et masquage des identités restent actifs', () => {
   const html = read('renderer/index.html');
   const app = read('renderer/app.js');
+  const db = read('src/database.cjs');
   assert.doesNotMatch(html, /name="famille"/i);
   assert.match(html, /Élève concerné/);
   assert.match(html, /Protection des données/);
@@ -68,7 +69,12 @@ test('minimisation scolaire et masquage des identités restent actifs', () => {
   assert.match(app, /identitiesVisible:\s*false/);
   assert.match(app, /visibilitychange/);
   assert.match(app, /window\.addEventListener\('blur'/);
-  assert.match(app, /if \(state\.identitiesVisible\) fields\.push\(s\.eleve, s\.classe, s\.signale_par\)/);
+  assert.match(app, /includeIdentities:\s*state\.identitiesVisible/,
+    'la recherche renderer ne demande les champs identitaires que lorsque leur affichage est explicitement actif');
+  assert.match(db, /if \(includeIdentities\) searchable\.push\('s\.eleve', 's\.classe', 's\.signale_par', 's\.description'\)/,
+    'la base exclut les champs identitaires de la recherche par défaut');
+  assert.match(app, /protectedIdentity\(s\.eleve\)/);
+  assert.match(app, /protectedIdentity\(s\.classe\)/);
 });
 
 test('cycle de vie : pas de durée arbitraire ni de purge automatique', () => {
