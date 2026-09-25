@@ -139,19 +139,12 @@ Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 Add-Type -AssemblyName System.Windows.Forms
 $root = [System.Windows.Automation.AutomationElement]::RootElement
-$titleCondition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, 'Ajouter une photo JPEG')
-$deadline = (Get-Date).AddSeconds(20)
-$window = $null
-while ((Get-Date) -lt $deadline -and -not $window) {
-  $window = $root.FindFirst([System.Windows.Automation.TreeScope]::Children, $titleCondition)
-  if (-not $window) { Start-Sleep -Milliseconds 120 }
-}
-if (-not $window) { Write-Error 'Boîte de dialogue Ajouter une photo JPEG introuvable'; exit 17 }
-Write-Output ('DIALOG ' + $window.Current.Name + ' class=' + $window.Current.ClassName)
+
 function Find-ByAutomationId($parent, $id) {
   $condition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id)
   return $parent.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
 }
+
 function Find-EnabledValueControl($parent) {
   $condition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Edit)
   $items = $parent.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition)
@@ -162,6 +155,40 @@ function Find-EnabledValueControl($parent) {
   }
   return $null
 }
+
+function Find-FileDialog($desktop) {
+  $windows = $desktop.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
+  foreach ($candidate in $windows) {
+    if ($candidate.Current.ControlType -ne [System.Windows.Automation.ControlType]::Window) { continue }
+    $name = [string]$candidate.Current.Name
+    $className = [string]$candidate.Current.ClassName
+    $fileField = Find-ByAutomationId $candidate '1148'
+    $openButton = Find-ByAutomationId $candidate '1'
+    $looksLikePicker = $className -eq '#32770' -or $name -match '(Ajouter une photo JPEG|Open|Ouvrir|Choose|Select|Sélectionner)'
+    if ($looksLikePicker -and ($fileField -or $openButton)) {
+      return $candidate
+    }
+  }
+  return $null
+}
+
+$deadline = (Get-Date).AddSeconds(20)
+$window = $null
+while ((Get-Date) -lt $deadline -and -not $window) {
+  $window = Find-FileDialog $root
+  if (-not $window) { Start-Sleep -Milliseconds 120 }
+}
+if (-not $window) {
+  $windows = $root.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
+  foreach ($candidate in $windows) {
+    if ($candidate.Current.ControlType -eq [System.Windows.Automation.ControlType]::Window) {
+      Write-Output ('TOPLEVEL name=' + $candidate.Current.Name + ' class=' + $candidate.Current.ClassName + ' pid=' + $candidate.Current.ProcessId)
+    }
+  }
+  Write-Error 'Boîte de sélection de fichier introuvable'; exit 17
+}
+Write-Output ('DIALOG ' + $window.Current.Name + ' class=' + $window.Current.ClassName + ' pid=' + $window.Current.ProcessId)
+
 $fileControl = Find-ByAutomationId $window '1148'
 if ($fileControl -and $fileControl.Current.ControlType -ne [System.Windows.Automation.ControlType]::Edit) {
   $editCondition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Edit)
@@ -195,7 +222,7 @@ if (-not $openButton -or $openButton.Current.ControlType -ne [System.Windows.Aut
   $buttons = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, $buttonCondition)
   foreach ($button in $buttons) {
     Write-Output ('BUTTON name=' + $button.Current.Name + ' id=' + $button.Current.AutomationId)
-    if ($button.Current.Name -match '^(Open|Ouvrir)$') { $openButton = $button; break }
+    if ($button.Current.Name -match '^(Open|Ouvrir|OK)$') { $openButton = $button; break }
   }
 }
 if (-not $openButton) { Write-Error 'Bouton Open/Ouvrir introuvable'; exit 19 }
