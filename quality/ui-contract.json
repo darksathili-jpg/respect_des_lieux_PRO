@@ -1,6 +1,11 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "application": "Respect des Lieux PRO",
+  "shell": {
+    "id": "app-shell",
+    "exactlyOne": true,
+    "mainRegionId": "main-region"
+  },
   "navigation": [
     { "view": "dashboard", "label": "Accueil" },
     { "view": "signalements", "label": "Signalements" },
@@ -22,6 +27,7 @@
     "14 °C"
   ],
   "requiredViews": [
+    "view-dashboard",
     "view-signalements",
     "view-reparations",
     "view-sauvegardes",
@@ -36,21 +42,29 @@
     "backup-view-action",
     "open-backups",
     "encrypted-backup",
-    "encrypted-restore"
+    "encrypted-restore",
+    "rights-export",
+    "open-exports",
+    "open-data"
   ],
-  "requiredProductionAssets": [
-    "renderer/assets/dashboard-hero-master.webp",
-    "renderer/assets/sidebar-logo-master.webp",
-    "renderer/assets/dashboard-hero-production.svg",
-    "renderer/assets/sidebar-logo-production.svg"
+  "forbiddenRuntimeFiles": [
+    "renderer/dashboard-vf.css"
+  ],
+  "forbiddenRuntimeTokens": [
+    "vf-dashboard",
+    "visual-test-mode",
+    "RDL_VISUAL_TEST",
+    "dashboard-master.png"
   ],
   "productionRules": {
-    "masterScreenshotMayBeUsedOnlyForVisualTest": true,
-    "responsiveMinimumWidthAllowed": 0,
+    "singleShellRequired": true,
+    "alternateUiForQualificationForbidden": true,
+    "masterScreenshotInRuntimeForbidden": true,
+    "navigationAndViewsMustMatch": true,
+    "allViewsMustUseHiddenState": true,
     "detailDialogRequiresStableScrollbar": true,
     "detailDialogRequiresSingleColumnFallback": true,
     "detailDialogRequiresMultipleExitPaths": true,
-    "repairsMustBeEditable": true,
     "releaseMustRunQualityGate": true,
     "releaseMustRunPackagedInteractionGate": true
   }
