@@ -9,9 +9,13 @@ const contract = JSON.parse(read('quality/ui-contract.json'));
 const html = read('renderer/index.html');
 const css = read('renderer/dashboard-vf.css');
 const detailCss = read('renderer/detail.css');
+const detailJs = read('renderer/detail.js');
 const pkg = JSON.parse(read('package.json'));
 const preload = read('preload.cjs');
 const main = read('main.cjs');
+const entry = read('main-entry.cjs');
+const repairExtension = read('src/reparation-edit-extension.cjs');
+const v51 = read('renderer/v51.css');
 
 const requested = process.argv.includes('--role')
   ? process.argv[process.argv.indexOf('--role') + 1]
@@ -44,16 +48,21 @@ const roles = {
     check('architecture', new Set(nav.map((x) => x.label)).size === nav.length, 'les libellés de navigation du contrat sont uniques');
     check('architecture', contract.requiredProductionAssets.every(exists), 'les assets de production déclarés existent dans le dépôt');
     check('architecture', exists('renderer/detail.js') && exists('renderer/app.js'), 'les renderers métier sont présents');
+    check('architecture', pkg.main === 'main-entry.cjs', 'le point d’entrée dédié charge les extensions métier');
+    check('architecture', entry.includes('reparation-edit-extension.cjs') && entry.includes('main-bootstrap.cjs'), 'l’extension réparation est chargée avant le bootstrap Electron');
   },
 
   ui() {
     const actual = navFromMasterShell();
     check('ui', JSON.stringify(actual) === JSON.stringify(contract.navigation), 'la navigation visible correspond exactement au contrat fonctionnel');
     check('ui', !contract.forbiddenNavigationLabels.some((label) => actual.some((x) => x.label === label)), 'aucune catégorie décorative ne remplace une vraie vue métier');
-    check('ui', productionCss.includes('./assets/dashboard-hero-master.webp'), 'le hero de production utilise son asset dédié');
+    check('ui', productionCss.includes('./assets/dashboard-hero-master.webp'), 'le fallback historique du hero reste empaqueté');
     check('ui', !productionCss.includes('dashboard-master.png'), 'la capture maître n’est jamais utilisée comme faux contrôle dans le CSS de production');
+    check('ui', v51.includes('dashboard-hero-production.svg'), 'le hero de production utilise son illustration dédiée');
+    check('ui', v51.includes('sidebar-logo-production.svg'), 'la sidebar utilise son identité graphique dédiée');
     check('ui', detailCss.includes('scrollbar-gutter:stable'), 'la fiche détail réserve la gouttière de scrollbar');
     check('ui', /@media\(max-width:900px\)[\s\S]*detail-columns\{grid-template-columns:1fr\}/.test(detailCss), 'la fiche détail bascule en une colonne sur viewport étroit');
+    check('ui', /\.detail-summary\{[^}]*min-height:/s.test(detailCss), 'le bandeau sombre possède une hauteur minimale anti-recouvrement');
   },
 
   functional() {
@@ -68,6 +77,10 @@ const roles = {
       if (item.view === 'dashboard') continue;
       check('functional', html.includes(`id="view-${item.view}"`), `la destination ${item.view} pointe vers une vraie vue`);
     }
+    check('functional', detailJs.includes('closeDetailDialog') && detailJs.includes('event.target === dialog'), 'la fiche dispose de sorties souris indépendantes d’Échap');
+    check('functional', detailJs.includes('data-edit-repair') && detailJs.includes('updateReparation'), 'les réparations sont modifiables depuis l’interface');
+    check('functional', preload.includes('updateReparation:'), 'l’API renderer expose la modification des réparations');
+    check('functional', repairExtension.includes('UPDATE reparations'), 'la modification des réparations est persistée en base');
   },
 
   data() {
@@ -79,7 +92,7 @@ const roles = {
   },
 
   electron() {
-    check('electron', pkg.main === 'main-bootstrap.cjs', 'le bootstrap Electron attendu est le point d’entrée');
+    check('electron', pkg.main === 'main-entry.cjs', 'le point d’entrée Electron attendu est déclaré');
     check('electron', pkg.build?.asar === true, 'ASAR est activé');
     check('electron', pkg.build?.win?.target?.includes('nsis'), 'la cible Windows NSIS est déclarée');
     check('electron', pkg.build?.electronFuses?.runAsNode === false, 'RunAsNode est désactivé');
@@ -94,6 +107,8 @@ const roles = {
     check('redteam', /\.vf-kpis\{[\s\S]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/.test(productionCss), 'les KPI possèdent un repli responsive en deux colonnes');
     check('redteam', detailCss.includes('max-height:calc(100vh - 32px)') || detailCss.includes('max-height:calc(100vh - 20px)'), 'la fiche ne peut pas dépasser la hauteur utile de l’écran');
     check('redteam', !contract.forbiddenProductionPersona.some((text) => html.includes(text)), 'aucune identité/date/météo fictive n’est encodée comme contenu HTML de production');
+    check('redteam', detailJs.includes("dialog.addEventListener('cancel'") && detailJs.includes("[data-detail-close]"), 'la fermeture reste possible par plusieurs chemins indépendants');
+    check('redteam', detailCss.includes('pointer-events:auto') && detailCss.includes('.detail-header .close'), 'le bouton de fermeture ne peut pas être neutralisé par le décor');
   }
 };
 
