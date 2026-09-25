@@ -12,6 +12,7 @@
 
   let activeSignalementId = null;
   let dialog = null;
+  let decoratingRepairs = false;
 
   function identitiesVisible() {
     return $('#privacy-toggle')?.getAttribute('aria-pressed') === 'true';
@@ -44,6 +45,23 @@
     return date.toLocaleDateString('fr-FR');
   }
 
+  function notify(message, error = false) {
+    const toast = $('#toast');
+    if (!toast) return;
+    toast.textContent = message;
+    toast.classList.toggle('error', error);
+    toast.classList.add('show');
+    clearTimeout(notify.timer);
+    notify.timer = setTimeout(() => toast.classList.remove('show'), 4200);
+  }
+
+  function closeDetailDialog(reason = 'button') {
+    if (!dialog?.open) return false;
+    dialog.dataset.closedBy = reason;
+    dialog.close();
+    return true;
+  }
+
   function ensureDialog() {
     if (dialog) return dialog;
     dialog = document.createElement('dialog');
@@ -57,7 +75,7 @@
             <p class="eyebrow">Fiche de signalement</p>
             <h2 id="signal-detail-title">Dossier</h2>
           </div>
-          <button class="close" type="button" data-detail-close aria-label="Fermer la fiche">×</button>
+          <button class="close" type="button" data-detail-close aria-label="Fermer la fiche" title="Fermer">×</button>
         </header>
         <div id="signal-detail-body" class="detail-scroll" aria-live="polite"></div>
         <footer class="detail-footer">
@@ -67,10 +85,20 @@
       </div>`;
     document.body.appendChild(dialog);
 
+    // Deux boutons de sortie directs : aucune délégation fragile ne peut les
+    // rendre inopérants à la suite d'un changement de contenu dans la fiche.
+    $$('[data-detail-close]', dialog).forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        closeDetailDialog('button');
+      });
+    });
+
+    // Troisième sortie : clic explicite sur l'arrière-plan du dialog.
     dialog.addEventListener('click', async (event) => {
-      const close = event.target.closest('[data-detail-close]');
-      if (close) {
-        dialog.close();
+      if (event.target === dialog) {
+        closeDetailDialog('backdrop');
         return;
       }
 
@@ -84,21 +112,17 @@
       }
     });
 
+    // Échap reste disponible, mais n'est plus l'unique moyen de quitter.
+    dialog.addEventListener('cancel', (event) => {
+      event.preventDefault();
+      closeDetailDialog('escape');
+    });
+
     dialog.addEventListener('close', () => {
       activeSignalementId = null;
     });
 
     return dialog;
-  }
-
-  function notify(message, error = false) {
-    const toast = $('#toast');
-    if (!toast) return;
-    toast.textContent = message;
-    toast.classList.toggle('error', error);
-    toast.classList.add('show');
-    clearTimeout(notify.timer);
-    notify.timer = setTimeout(() => toast.classList.remove('show'), 4200);
   }
 
   function renderPhotos(photos) {
@@ -120,10 +144,13 @@
       return '<div class="detail-empty">Aucune réparation ou mesure enregistrée.</div>';
     }
     return `<div class="detail-repair-list">${reparations.map((repair) => `
-      <article class="detail-repair">
+      <article class="detail-repair" data-detail-repair-id="${Number(repair.id)}">
         <div class="detail-repair-head">
           <strong>${esc(repair.mesure || 'Mesure enregistrée')}</strong>
-          ${statusBadge(repair.statut)}
+          <div class="detail-repair-tools">
+            ${statusBadge(repair.statut)}
+            <button class="mini edit-repair" type="button" data-edit-repair="${Number(repair.id)}">Modifier</button>
+          </div>
         </div>
         <dl class="detail-definition compact">
           <div><dt>Référent</dt><dd>${protectedIdentity(repair.referent)}</dd></div>
@@ -226,7 +253,105 @@
 
   async function refreshActiveDetail() {
     if (!dialog?.open || !activeSignalementId) return;
-    await openSignalementById(activeSignalementId);
+    const id = activeSignalementId;
+    await openSignalementById(id);
+  }
+
+  function ensureRepairEditField() {
+    const form = $('#repair-form');
+    if (!form) return null;
+    let field = form.elements.reparation_id;
+    if (!field) {
+      field = document.createElement('input');
+      field.type = 'hidden';
+      field.name = 'reparation_id';
+      form.prepend(field);
+    }
+    return field;
+  }
+
+  function setRepairDialogMode(repair = null) {
+    const form = $('#repair-form');
+    const repairDialog = $('#repair-dialog');
+    if (!form || !repairDialog) return;
+    const idField = ensureRepairEditField();
+    const title = $('h2', repairDialog);
+    const submit = $('footer .btn.primary', repairDialog);
+
+    if (!repair) {
+      idField.value = '';
+      if (title) title.textContent = 'Ajouter une réparation';
+      if (submit) submit.textContent = 'Enregistrer';
+      repairDialog.dataset.mode = 'create';
+      return;
+    }
+
+    form.reset();
+    idField.value = String(repair.id);
+    form.elements.signalement_id.value = String(repair.signalement_id || '');
+    form.elements.mesure.value = repair.mesure || '';
+    form.elements.referent.value = repair.referent || '';
+    form.elements.debut.value = repair.debut || '';
+    form.elements.duree.value = repair.duree || '';
+    form.elements.notes.value = repair.notes || '';
+    form.elements.statut.value = repair.statut || 'En cours';
+    if (title) title.textContent = 'Modifier la réparation';
+    if (submit) submit.textContent = 'Enregistrer les modifications';
+    repairDialog.dataset.mode = 'edit';
+  }
+
+  async function openRepairEditor(id) {
+    const repairId = Number(id);
+    if (!Number.isSafeInteger(repairId) || repairId <= 0) return;
+    try {
+      const rows = await window.rdl.listReparations(1000);
+      const repair = rows.find((row) => Number(row.id) === repairId);
+      if (!repair) throw new Error('Réparation introuvable.');
+      setRepairDialogMode(repair);
+      const repairDialog = $('#repair-dialog');
+      if (!repairDialog.open) repairDialog.showModal();
+      setTimeout(() => $('#repair-form [name="mesure"]')?.focus(), 40);
+    } catch (error) {
+      notify(`Modification impossible : ${error.message}`, true);
+    }
+  }
+
+  async function refreshApplicationData() {
+    if (typeof window.reload === 'function') {
+      await window.reload();
+      return;
+    }
+    window.location.reload();
+  }
+
+  function bindRepairEditing() {
+    const form = $('#repair-form');
+    const repairDialog = $('#repair-dialog');
+    if (!form || !repairDialog) return;
+    ensureRepairEditField();
+
+    // Capture=true : en mode édition, ce handler intercepte le submit avant
+    // l'ancien chemin de création d'app.js. En mode création il ne fait rien.
+    form.addEventListener('submit', async (event) => {
+      const repairId = Number(form.elements.reparation_id?.value || 0);
+      if (!repairId) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const payload = Object.fromEntries(new FormData(form).entries());
+      delete payload.reparation_id;
+      try {
+        await window.rdl.updateReparation(repairId, payload);
+        repairDialog.close('updated');
+        setRepairDialogMode(null);
+        await refreshApplicationData();
+        await refreshActiveDetail();
+        notify('Réparation modifiée et enregistrée localement.');
+      } catch (error) {
+        notify(`Modification impossible : ${error.message}`, true);
+      }
+    }, true);
+
+    repairDialog.addEventListener('close', () => setRepairDialogMode(null));
   }
 
   function decorateSignalRows() {
@@ -273,6 +398,39 @@
     });
   }
 
+  async function decorateRepairRows() {
+    if (decoratingRepairs) return;
+    const body = $('#reparations-body');
+    if (!body) return;
+    decoratingRepairs = true;
+    try {
+      const repairs = await window.rdl.listReparations(1000);
+      const rows = $$('tr', body).filter((row) => $('td', row));
+      rows.forEach((row, index) => {
+        const repair = repairs[index];
+        if (!repair) return;
+        row.dataset.repairId = String(repair.id);
+        const statusCell = $('td:last-child', row);
+        if (!statusCell || statusCell.querySelector('[data-edit-repair]')) return;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'repair-status-actions';
+        while (statusCell.firstChild) wrapper.appendChild(statusCell.firstChild);
+        const edit = document.createElement('button');
+        edit.className = 'mini edit-repair';
+        edit.type = 'button';
+        edit.dataset.editRepair = String(repair.id);
+        edit.textContent = 'Modifier';
+        edit.setAttribute('aria-label', `Modifier la réparation ${repair.id}`);
+        wrapper.appendChild(edit);
+        statusCell.appendChild(wrapper);
+      });
+    } catch (error) {
+      console.error('Décoration des réparations impossible:', error);
+    } finally {
+      decoratingRepairs = false;
+    }
+  }
+
   function decorateRecentRows() {
     const list = $('#recent-list');
     if (!list) return;
@@ -290,12 +448,27 @@
 
   function bindNavigation() {
     document.addEventListener('click', (event) => {
+      const editRepair = event.target.closest('[data-edit-repair]');
+      if (editRepair) {
+        event.preventDefault();
+        event.stopPropagation();
+        openRepairEditor(editRepair.dataset.editRepair);
+        return;
+      }
+
       const fiche = event.target.closest('[data-fiche]');
       if (fiche) {
         event.preventDefault();
         event.stopPropagation();
         openSignalementByNum(fiche.dataset.fiche);
         return;
+      }
+
+      const createRepair = event.target.closest('[data-repair]');
+      if (createRepair) {
+        // app.js ouvre le formulaire de création sur le même événement ;
+        // ce reset différé garantit qu'un ancien mode édition ne subsiste pas.
+        setTimeout(() => setRepairDialogMode(null), 0);
       }
 
       const row = event.target.closest('[data-fiche-num]');
@@ -316,10 +489,10 @@
     });
 
     window.addEventListener('blur', () => {
-      if (dialog?.open) dialog.close();
+      if (dialog?.open) closeDetailDialog('window-blur');
     });
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden && dialog?.open) dialog.close();
+      if (document.hidden && dialog?.open) closeDetailDialog('document-hidden');
     });
   }
 
@@ -328,6 +501,11 @@
     if (signalBody) {
       decorateSignalRows();
       new MutationObserver(decorateSignalRows).observe(signalBody, { childList: true });
+    }
+    const repairBody = $('#reparations-body');
+    if (repairBody) {
+      decorateRepairRows();
+      new MutationObserver(() => decorateRepairRows()).observe(repairBody, { childList: true });
     }
     const recent = $('#recent-list');
     if (recent) {
@@ -339,6 +517,7 @@
   function init() {
     if (!window.rdl) return;
     ensureDialog();
+    bindRepairEditing();
     bindNavigation();
     observeRenders();
   }
