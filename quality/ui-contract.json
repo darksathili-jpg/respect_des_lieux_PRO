@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "application": "Respect des Lieux PRO",
   "navigation": [
     { "view": "dashboard", "label": "Accueil" },
@@ -40,13 +40,18 @@
   ],
   "requiredProductionAssets": [
     "renderer/assets/dashboard-hero-master.webp",
-    "renderer/assets/sidebar-logo-master.webp"
+    "renderer/assets/sidebar-logo-master.webp",
+    "renderer/assets/dashboard-hero-production.svg",
+    "renderer/assets/sidebar-logo-production.svg"
   ],
   "productionRules": {
     "masterScreenshotMayBeUsedOnlyForVisualTest": true,
     "responsiveMinimumWidthAllowed": 0,
     "detailDialogRequiresStableScrollbar": true,
     "detailDialogRequiresSingleColumnFallback": true,
-    "releaseMustRunQualityGate": true
+    "detailDialogRequiresMultipleExitPaths": true,
+    "repairsMustBeEditable": true,
+    "releaseMustRunQualityGate": true,
+    "releaseMustRunPackagedInteractionGate": true
   }
 }
