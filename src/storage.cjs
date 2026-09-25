@@ -108,6 +108,9 @@ class LocalPhotoStore {
   attach(signalementId, sourcePath, db) {
     const signalement = db.getSignalement(signalementId);
     if (!signalement) throw new Error('Signalement introuvable.');
+    if (signalement.statut === 'Clos') {
+      throw new Error('Le dossier est clos : rouvrez-le avant d’ajouter une photo.');
+    }
 
     const currentPhotos = db.listPhotos(signalementId);
     if (currentPhotos.length >= MAX_PHOTOS_PER_SIGNALEMENT) {
