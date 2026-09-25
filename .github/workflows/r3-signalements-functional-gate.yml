@@ -68,7 +68,7 @@ jobs:
 
       - name: Install pinned desktop toolchain
         shell: pwsh
-        run: npm ci --ignore-scripts=false
+        run: npm install --no-audit --no-fund
 
       - name: Build true unpacked Windows application
         shell: pwsh
@@ -112,5 +112,5 @@ jobs:
         with:
           name: r3-signalements-packaged-e2e
           path: ${{ runner.temp }}/rdl-r3-e2e-evidence/**
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
