@@ -9,6 +9,20 @@ on:
       - "scripts/**"
       - "quality/**"
       - "package.json"
+      - "main-entry.cjs"
+      - "main.cjs"
+      - "main-bootstrap.cjs"
+      - "preload.cjs"
+      - ".github/workflows/multi-agent-quality-gate.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "renderer/**"
+      - "src/**"
+      - "scripts/**"
+      - "quality/**"
+      - "package.json"
+      - "main-entry.cjs"
       - "main.cjs"
       - "main-bootstrap.cjs"
       - "preload.cjs"
