@@ -10,6 +10,8 @@ on:
       - "main.cjs"
       - "tests/**"
       - "scripts/r3-signalements-gate.mjs"
+      - "scripts/r3-seed-packaged-e2e.cjs"
+      - "scripts/r3-packaged-e2e.mjs"
       - "quality/r3-signalements-contract.json"
       - "docs/R3-SIGNALEMENTS-AUDIT.md"
       - ".github/workflows/r3-signalements-functional-gate.yml"
@@ -22,6 +24,8 @@ on:
       - "main.cjs"
       - "tests/**"
       - "scripts/r3-signalements-gate.mjs"
+      - "scripts/r3-seed-packaged-e2e.cjs"
+      - "scripts/r3-packaged-e2e.mjs"
       - "quality/r3-signalements-contract.json"
       - "docs/R3-SIGNALEMENTS-AUDIT.md"
       - ".github/workflows/r3-signalements-functional-gate.yml"
@@ -48,3 +52,65 @@ jobs:
       - name: R3 Signalements contract — functional first, CSS forbidden while red
         shell: pwsh
         run: node scripts/r3-signalements-gate.mjs
+
+  packaged-e2e:
+    needs: functional-contract
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Node 24.21
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24.21.0"
+
+      - name: Install pinned desktop toolchain
+        shell: pwsh
+        run: npm ci --ignore-scripts=false
+
+      - name: Build true unpacked Windows application
+        shell: pwsh
+        run: npm run dist:win:dir
+
+      - name: Seed isolated R3 profile and execute full packaged journey
+        shell: pwsh
+        run: |
+          $local = Join-Path $env:RUNNER_TEMP "rdl-r3-e2e-localappdata"
+          $evidence = Join-Path $env:RUNNER_TEMP "rdl-r3-e2e-evidence"
+          Remove-Item $local -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item $evidence -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $local -Force | Out-Null
+          New-Item -ItemType Directory -Path $evidence -Force | Out-Null
+
+          node scripts/r3-seed-packaged-e2e.cjs $local $evidence
+          if ($LASTEXITCODE -ne 0) { throw "Création de la fixture R3 impossible." }
+
+          $exe = Get-ChildItem -Path dist -Recurse -Filter "Respect des Lieux PRO.exe" -File | Select-Object -First 1
+          if (-not $exe) { throw "Exécutable unpacked introuvable." }
+
+          $env:LOCALAPPDATA = $local
+          Remove-Item Env:RDL_PACKAGED_SMOKE -ErrorAction SilentlyContinue
+          $stdout = Join-Path $evidence "electron-stdout.txt"
+          $stderr = Join-Path $evidence "electron-stderr.txt"
+          $port = 9444
+          $p = Start-Process -FilePath $exe.FullName -ArgumentList "--remote-debugging-port=$port" -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          try {
+            node scripts/r3-packaged-e2e.mjs --port $port --out $evidence --fixture (Join-Path $evidence "fixture.json")
+            if ($LASTEXITCODE -ne 0) { throw "Le parcours E2E R3 a échoué (code $LASTEXITCODE)." }
+          }
+          finally {
+            if ($p -and -not $p.HasExited) {
+              try { Stop-Process -Id $p.Id -Force } catch {}
+            }
+          }
+
+      - name: Upload R3 packaged E2E evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r3-signalements-packaged-e2e
+          path: ${{ runner.temp }}/rdl-r3-e2e-evidence/**
+          if-no-files-found: error
+          retention-days: 14
