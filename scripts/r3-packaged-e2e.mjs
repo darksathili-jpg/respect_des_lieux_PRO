@@ -87,9 +87,7 @@ class Cdp {
 
 async function evaluate(cdp, expression) {
   const response = await cdp.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
-  if (response.exceptionDetails) {
-    throw new Error(`Exception renderer: ${response.exceptionDetails.text || 'inconnue'}`);
-  }
+  if (response.exceptionDetails) throw new Error(`Exception renderer: ${response.exceptionDetails.text || 'inconnue'}`);
   return response.result?.value;
 }
 
@@ -136,26 +134,76 @@ async function screenshot(cdp, name) {
 
 function startNativeFilePicker(photoPath) {
   const ps = String.raw`
-$ErrorActionPreference = 'SilentlyContinue'
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName UIAutomationClient
+Add-Type -AssemblyName UIAutomationTypes
 Add-Type -AssemblyName System.Windows.Forms
-$ws = New-Object -ComObject WScript.Shell
+$root = [System.Windows.Automation.AutomationElement]::RootElement
+$titleCondition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, 'Ajouter une photo JPEG')
 $deadline = (Get-Date).AddSeconds(20)
-while ((Get-Date) -lt $deadline) {
-  if ($ws.AppActivate('Ajouter une photo JPEG')) {
-    Start-Sleep -Milliseconds 450
-    Set-Clipboard -Value $env:RDL_E2E_PHOTO_PATH
-    [System.Windows.Forms.SendKeys]::SendWait('^l')
-    Start-Sleep -Milliseconds 120
-    [System.Windows.Forms.SendKeys]::SendWait('^v')
-    Start-Sleep -Milliseconds 120
-    [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
-    Start-Sleep -Milliseconds 300
-    [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
-    exit 0
-  }
-  Start-Sleep -Milliseconds 150
+$window = $null
+while ((Get-Date) -lt $deadline -and -not $window) {
+  $window = $root.FindFirst([System.Windows.Automation.TreeScope]::Children, $titleCondition)
+  if (-not $window) { Start-Sleep -Milliseconds 120 }
 }
-exit 17
+if (-not $window) { Write-Error 'Boîte de dialogue Ajouter une photo JPEG introuvable'; exit 17 }
+Write-Output ('DIALOG ' + $window.Current.Name + ' class=' + $window.Current.ClassName)
+function Find-ByAutomationId($parent, $id) {
+  $condition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id)
+  return $parent.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+}
+function Find-EnabledValueControl($parent) {
+  $condition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Edit)
+  $items = $parent.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition)
+  for ($i = $items.Count - 1; $i -ge 0; $i--) {
+    $candidate = $items.Item($i)
+    if (-not $candidate.Current.IsEnabled) { continue }
+    try { $null = $candidate.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern); return $candidate } catch {}
+  }
+  return $null
+}
+$fileControl = Find-ByAutomationId $window '1148'
+if ($fileControl -and $fileControl.Current.ControlType -ne [System.Windows.Automation.ControlType]::Edit) {
+  $editCondition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Edit)
+  $nested = $fileControl.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $editCondition)
+  if ($nested) { $fileControl = $nested }
+}
+if (-not $fileControl) { $fileControl = Find-EnabledValueControl $window }
+if (-not $fileControl) {
+  $all = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+  foreach ($item in $all) {
+    if ($item.Current.ControlType -eq [System.Windows.Automation.ControlType]::Edit -or $item.Current.ControlType -eq [System.Windows.Automation.ControlType]::Button) {
+      Write-Output ('CONTROL type=' + $item.Current.ControlType.ProgrammaticName + ' name=' + $item.Current.Name + ' id=' + $item.Current.AutomationId)
+    }
+  }
+  Write-Error 'Champ nom de fichier introuvable'; exit 18
+}
+try {
+  $valuePattern = $fileControl.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+  $valuePattern.SetValue($env:RDL_E2E_PHOTO_PATH)
+} catch {
+  $fileControl.SetFocus()
+  Set-Clipboard -Value $env:RDL_E2E_PHOTO_PATH
+  [System.Windows.Forms.SendKeys]::SendWait('^a')
+  [System.Windows.Forms.SendKeys]::SendWait('^v')
+}
+Write-Output ('FILE_CONTROL name=' + $fileControl.Current.Name + ' id=' + $fileControl.Current.AutomationId)
+Start-Sleep -Milliseconds 250
+$openButton = Find-ByAutomationId $window '1'
+if (-not $openButton -or $openButton.Current.ControlType -ne [System.Windows.Automation.ControlType]::Button) {
+  $buttonCondition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)
+  $buttons = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, $buttonCondition)
+  foreach ($button in $buttons) {
+    Write-Output ('BUTTON name=' + $button.Current.Name + ' id=' + $button.Current.AutomationId)
+    if ($button.Current.Name -match '^(Open|Ouvrir)$') { $openButton = $button; break }
+  }
+}
+if (-not $openButton) { Write-Error 'Bouton Open/Ouvrir introuvable'; exit 19 }
+$invoke = $openButton.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+$invoke.Invoke()
+Write-Output ('OPEN_BUTTON name=' + $openButton.Current.Name + ' id=' + $openButton.Current.AutomationId)
+Start-Sleep -Milliseconds 500
+exit 0
 `;
   return spawn('powershell.exe', ['-NoProfile', '-STA', '-Command', ps], {
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -173,6 +221,7 @@ async function waitChild(child, label) {
     child.on('error', (error) => { clearTimeout(timer); reject(error); });
     child.on('exit', (value) => { clearTimeout(timer); resolve(value); });
   });
+  fs.writeFileSync(path.join(outDir, 'native-file-picker.log'), `exit=${code}\n--- stdout ---\n${stdout}\n--- stderr ---\n${stderr}`, 'utf8');
   if (code !== 0) throw new Error(`${label}: code ${code}; stdout=${stdout}; stderr=${stderr}`);
 }
 
@@ -183,25 +232,16 @@ async function queryTotal(cdp, query = '') {
 const target = await discoverTarget();
 const cdp = new Cdp(target.webSocketDebuggerUrl);
 await cdp.connect();
-
 try {
   await cdp.send('Page.enable');
   await cdp.send('Runtime.enable');
-  await cdp.send('Emulation.setDeviceMetricsOverride', {
-    width: 1440, height: 900, deviceScaleFactor: 1, mobile: false,
-    screenWidth: 1440, screenHeight: 900, positionX: 0, positionY: 0,
-    dontSetVisibleSize: false
-  });
-
+  await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false, screenWidth: 1440, screenHeight: 900, positionX: 0, positionY: 0, dontSetVisibleSize: false });
   await waitFor(cdp, `document.querySelector('#app-shell')?.dataset.shellReady === 'true'`, 'shell prête');
   const baselineTotal = await queryTotal(cdp);
   if (baselineTotal !== fixture.seededSignalements) throw new Error(`Fixture inattendue: ${baselineTotal} dossiers au lieu de ${fixture.seededSignalements}`);
   record('fixture-loaded', { total: baselineTotal });
-
   await click(cdp, '#app-shell .nav[data-view="signalements"]');
   await waitFor(cdp, `document.querySelector('#app-shell')?.dataset.activeView === 'signalements'`, 'vue Signalements');
-
-  // Regression P0: × doit fermer un formulaire invalide sans déclencher la validation ni écrire.
   await click(cdp, '#new-signalement');
   await waitFor(cdp, `document.querySelector('#signal-dialog')?.open === true`, 'dialog création ouvert');
   await click(cdp, '#signal-dialog [data-signal-cancel]');
@@ -211,8 +251,6 @@ try {
   if (afterCancel !== baselineTotal) throw new Error('Annulation a écrit dans la base.');
   if (focusAfterCancel !== 'new-signalement') throw new Error(`Focus non restitué après annulation: ${focusAfterCancel}`);
   record('cancel-create-without-write', { total: afterCancel, focus: focusAfterCancel });
-
-  // Création réelle.
   await click(cdp, '#new-signalement');
   await waitFor(cdp, `document.querySelector('#signal-dialog')?.open === true`, 'dialog création réouvert');
   await fill(cdp, '#signal-form [name="date"]', '2026-09-25');
@@ -227,8 +265,6 @@ try {
   if (!Array.isArray(createdRows) || createdRows.length !== 1) throw new Error(`Création non retrouvée: ${JSON.stringify(createdRows)}`);
   const created = createdRows[0];
   record('create', { id: created.id, num: created.num, lieu: created.lieu });
-
-  // Consultation par l'UI réelle.
   await fill(cdp, '#signal-search', fixture.createLieu);
   await waitFor(cdp, `document.querySelector('#signalements-body')?.innerText.includes(${JSON.stringify(fixture.createLieu)})`, 'résultat créé visible');
   await click(cdp, `#signalements-body button[data-fiche-id="${created.id}"]`);
@@ -236,8 +272,6 @@ try {
   const detailTitle = await evaluate(cdp, `document.querySelector('#signal-detail-title')?.textContent || ''`);
   if (!detailTitle.includes(created.num)) throw new Error(`Titre fiche incohérent: ${detailTitle}`);
   record('consult-detail', { title: detailTitle });
-
-  // Édition depuis la fiche.
   await click(cdp, '#signal-detail-dialog [data-edit-signalement]');
   await waitFor(cdp, `document.querySelector('#signal-dialog')?.open === true && document.querySelector('#signal-dialog')?.dataset.mode === 'edit'`, 'éditeur Signalement ouvert');
   await fill(cdp, '#signal-form [name="lieu"]', fixture.editedLieu);
@@ -247,8 +281,6 @@ try {
   const editedDetail = await evaluate(cdp, `window.rdl.getSignalementDetail(${created.id})`);
   if (editedDetail?.signalement?.lieu !== fixture.editedLieu) throw new Error('Modification non persistée.');
   record('edit', { lieu: editedDetail.signalement.lieu });
-
-  // Ajout photo via la vraie boîte de dialogue Windows.
   await fill(cdp, '#signal-search', fixture.editedLieu);
   await waitFor(cdp, `document.querySelector('#signalements-body')?.innerText.includes(${JSON.stringify(fixture.editedLieu)})`, 'ligne modifiée visible');
   const picker = startNativeFilePicker(fixture.fixturePhoto);
@@ -259,8 +291,6 @@ try {
   const photoId = withPhoto.photos[0]?.id;
   if (!photoId) throw new Error('Photo ajoutée sans identifiant exploitable.');
   record('attach-photo-native-dialog', { photoId, photoCount: withPhoto.photos.length });
-
-  // Retrait photo depuis la fiche; le wrapper confirme que l'UI demande bien confirmation.
   await click(cdp, `#signalements-body button[data-fiche-id="${created.id}"]`);
   await waitFor(cdp, `document.querySelector('#signal-detail-dialog')?.open === true`, 'fiche ouverte pour retrait photo');
   await evaluate(cdp, `(() => { window.__r3OriginalConfirm = window.confirm; window.__r3ConfirmCount = 0; window.confirm = () => { window.__r3ConfirmCount += 1; return true; }; return true; })()`);
@@ -272,8 +302,6 @@ try {
   record('remove-photo', { confirmCount });
   await click(cdp, '#signal-detail-dialog [data-detail-close]');
   await waitFor(cdp, `document.querySelector('#signal-detail-dialog')?.open === false`, 'fiche refermée');
-
-  // Clôture puis verrouillage métier.
   await fill(cdp, '#signal-search', fixture.editedLieu);
   await waitFor(cdp, `document.querySelector('#signalements-body [data-set-status="${created.id}"]') != null`, 'contrôle de statut visible');
   await click(cdp, `#signalements-body [data-set-status="${created.id}"]`);
@@ -282,23 +310,17 @@ try {
   if (!closedDetail.signalement.closed_at) throw new Error('Clôture sans closed_at.');
   await waitFor(cdp, `document.querySelector('#signalements-body [data-edit-signalement="${created.id}"]')?.disabled === true`, 'édition verrouillée sur dossier clos');
   record('close', { closedAt: closedDetail.signalement.closed_at });
-
-  // Réouverture puis retour du droit d'édition.
   await click(cdp, `#signalements-body [data-set-status="${created.id}"]`);
   await waitFor(cdp, `window.rdl.getSignalementDetail(${created.id}).then(d => d.signalement.statut === 'Ouvert')`, 'dossier rouvert');
   await waitFor(cdp, `document.querySelector('#signalements-body [data-edit-signalement="${created.id}"]')?.disabled === false`, 'édition réactivée après réouverture');
   record('reopen');
-
-  // Recherche UI d'une ligne qui était physiquement au-delà des 500 premières dans la fixture.
   await fill(cdp, '#signal-search', fixture.deepSearchTerm);
   await waitFor(cdp, `document.querySelector('#signalements-body')?.innerText.includes(${JSON.stringify(fixture.deepSearchTerm)})`, 'recherche au-delà du 500e dossier');
   const deepUi = await evaluate(cdp, `(() => ({ text: document.querySelector('#signalements-body')?.innerText || '', page: document.querySelector('#signal-page')?.textContent || '' }))()`);
   if (!deepUi.text.includes('2025-0001')) throw new Error(`La ligne profonde attendue n'est pas celle de la fixture: ${deepUi.text}`);
   record('search-beyond-500', { page: deepUi.page, num: '2025-0001' });
-
   const shot = await screenshot(cdp, 'r3-signalements-final.png');
   record('screenshot', shot);
-
   evidence.finishedAt = new Date().toISOString();
   evidence.ok = true;
   fs.writeFileSync(path.join(outDir, 'r3-e2e-evidence.json'), JSON.stringify(evidence, null, 2), 'utf8');
