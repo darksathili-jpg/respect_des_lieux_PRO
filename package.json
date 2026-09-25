@@ -3,7 +3,7 @@
   "version": "5.2.1-alpha.6",
   "private": true,
   "description": "Application desktop locale de suivi des dégradations en établissement scolaire — données stockées uniquement sur le poste utilisateur.",
-  "main": "main-bootstrap.cjs",
+  "main": "main-entry.cjs",
   "author": "Lycée Watteau",
   "license": "UNLICENSED",
   "engines": {
@@ -11,9 +11,9 @@
   },
   "scripts": {
     "start": "electron .",
-    "check": "node --check main-bootstrap.cjs && node --check main.cjs && node --check preload.cjs && node --check src/database.cjs && node --check src/storage.cjs && node --check src/portable-backup.cjs && node --check renderer/app.js && node --check renderer/detail.js",
+    "check": "node --check main-entry.cjs && node --check main-bootstrap.cjs && node --check main.cjs && node --check preload.cjs && node --check src/database.cjs && node --check src/reparation-edit-extension.cjs && node --check src/storage.cjs && node --check src/portable-backup.cjs && node --check renderer/app.js && node --check renderer/detail.js && node --check scripts/ux-guardrails.mjs",
     "test": "node --test tests/*.test.mjs",
-    "verify": "npm run check && npm test",
+    "verify": "npm run check && node scripts/quality-contract.mjs --role all && node scripts/ux-guardrails.mjs && npm test",
     "dist:win:dir": "electron-builder --win dir --x64 --publish never",
     "dist:win": "electron-builder --win nsis --x64 --publish never"
   },
