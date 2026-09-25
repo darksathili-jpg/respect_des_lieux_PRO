@@ -8,80 +8,27 @@
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./v51.css">
   <link rel="stylesheet" href="./detail.css">
-  <link rel="stylesheet" href="./dashboard-vf.css">
 </head>
-<body class="dashboard-mode">
-  <div id="vf-dashboard" class="vf-canvas" data-vf-master="dashboard-master-2026-09-24" data-vf-ready="false">
-    <div class="vf-topbar" aria-label="Barre d’application"></div>
-
-    <aside class="vf-sidebar">
-      <div class="vf-logo" aria-label="Lycée Watteau Valenciennes"></div>
-      <nav class="vf-nav" aria-label="Navigation principale">
-        <button class="nav vf-nav-item active" data-view="dashboard"><span class="vf-icon"><svg viewBox="0 0 24 24"><path d="m3 11 9-8 9 8"/><path d="M5 10v11h14V10M9 21v-7h6v7"/></svg></span><span>Accueil</span></button>
-        <button class="nav vf-nav-item" data-view="signalements"><span class="vf-icon"><svg viewBox="0 0 24 24"><path d="M4 13v-2l11-5v12L4 13Zm0 0v5m11-7 4-2v6l-4-2M7 14v5"/></svg></span><span>Signalements</span></button>
-        <button class="nav vf-nav-item" data-view="reparations"><span class="vf-icon"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5-5L12 3.6 9.6 6 7.3 3.7a4 4 0 0 0 5 5L3 18l3 3 8.7-9.3Z"/></svg></span><span>Réparations</span></button>
-        <button class="nav vf-nav-item" data-view="sauvegardes"><span class="vf-icon"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 20h16"/></svg></span><span>Sauvegardes</span></button>
-        <button class="nav vf-nav-item" data-view="confidentialite"><span class="vf-icon"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.4 8 8 9 4.6-1 8-4 8-9V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg></span><span>Protection des données</span></button>
-        <button class="nav vf-nav-item" data-view="systeme"><span class="vf-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><path d="m5.4 5.4 1.5 1.5M17.1 17.1l1.5 1.5M18.6 5.4l-1.5 1.5M6.9 17.1l-1.5 1.5M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></span><span>Système local</span></button>
-      </nav>
-      <div class="vf-sidebar-bottom" aria-hidden="true"></div>
-    </aside>
-
-    <main class="vf-main">
-      <section class="vf-hero" aria-label="Accueil"></section>
-      <section class="vf-content">
-        <div class="vf-kpis">
-          <article class="vf-kpi"><div class="vf-kpi-icon red"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-4 2.3-6 6-6s6 2 6 6M16 5a3 3 0 0 1 0 6m1 3c2.5.5 4 2.4 4 5"/></svg></div><div><strong id="vf-kpi-pending">12</strong><p>Signalements<br>en attente</p></div></article>
-          <article class="vf-kpi"><div class="vf-kpi-icon blue"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5-5L12 3.6 9.6 6 7.3 3.7a4 4 0 0 0 5 5L3 18l3 3 8.7-9.3Z"/></svg></div><div><strong id="vf-kpi-interventions">8</strong><p>Interventions<br>en cours</p></div></article>
-          <article class="vf-kpi"><div class="vf-kpi-icon green"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></svg></div><div><strong id="vf-kpi-resolved">48</strong><p>Résolus<br>ce mois-ci</p></div></article>
-          <article class="vf-kpi"><div class="vf-kpi-icon cyan"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-4 2.3-6 6-6s6 2 6 6M16 5a3 3 0 0 1 0 6m1 3c2.5.5 4 2.4 4 5"/></svg></div><div><strong>100%</strong><p>Mobilisés pour un<br>lycée plus propre</p></div></article>
-        </div>
-
-        <div class="vf-lower">
-          <article class="vf-card vf-recent">
-            <header><h2>Signalements récents</h2><button class="vf-link" type="button" data-goto="signalements">Voir tout →</button></header>
-            <div id="vf-recent-list">
-              <div class="vf-row"><div class="vf-row-icon red"><svg viewBox="0 0 24 24"><path d="M4 5h6a3 3 0 0 1 3 3v11a3 3 0 0 0-3-3H4z"/><path d="M20 5h-6a3 3 0 0 0-3 3v11a3 3 0 0 1 3-3h6z"/></svg></div><div class="vf-row-copy"><strong>Salle B201 - Table dégradée</strong><small>Aujourd’hui - 09:14</small></div><span class="vf-pill new">Nouveau</span></div>
-              <div class="vf-row"><div class="vf-row-icon orange"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 22h4"/><path d="M8 14c-2-1-3-3-3-5a7 7 0 0 1 14 0c0 2-1 4-3 5-1 1-1 2-1 3H9c0-1 0-2-1-3Z"/></svg></div><div class="vf-row-copy"><strong>Cour - Éclairage défectueux</strong><small>Aujourd’hui - 08:37</small></div><span class="vf-pill progress">En cours</span></div>
-              <div class="vf-row"><div class="vf-row-icon blue"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6"/></svg></div><div class="vf-row-copy"><strong>Toilettes - Propreté</strong><small>Hier - 16:22</small></div><span class="vf-pill handled">Pris en charge</span></div>
-              <div class="vf-row"><div class="vf-row-icon coral"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1"/><path d="M12 4v16M4 12h16"/></svg></div><div class="vf-row-copy"><strong>Hall - Vitrage fissuré</strong><small>Hier - 14:10</small></div><span class="vf-pill resolved">Résolu</span></div>
-            </div>
-          </article>
-
-          <article class="vf-card vf-engagement">
-            <header><h2>Notre engagement</h2></header>
-            <blockquote>“Un environnement respecté<br>favorise la réussite de chacun.”</blockquote>
-            <div class="vf-rule"></div>
-            <div class="vf-values">
-              <div class="vf-value"><svg viewBox="0 0 24 24"><path d="M20 4C12 4 5 8 5 15c0 3 2 5 5 5 7 0 10-8 10-16Z"/><path d="M4 21c3-5 7-8 12-10"/></svg><span>Un lycée<br>plus propre</span></div>
-              <div class="vf-value"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-4 2.3-6 6-6s6 2 6 6M16 5a3 3 0 0 1 0 6m1 3c2.5.5 4 2.4 4 5"/></svg><span>Une communauté<br>responsable</span></div>
-              <div class="vf-value"><svg viewBox="0 0 24 24"><path d="m2 9 10-5 10 5-10 5L2 9Z"/><path d="M6 11v5c3 3 9 3 12 0v-5M22 9v6"/></svg><span>Des réussites<br>durables</span></div>
-            </div>
-          </article>
-        </div>
-      </section>
-    </main>
-  </div>
-
-  <div class="shell">
-    <aside class="sidebar">
+<body>
+  <div id="app-shell" class="shell" data-shell="r1-single">
+    <aside class="sidebar" aria-label="Navigation principale">
       <div class="brand">
-        <div class="brand-mark">RL</div>
+        <div class="brand-mark" aria-hidden="true">RL</div>
         <div>
           <strong>Respect des Lieux</strong>
           <span>PRO · Local</span>
         </div>
       </div>
-      <nav>
-        <button class="nav active" data-view="dashboard">Tableau de bord</button>
-        <button class="nav" data-view="signalements">Signalements</button>
-        <button class="nav" data-view="reparations">Réparations</button>
-        <button class="nav" data-view="sauvegardes">Sauvegardes</button>
-        <button class="nav" data-view="confidentialite">Protection des données</button>
-        <button class="nav" data-view="systeme">Système local</button>
+      <nav aria-label="Sections de l’application">
+        <button type="button" class="nav active" data-view="dashboard" aria-current="page">Accueil</button>
+        <button type="button" class="nav" data-view="signalements">Signalements</button>
+        <button type="button" class="nav" data-view="reparations">Réparations</button>
+        <button type="button" class="nav" data-view="sauvegardes">Sauvegardes</button>
+        <button type="button" class="nav" data-view="confidentialite">Protection des données</button>
+        <button type="button" class="nav" data-view="systeme">Système local</button>
       </nav>
       <div class="local-seal">
-        <span class="dot"></span>
+        <span class="dot" aria-hidden="true"></span>
         <div>
           <strong>100 % local</strong>
           <small>Aucun backend cloud · réseau métier bloqué</small>
@@ -89,24 +36,24 @@
       </div>
     </aside>
 
-    <main class="main">
+    <main id="main-region" class="main" aria-labelledby="page-title">
       <header class="topbar">
         <div>
           <p class="eyebrow">Lycée Watteau · Valenciennes</p>
-          <h1 id="page-title">Tableau de bord</h1>
+          <h1 id="page-title">Accueil</h1>
         </div>
         <div class="top-actions">
-          <button id="privacy-toggle" class="btn secondary" aria-pressed="false">Afficher les identités</button>
+          <button id="privacy-toggle" type="button" class="btn secondary" aria-pressed="false">Afficher les identités</button>
           <span id="health-pill" class="health neutral">Vérification…</span>
-          <button id="backup-now" class="btn secondary">Sauvegarder</button>
-          <button id="new-signalement" class="btn primary">Nouveau signalement</button>
+          <button id="backup-now" type="button" class="btn secondary">Sauvegarder</button>
+          <button id="new-signalement" type="button" class="btn primary">Nouveau signalement</button>
         </div>
       </header>
 
-      <section id="view-dashboard" class="view active">
+      <section id="view-dashboard" class="view active" data-view-panel="dashboard">
         <div class="hero">
           <div>
-            <p class="eyebrow">V5.1 · School Data Lifecycle Gate</p>
+            <p class="eyebrow">Application locale</p>
             <h2>Les données restent sur ce PC.</h2>
             <p>SQLite local, réseau métier bloqué, identités masquées par défaut et cycle de vie contrôlé sans effacement automatique.</p>
           </div>
@@ -120,7 +67,7 @@
         </div>
         <div class="grid two">
           <article class="panel">
-            <div class="panel-head"><h3>Derniers signalements</h3><button class="text-btn" data-goto="signalements">Voir tout</button></div>
+            <div class="panel-head"><h3>Derniers signalements</h3><button class="text-btn" type="button" data-goto="signalements">Voir tout</button></div>
             <div id="recent-list" class="stack empty-state">Aucun signalement.</div>
           </article>
           <article class="panel">
@@ -136,7 +83,7 @@
         </div>
       </section>
 
-      <section id="view-signalements" class="view">
+      <section id="view-signalements" class="view" data-view-panel="signalements" hidden>
         <div class="panel">
           <div class="panel-head">
             <div><p class="eyebrow">Registre local</p><h3>Signalements</h3></div>
@@ -151,7 +98,7 @@
         </div>
       </section>
 
-      <section id="view-reparations" class="view">
+      <section id="view-reparations" class="view" data-view-panel="reparations" hidden>
         <div class="panel">
           <div class="panel-head"><div><p class="eyebrow">Suivi</p><h3>Réparations</h3></div></div>
           <div class="table-wrap">
@@ -163,37 +110,37 @@
         </div>
       </section>
 
-      <section id="view-sauvegardes" class="view">
+      <section id="view-sauvegardes" class="view" data-view-panel="sauvegardes" hidden>
         <div class="grid two">
           <article class="panel large-action">
-            <div class="icon">⤓</div>
+            <div class="icon" aria-hidden="true">⤓</div>
             <h3>Sauvegarde locale</h3>
             <p>Crée une copie cohérente de la base SQLite, des photos assainies et d’un manifeste de contrôle.</p>
-            <button id="backup-view-action" class="btn primary">Créer une sauvegarde maintenant</button>
+            <button id="backup-view-action" type="button" class="btn primary">Créer une sauvegarde maintenant</button>
           </article>
           <article class="panel large-action">
-            <div class="icon">⌂</div>
+            <div class="icon" aria-hidden="true">⌂</div>
             <h3>Dossier des sauvegardes</h3>
             <p>Les 14 dernières sauvegardes sont conservées automatiquement sur ce PC.</p>
-            <button id="open-backups" class="btn secondary">Ouvrir le dossier</button>
+            <button id="open-backups" type="button" class="btn secondary">Ouvrir le dossier</button>
           </article>
           <article class="panel large-action secure-action">
-            <div class="icon">🔐</div>
+            <div class="icon" aria-hidden="true">🔐</div>
             <h3>Sauvegarde externe chiffrée</h3>
             <p>Crée un fichier <code>.rdlbackup</code> protégé par AES-256-GCM. La phrase secrète n’est jamais enregistrée dans l’application.</p>
-            <button id="encrypted-backup" class="btn primary">Exporter une sauvegarde chiffrée</button>
+            <button id="encrypted-backup" type="button" class="btn primary">Exporter une sauvegarde chiffrée</button>
           </article>
           <article class="panel large-action secure-action">
-            <div class="icon">↺</div>
+            <div class="icon" aria-hidden="true">↺</div>
             <h3>Restauration guidée</h3>
             <p>Déchiffre et contrôle la sauvegarde, crée une copie de sécurité de l’état actuel puis applique la restauration au redémarrage.</p>
-            <button id="encrypted-restore" class="btn secondary">Préparer une restauration</button>
+            <button id="encrypted-restore" type="button" class="btn secondary">Préparer une restauration</button>
           </article>
         </div>
         <article class="notice warning"><strong>Règle pratique :</strong> conservez au moins une sauvegarde chiffrée sur un support distinct du PC. Une sauvegarde n’est utile que si sa restauration est régulièrement vérifiée.</article>
       </section>
 
-      <section id="view-confidentialite" class="view">
+      <section id="view-confidentialite" class="view" data-view-panel="confidentialite" hidden>
         <div class="grid two">
           <article class="panel">
             <div class="panel-head"><div><p class="eyebrow">Privacy by design</p><h3>Minimisation appliquée</h3></div></div>
@@ -256,7 +203,7 @@
           </article>
           <article class="panel">
             <div class="panel-head"><div><p class="eyebrow">Traçabilité minimale</p><h3>Dernières opérations de confidentialité</h3></div></div>
-            <div id="privacy-events" class="event-list empty-state">Aucune opération.</div>
+            <div id="privacy-events" class="event-list empty-state" aria-live="polite">Aucune opération.</div>
           </article>
         </div>
 
@@ -264,7 +211,7 @@
         <article class="notice warning"><strong>Avant mise en production :</strong> inscrire ou rattacher le traitement au registre, fixer les catégories de destinataires et la durée de conservation, préparer l’information des personnes concernées, valider la sécurité du poste et la procédure en cas d’incident.</article>
       </section>
 
-      <section id="view-systeme" class="view">
+      <section id="view-systeme" class="view" data-view-panel="systeme" hidden>
         <div class="grid two">
           <article class="panel">
             <div class="panel-head"><h3>Stockage</h3></div>
@@ -274,7 +221,7 @@
               <div><dt>Sauvegardes</dt><dd id="sys-backups">—</dd></div>
               <div><dt>Exports de revue</dt><dd id="sys-exports">—</dd></div>
             </dl>
-            <button id="open-data" class="btn secondary">Ouvrir le dossier de données</button>
+            <button id="open-data" type="button" class="btn secondary">Ouvrir le dossier de données</button>
           </article>
           <article class="panel">
             <div class="panel-head"><h3>Garde-fous V5.1</h3></div>
@@ -295,9 +242,9 @@
     </main>
   </div>
 
-  <dialog id="signal-dialog">
+  <dialog id="signal-dialog" aria-labelledby="signal-dialog-title">
     <form id="signal-form" method="dialog" class="dialog-card">
-      <header><div><p class="eyebrow">Nouveau dossier</p><h2>Créer un signalement</h2></div><button class="close" value="cancel" aria-label="Fermer">×</button></header>
+      <header><div><p class="eyebrow">Nouveau dossier</p><h2 id="signal-dialog-title">Créer un signalement</h2></div><button class="close" value="cancel" aria-label="Fermer">×</button></header>
       <div class="notice compact"><strong>Minimisation :</strong> saisissez uniquement les informations nécessaires au traitement du signalement. L’identité de l’élève est facultative.</div>
       <div class="form-grid">
         <label>Date<input name="date" type="date" required></label>
@@ -314,9 +261,9 @@
     </form>
   </dialog>
 
-  <dialog id="repair-dialog">
+  <dialog id="repair-dialog" aria-labelledby="repair-dialog-title">
     <form id="repair-form" method="dialog" class="dialog-card">
-      <header><div><p class="eyebrow">Mesure</p><h2>Ajouter une réparation</h2></div><button class="close" value="cancel" aria-label="Fermer">×</button></header>
+      <header><div><p class="eyebrow">Mesure</p><h2 id="repair-dialog-title">Ajouter une réparation</h2></div><button class="close" value="cancel" aria-label="Fermer">×</button></header>
       <input type="hidden" name="signalement_id">
       <div class="form-grid">
         <label class="span-2">Mesure / action<textarea name="mesure" rows="3" maxlength="2000" required></textarea></label>
@@ -330,7 +277,7 @@
     </form>
   </dialog>
 
-  <dialog id="secret-dialog" class="secret-dialog">
+  <dialog id="secret-dialog" class="secret-dialog" aria-labelledby="secret-title">
     <form id="secret-form" method="dialog" class="dialog-card compact-dialog">
       <header><div><p class="eyebrow">Protection de la sauvegarde</p><h2 id="secret-title">Phrase secrète</h2></div><button class="close" value="cancel" aria-label="Fermer">×</button></header>
       <p id="secret-description" class="panel-copy">Saisissez une phrase secrète d’au moins 12 caractères. Elle n’est ni stockée ni récupérable par l’application.</p>

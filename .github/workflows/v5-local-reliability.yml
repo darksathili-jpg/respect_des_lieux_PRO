@@ -26,16 +26,6 @@ jobs:
         shell: pwsh
         run: node --version
 
-      - name: Syntax guard
+      - name: R1 syntax, architecture, privacy and reliability gates
         shell: pwsh
-        run: |
-          node --check main.cjs
-          node --check preload.cjs
-          node --check src/database.cjs
-          node --check src/storage.cjs
-          node --check src/portable-backup.cjs
-          node --check renderer/app.js
-
-      - name: Local database, privacy and security tests
-        shell: pwsh
-        run: node --test tests/*.test.mjs
+        run: npm run verify

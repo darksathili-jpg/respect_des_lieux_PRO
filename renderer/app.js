@@ -7,13 +7,24 @@ const state = {
   identitiesVisible: false
 };
 
-const visualTestMode = Boolean(window.rdl?.visualTest);
+const VIEW_LABELS = Object.freeze({
+  dashboard: 'Accueil',
+  signalements: 'Signalements',
+  reparations: 'Réparations',
+  sauvegardes: 'Sauvegardes',
+  confidentialite: 'Protection des données',
+  systeme: 'Système local'
+});
 
-const visualMasterRows = Object.freeze([
-  { lieu: 'Salle B201 - Table dégradée', vfWhen: 'Aujourd’hui - 09:14', vfStatus: 'Nouveau', vfPill: 'new', vfIcon: 'book' },
-  { lieu: 'Cour - Éclairage défectueux', vfWhen: 'Aujourd’hui - 08:37', vfStatus: 'En cours', vfPill: 'progress', vfIcon: 'light' },
-  { lieu: 'Toilettes - Propreté', vfWhen: 'Hier - 16:22', vfStatus: 'Pris en charge', vfPill: 'handled', vfIcon: 'trash' },
-  { lieu: 'Hall - Vitrage fissuré', vfWhen: 'Hier - 14:10', vfStatus: 'Résolu', vfPill: 'resolved', vfIcon: 'window' }
+const REQUIRED_DOM_IDS = Object.freeze([
+  'app-shell', 'main-region', 'page-title', 'privacy-toggle', 'health-pill',
+  'backup-now', 'new-signalement', 'signal-search', 'signalements-body',
+  'reparations-body', 'backup-view-action', 'open-backups', 'encrypted-backup',
+  'encrypted-restore', 'retention-form', 'retention-enabled', 'retention-months',
+  'retention-note', 'retention-confirmed', 'rights-query', 'rights-export',
+  'open-exports', 'privacy-events', 'lifecycle-body', 'open-data',
+  'signal-dialog', 'signal-form', 'repair-dialog', 'repair-form',
+  'secret-dialog', 'secret-form', 'toast'
 ]);
 
 let secretResolver = null;
@@ -27,6 +38,24 @@ const esc = (value) => String(value ?? '')
   .replaceAll('>', '&gt;')
   .replaceAll('"', '&quot;')
   .replaceAll("'", '&#039;');
+
+function assertDomContract() {
+  const missing = REQUIRED_DOM_IDS.filter((id) => !document.getElementById(id));
+  const shells = $$('#app-shell');
+  const navigation = $$('#app-shell .nav[data-view]');
+  const views = $$('#app-shell .view[data-view-panel]');
+  const navNames = navigation.map((node) => node.dataset.view);
+  const viewNames = views.map((node) => node.dataset.viewPanel);
+  const expectedNames = Object.keys(VIEW_LABELS);
+
+  if (missing.length) throw new Error(`Contrat DOM incomplet : ${missing.join(', ')}`);
+  if (shells.length !== 1) throw new Error(`Contrat DOM invalide : ${shells.length} shell(s) détectée(s).`);
+  if (navigation.length !== expectedNames.length) throw new Error(`Navigation invalide : ${navigation.length} destination(s).`);
+  if (views.length !== expectedNames.length) throw new Error(`Vues invalides : ${views.length} vue(s).`);
+  if (expectedNames.some((name) => !navNames.includes(name) || !viewNames.includes(name))) {
+    throw new Error('Navigation et vues métier désynchronisées.');
+  }
+}
 
 function toast(message, error = false) {
   const node = $('#toast');
@@ -48,62 +77,6 @@ function dateFr(value) {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return esc(value);
   return date.toLocaleDateString('fr-FR');
-}
-
-function vfIcon(name = 'book') {
-  const icons = {
-    book: '<div class="vf-row-icon red"><svg viewBox="0 0 24 24"><path d="M4 5h6a3 3 0 0 1 3 3v11a3 3 0 0 0-3-3H4z"/><path d="M20 5h-6a3 3 0 0 0-3 3v11a3 3 0 0 1 3-3h6z"/></svg></div>',
-    light: '<div class="vf-row-icon orange"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 22h4"/><path d="M8 14c-2-1-3-3-3-5a7 7 0 0 1 14 0c0 2-1 4-3 5-1 1-1 2-1 3H9c0-1 0-2-1-3Z"/></svg></div>',
-    trash: '<div class="vf-row-icon blue"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6"/></svg></div>',
-    window: '<div class="vf-row-icon coral"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1"/><path d="M12 4v16M4 12h16"/></svg></div>'
-  };
-  return icons[name] || icons.book;
-}
-
-function vfStatus(row) {
-  if (row.vfStatus) return { label: row.vfStatus, cls: row.vfPill || 'new' };
-  const status = String(row.statut || 'Ouvert');
-  if (status === 'Clos' || status === 'Résolu' || status === 'Terminée') return { label: 'Résolu', cls: 'resolved' };
-  if (status === 'En cours') return { label: 'En cours', cls: 'progress' };
-  if (status === 'Pris en charge') return { label: 'Pris en charge', cls: 'handled' };
-  return { label: status === 'Ouvert' ? 'Nouveau' : status, cls: 'new' };
-}
-
-function vfWhen(row) {
-  if (row.vfWhen) return row.vfWhen;
-  const date = row.date ? dateFr(row.date) : '—';
-  const time = String(row.heure || '').trim();
-  return time ? `${date} - ${time}` : date;
-}
-
-function renderVisualDashboard() {
-  const master = $('#vf-dashboard');
-  if (!master) return;
-
-  const stats = state.bootstrap?.stats || {};
-  const monthPrefix = new Date().toISOString().slice(0, 7);
-  const metrics = visualTestMode
-    ? { pending: 12, interventions: 8, resolved: 48 }
-    : {
-        pending: Number(stats.ouverts || 0),
-        interventions: state.reparations.filter((row) => String(row.statut || '') === 'En cours').length,
-        resolved: state.signalements.filter((row) => String(row.closed_at || '').startsWith(monthPrefix)).length
-      };
-
-  $('#vf-kpi-pending').textContent = String(metrics.pending);
-  $('#vf-kpi-interventions').textContent = String(metrics.interventions);
-  $('#vf-kpi-resolved').textContent = String(metrics.resolved);
-
-  const rows = visualTestMode ? visualMasterRows : state.signalements.slice(0, 4);
-  const recent = $('#vf-recent-list');
-  recent.innerHTML = rows.length
-    ? rows.map((row) => {
-        const status = vfStatus(row);
-        return `<div class="vf-row">${vfIcon(row.vfIcon)}<div class="vf-row-copy"><strong>${esc(row.lieu || row.type || row.num || 'Signalement')}</strong><small>${esc(vfWhen(row))}</small></div><span class="vf-pill ${status.cls}">${esc(status.label)}</span></div>`;
-      }).join('')
-    : '<div class="vf-row-empty">Aucun signalement récent.</div>';
-
-  master.dataset.vfReady = 'true';
 }
 
 function statusBadge(status) {
@@ -134,18 +107,25 @@ function hideIdentities() {
 }
 
 function setView(name) {
-  document.body.classList.toggle('dashboard-mode', name === 'dashboard');
-  $$('.nav').forEach((button) => button.classList.toggle('active', button.dataset.view === name));
-  $$('.view').forEach((view) => view.classList.toggle('active', view.id === `view-${name}`));
-  const labels = {
-    dashboard: 'Tableau de bord',
-    signalements: 'Signalements',
-    reparations: 'Réparations',
-    sauvegardes: 'Sauvegardes',
-    confidentialite: 'Protection des données',
-    systeme: 'Système local'
-  };
-  $('#page-title').textContent = labels[name] || 'Respect des Lieux PRO';
+  if (!Object.hasOwn(VIEW_LABELS, name)) return false;
+
+  $$('#app-shell .nav[data-view]').forEach((button) => {
+    const active = button.dataset.view === name;
+    button.classList.toggle('active', active);
+    if (active) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  });
+
+  $$('#app-shell .view[data-view-panel]').forEach((view) => {
+    const active = view.dataset.viewPanel === name;
+    view.classList.toggle('active', active);
+    view.hidden = !active;
+  });
+
+  $('#page-title').textContent = VIEW_LABELS[name];
+  document.title = `${VIEW_LABELS[name]} — Respect des Lieux PRO`;
+  $('#app-shell').dataset.activeView = name;
+  return true;
 }
 
 function renderDashboard() {
@@ -181,8 +161,6 @@ function renderDashboard() {
   const health = $('#health-pill');
   health.textContent = state.bootstrap?.integrity?.ok ? 'Base locale saine' : 'Contrôle requis';
   health.className = `health ${state.bootstrap?.integrity?.ok ? 'ok' : 'ko'}`;
-
-  renderVisualDashboard();
 }
 
 function renderSignalements() {
@@ -204,9 +182,9 @@ function renderSignalements() {
       <td>${protectedIdentity(s.eleve)}<br><small>${protectedIdentity(s.classe)}</small></td>
       <td>${statusBadge(s.statut)}</td>
       <td><div class="actions">
-        <button class="mini" data-photo="${s.id}">Photo (${Number(s.photo_count || 0)})</button>
-        <button class="mini" data-repair="${s.id}">Réparation</button>
-        <button class="mini" data-close="${s.id}">${s.statut === 'Clos' ? 'Rouvrir' : 'Clore'}</button>
+        <button class="mini" type="button" data-photo="${s.id}">Photo (${Number(s.photo_count || 0)})</button>
+        <button class="mini" type="button" data-repair="${s.id}">Réparation</button>
+        <button class="mini" type="button" data-close="${s.id}">${s.statut === 'Clos' ? 'Rouvrir' : 'Clore'}</button>
       </div></td>
     </tr>`).join('') : '<tr><td colspan="8">Aucun signalement.</td></tr>';
 }
@@ -263,8 +241,8 @@ function renderLifecycle() {
       <td>${lifecycleBadge(row)}</td>
       <td>${row.identity_reduced_at ? '<span class="badge closed">réduits</span>' : '<span class="badge open">présents</span>'}</td>
       <td><div class="actions">
-        <button class="mini" data-reduce="${row.id}" ${row.identity_reduced_at ? 'disabled' : ''}>Réduire les identifiants</button>
-        <button class="mini danger-mini" data-purge="${row.id}" data-num="${esc(row.num)}">Supprimer</button>
+        <button class="mini" type="button" data-reduce="${row.id}" ${row.identity_reduced_at ? 'disabled' : ''}>Réduire les identifiants</button>
+        <button class="mini danger-mini" type="button" data-purge="${row.id}" data-num="${esc(row.num)}">Supprimer</button>
       </div></td>
     </tr>`).join('') : '<tr><td colspan="6">Aucun dossier clos à examiner.</td></tr>';
 }
@@ -285,13 +263,13 @@ function eventLabel(type) {
 
 function renderPrivacyEvents() {
   const rows = state.privacyEvents || [];
-  $('#privacy-events-body').innerHTML = rows.length ? rows.map((row) => `
-    <tr>
-      <td>${esc(new Date(row.created_at).toLocaleString('fr-FR'))}</td>
-      <td>${esc(eventLabel(row.event_type))}</td>
-      <td>${esc(row.signalement_num || '—')}</td>
-      <td>${esc(row.details || '—')}</td>
-    </tr>`).join('') : '<tr><td colspan="4">Aucun événement de confidentialité.</td></tr>';
+  const container = $('#privacy-events');
+  container.classList.toggle('empty-state', rows.length === 0);
+  container.innerHTML = rows.length ? rows.map((row) => `
+    <div class="event-row">
+      <div><strong>${esc(eventLabel(row.event_type))}</strong><small>${esc(row.signalement_num || '—')} · ${esc(row.details || '—')}</small></div>
+      <time datetime="${esc(row.created_at || '')}">${esc(new Date(row.created_at).toLocaleString('fr-FR'))}</time>
+    </div>`).join('') : 'Aucune opération.';
 }
 
 async function reload() {
@@ -367,15 +345,27 @@ function toggleRetentionFields() {
   $('#retention-confirmed').disabled = !enabled;
 }
 
+async function createLocalBackup() {
+  try {
+    await window.rdl.createBackup();
+    await reload();
+    toast('Sauvegarde locale créée.');
+  } catch (error) {
+    toast(`Sauvegarde impossible : ${error.message}`, true);
+  }
+}
+
 function bindStaticEvents() {
-  $$('.nav').forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
+  $$('#app-shell .nav[data-view]').forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
   $$('[data-goto]').forEach((button) => button.addEventListener('click', () => setView(button.dataset.goto)));
+
   $('#privacy-toggle').addEventListener('click', () => {
     state.identitiesVisible = !state.identitiesVisible;
     updatePrivacyButton();
     renderSignalements();
     renderReparations();
   });
+
   $('#signal-search').addEventListener('input', renderSignalements);
   $('#new-signalement').addEventListener('click', () => {
     const form = $('#signal-form');
@@ -383,15 +373,9 @@ function bindStaticEvents() {
     form.elements.date.value = new Date().toISOString().slice(0, 10);
     $('#signal-dialog').showModal();
   });
-  $('#backup-now').addEventListener('click', async () => {
-    try {
-      await window.rdl.createBackup();
-      await reload();
-      toast('Sauvegarde locale créée.');
-    } catch (error) {
-      toast(`Sauvegarde impossible : ${error.message}`, true);
-    }
-  });
+
+  $('#backup-now').addEventListener('click', createLocalBackup);
+  $('#backup-view-action').addEventListener('click', createLocalBackup);
   $('#open-data').addEventListener('click', () => window.rdl.openDataFolder());
   $('#open-backups').addEventListener('click', () => window.rdl.openBackupsFolder());
   $('#open-exports').addEventListener('click', () => window.rdl.openExportsFolder());
@@ -536,26 +520,24 @@ function bindStaticEvents() {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
-  // Le gate visuel empaqueté doit être indépendant des I/O SQLite et de toute
-  // sauvegarde quotidienne : il qualifie uniquement le rendu Electron. Les
-  // valeurs de contrôle viennent du master et la branche normale continue à
-  // charger les vraies statistiques locales par IPC.
-  if (visualTestMode) {
-    setView('dashboard');
-    renderVisualDashboard();
-    return;
-  }
-
-  bindSecretDialog();
-  bindStaticEvents();
-  updatePrivacyButton();
-  toggleRetentionFields();
-  setView('dashboard');
+  const shell = $('#app-shell');
   try {
+    assertDomContract();
+    bindSecretDialog();
+    bindStaticEvents();
+    updatePrivacyButton();
+    toggleRetentionFields();
+    setView('dashboard');
     await reload();
+    shell.dataset.shellReady = 'true';
   } catch (error) {
-    $('#health-pill').textContent = 'Erreur locale';
-    $('#health-pill').className = 'health ko';
-    toast(`Démarrage impossible : ${error.message}`, true);
+    if (shell) shell.dataset.shellReady = 'false';
+    const health = $('#health-pill');
+    if (health) {
+      health.textContent = 'Erreur locale';
+      health.className = 'health ko';
+    }
+    if ($('#toast')) toast(`Démarrage impossible : ${error.message}`, true);
+    console.error('RDL startup failed:', error);
   }
 });

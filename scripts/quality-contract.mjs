@@ -6,17 +6,18 @@ const root = process.cwd();
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 const exists = (p) => fs.existsSync(path.join(root, p));
 const contract = JSON.parse(read('quality/ui-contract.json'));
+const releaseState = JSON.parse(read('quality/release-state.json'));
 const html = read('renderer/index.html');
-const css = read('renderer/dashboard-vf.css');
+const styles = read('renderer/styles.css');
+const v51 = read('renderer/v51.css');
 const detailCss = read('renderer/detail.css');
+const app = read('renderer/app.js');
 const detailJs = read('renderer/detail.js');
-const pkg = JSON.parse(read('package.json'));
 const preload = read('preload.cjs');
 const main = read('main.cjs');
-const entry = read('main-entry.cjs');
-const repairExtension = read('src/reparation-edit-extension.cjs');
-const v51 = read('renderer/v51.css');
+const pkg = JSON.parse(read('package.json'));
 
+const runtimeText = [html, styles, v51, detailCss, app, detailJs, preload].join('\n');
 const requested = process.argv.includes('--role')
   ? process.argv[process.argv.indexOf('--role') + 1]
   : 'all';
@@ -29,86 +30,90 @@ function check(role, condition, message) {
   else failures.push(`[${role}] ${message}`);
 }
 
-function navFromMasterShell() {
-  const navMatch = html.match(/<nav class="vf-nav"[\s\S]*?<\/nav>/);
-  if (!navMatch) return [];
-  const source = navMatch[0];
-  const rx = /<button[^>]*data-view="([^"]+)"[^>]*>[\s\S]*?<span>([^<]+)<\/span>\s*<\/button>/g;
-  return [...source.matchAll(rx)].map((m) => ({ view: m[1], label: m[2].trim() }));
+function count(source, rx) {
+  return [...source.matchAll(rx)].length;
 }
 
-const productionMarker = 'PHASE C';
-const productionCss = css.includes(productionMarker) ? css.slice(css.indexOf(productionMarker)) : css;
+function navFromSingleShell() {
+  const shellMatch = html.match(/<div id="app-shell"[\s\S]*?<main id="main-region"/);
+  if (!shellMatch) return [];
+  const navMatch = shellMatch[0].match(/<nav[^>]*>[\s\S]*?<\/nav>/);
+  if (!navMatch) return [];
+  const rx = /<button[^>]*data-view="([^"]+)"[^>]*>([^<]+)<\/button>/g;
+  return [...navMatch[0].matchAll(rx)].map((m) => ({ view: m[1], label: m[2].trim() }));
+}
+
+function viewHasHiddenByDefault(view) {
+  if (view === 'view-dashboard') return true;
+  const rx = new RegExp(`<section[^>]*id="${view}"[^>]*hidden[^>]*>`);
+  return rx.test(html);
+}
 
 const roles = {
   architecture() {
-    const nav = contract.navigation;
-    check('architecture', Array.isArray(nav) && nav.length === 6, 'le contrat définit exactement six destinations métier');
-    check('architecture', new Set(nav.map((x) => x.view)).size === nav.length, 'les identifiants de vues du contrat sont uniques');
-    check('architecture', new Set(nav.map((x) => x.label)).size === nav.length, 'les libellés de navigation du contrat sont uniques');
-    check('architecture', contract.requiredProductionAssets.every(exists), 'les assets de production déclarés existent dans le dépôt');
-    check('architecture', exists('renderer/detail.js') && exists('renderer/app.js'), 'les renderers métier sont présents');
-    check('architecture', pkg.main === 'main-entry.cjs', 'le point d’entrée dédié charge les extensions métier');
-    check('architecture', entry.includes('reparation-edit-extension.cjs') && entry.includes('main-bootstrap.cjs'), 'l’extension réparation est chargée avant le bootstrap Electron');
+    check('architecture', contract.schemaVersion >= 3, 'le contrat R1 de shell unique est actif');
+    check('architecture', count(html, /id="app-shell"/g) === 1, 'une seule shell de production existe dans le DOM');
+    check('architecture', count(html, /id="main-region"/g) === 1, 'une seule région principale existe');
+    check('architecture', !html.includes('vf-dashboard'), 'l’ancienne surface de fidélité est absente du DOM');
+    check('architecture', contract.forbiddenRuntimeFiles.every((file) => !exists(file)), 'les anciens fichiers runtime interdits sont supprimés');
+    check('architecture', releaseState.releaseFrozen === true, 'la publication reste gelée pendant la reconstruction');
+    check('architecture', pkg.main === 'main-entry.cjs', 'le point d’entrée Electron déclaré correspond au package réel');
   },
 
   ui() {
-    const actual = navFromMasterShell();
-    check('ui', JSON.stringify(actual) === JSON.stringify(contract.navigation), 'la navigation visible correspond exactement au contrat fonctionnel');
-    check('ui', !contract.forbiddenNavigationLabels.some((label) => actual.some((x) => x.label === label)), 'aucune catégorie décorative ne remplace une vraie vue métier');
-    check('ui', productionCss.includes('./assets/dashboard-hero-master.webp'), 'le fallback historique du hero reste empaqueté');
-    check('ui', !productionCss.includes('dashboard-master.png'), 'la capture maître n’est jamais utilisée comme faux contrôle dans le CSS de production');
-    check('ui', v51.includes('dashboard-hero-production.svg'), 'le hero de production utilise son illustration dédiée');
-    check('ui', v51.includes('sidebar-logo-production.svg'), 'la sidebar utilise son identité graphique dédiée');
-    check('ui', detailCss.includes('scrollbar-gutter:stable'), 'la fiche détail réserve la gouttière de scrollbar');
-    check('ui', /@media\(max-width:900px\)[\s\S]*detail-columns\{grid-template-columns:1fr\}/.test(detailCss), 'la fiche détail bascule en une colonne sur viewport étroit');
-    check('ui', /\.detail-summary\{[^}]*min-height:/s.test(detailCss), 'le bandeau sombre possède une hauteur minimale anti-recouvrement');
+    const actual = navFromSingleShell();
+    check('ui', JSON.stringify(actual) === JSON.stringify(contract.navigation), 'la navigation de la shell unique correspond au contrat');
+    check('ui', actual.length === 6, 'la shell expose exactement six destinations métier');
+    check('ui', !contract.forbiddenNavigationLabels.some((label) => actual.some((x) => x.label === label)), 'aucun libellé décoratif ne remplace une vraie destination');
+    for (const view of contract.requiredViews) {
+      check('ui', html.includes(`id="${view}"`), `la vue ${view} existe`);
+      check('ui', viewHasHiddenByDefault(view), `${view} possède un état initial déterministe`);
+    }
+    for (const token of contract.forbiddenRuntimeTokens) {
+      check('ui', !runtimeText.includes(token), `le runtime ne contient pas le marqueur interdit ${token}`);
+    }
+    check('ui', !styles.includes('min-width:1448px'), 'aucune largeur maître 1448 px n’est imposée');
   },
 
   functional() {
-    for (const view of contract.requiredViews) {
-      check('functional', html.includes(`id="${view}"`), `la vue ${view} existe réellement`);
-    }
     for (const id of contract.requiredControls) {
-      check('functional', html.includes(`id="${id}"`), `le contrôle fonctionnel #${id} existe`);
+      check('functional', html.includes(`id="${id}"`), `le contrôle #${id} existe dans la shell réelle`);
     }
-    const actual = navFromMasterShell();
-    for (const item of actual) {
-      if (item.view === 'dashboard') continue;
-      check('functional', html.includes(`id="view-${item.view}"`), `la destination ${item.view} pointe vers une vraie vue`);
-    }
-    check('functional', detailJs.includes('closeDetailDialog') && detailJs.includes('event.target === dialog'), 'la fiche dispose de sorties souris indépendantes d’Échap');
-    check('functional', detailJs.includes('data-edit-repair') && detailJs.includes('updateReparation'), 'les réparations sont modifiables depuis l’interface');
-    check('functional', preload.includes('updateReparation:'), 'l’API renderer expose la modification des réparations');
-    check('functional', repairExtension.includes('UPDATE reparations'), 'la modification des réparations est persistée en base');
+    check('functional', app.includes('assertDomContract'), 'le renderer vérifie son contrat DOM au démarrage');
+    check('functional', app.includes("view.hidden = !active"), 'la navigation pilote directement la visibilité des six vues');
+    check('functional', app.includes("button.setAttribute('aria-current', 'page')"), 'la destination active est exposée à l’accessibilité');
+    check('functional', app.includes("$('#backup-view-action').addEventListener('click', createLocalBackup)"), 'le bouton de sauvegarde de la vue est réellement branché');
+    check('functional', app.includes("const container = $('#privacy-events')"), 'la traçabilité confidentialité cible le conteneur réellement présent');
+    check('functional', !app.includes('visualTestMode') && !app.includes('renderVisualDashboard'), 'aucune branche UI alternative ne court-circuite la production');
+    check('functional', detailJs.includes('closeDetailDialog') && detailJs.includes('event.target === dialog'), 'la fiche détail dispose de sorties explicites');
   },
 
   data() {
     check('data-security', html.includes("connect-src 'none'"), 'la CSP bloque les connexions distantes du renderer');
     check('data-security', pkg.description?.includes('données stockées uniquement sur le poste utilisateur'), 'le package déclare explicitement le stockage local');
-    check('data-security', main.includes('webSecurity') || main.includes('setWindowOpenHandler') || main.includes('will-navigate'), 'le processus principal contient des garde-fous de navigation/sécurité');
+    check('data-security', main.includes('setWindowOpenHandler') && main.includes('will-navigate'), 'la navigation Electron est bornée');
     check('data-security', preload.includes('contextBridge'), 'l’API renderer passe par contextBridge');
-    check('data-security', exists('src/database.cjs') && exists('src/portable-backup.cjs'), 'base locale et sauvegarde portable sont présentes');
+    check('data-security', !/localStorage|sessionStorage|indexedDB/.test(`${app}\n${preload}`), 'aucune donnée métier n’est stockée dans les stockages navigateur');
   },
 
   electron() {
-    check('electron', pkg.main === 'main-entry.cjs', 'le point d’entrée Electron attendu est déclaré');
+    const files = pkg.build?.files || [];
     check('electron', pkg.build?.asar === true, 'ASAR est activé');
     check('electron', pkg.build?.win?.target?.includes('nsis'), 'la cible Windows NSIS est déclarée');
     check('electron', pkg.build?.electronFuses?.runAsNode === false, 'RunAsNode est désactivé');
     check('electron', pkg.build?.electronFuses?.onlyLoadAppFromAsar === true, 'le chargement est limité à l’ASAR empaqueté');
-    check('electron', contract.requiredProductionAssets.every(exists), 'les illustrations dédiées seront incluses par le glob de packaging');
+    check('electron', files.includes('!design/**'), 'les maquettes et preuves de conception sont exclues du binaire');
+    check('electron', files.includes('!quality/**') && files.includes('!scripts/**'), 'les outils de qualification ne sont pas embarqués dans le runtime');
   },
 
   redteam() {
-    const actual = navFromMasterShell();
-    check('redteam', !contract.forbiddenNavigationLabels.some((label) => actual.some((x) => x.label === label)), 'aucun ancien libellé trompeur ne survit dans la navigation');
-    check('redteam', !/min-width\s*:\s*1448px/.test(productionCss), 'le CSS de production n’impose pas le viewport maître 1448 px');
-    check('redteam', /\.vf-kpis\{[\s\S]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/.test(productionCss), 'les KPI possèdent un repli responsive en deux colonnes');
-    check('redteam', detailCss.includes('max-height:calc(100vh - 32px)') || detailCss.includes('max-height:calc(100vh - 20px)'), 'la fiche ne peut pas dépasser la hauteur utile de l’écran');
-    check('redteam', !contract.forbiddenProductionPersona.some((text) => html.includes(text)), 'aucune identité/date/météo fictive n’est encodée comme contenu HTML de production');
-    check('redteam', detailJs.includes("dialog.addEventListener('cancel'") && detailJs.includes("[data-detail-close]"), 'la fermeture reste possible par plusieurs chemins indépendants');
-    check('redteam', detailCss.includes('pointer-events:auto') && detailCss.includes('.detail-header .close'), 'le bouton de fermeture ne peut pas être neutralisé par le décor');
+    const actual = navFromSingleShell();
+    check('redteam', new Set(actual.map((x) => x.view)).size === actual.length, 'aucune destination de navigation n’est dupliquée');
+    check('redteam', !contract.forbiddenProductionPersona.some((text) => html.includes(text)), 'aucune persona ou donnée fictive interdite n’est encodée');
+    check('redteam', !runtimeText.includes('dashboard-master.png'), 'la capture maître ne peut pas être utilisée comme interface');
+    check('redteam', !runtimeText.includes('visual-test-mode'), 'aucun mode de rendu parallèle ne subsiste');
+    check('redteam', detailCss.includes('max-height:calc(100vh - 32px)') || detailCss.includes('max-height:calc(100vh - 20px)'), 'la fiche détail reste bornée par la hauteur utile');
+    check('redteam', detailJs.includes("dialog.addEventListener('cancel'") && detailJs.includes('[data-detail-close]'), 'la fermeture de fiche garde plusieurs chemins indépendants');
   }
 };
 

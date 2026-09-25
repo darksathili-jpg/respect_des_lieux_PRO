@@ -5,6 +5,18 @@ on:
     branches: ["main"]
     paths:
       - "package.json"
+      - "main-entry.cjs"
+      - "main-bootstrap.cjs"
+      - "main.cjs"
+      - "preload.cjs"
+      - "src/**"
+      - "renderer/**"
+      - ".github/workflows/v52-runtime-smoke.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "package.json"
+      - "main-entry.cjs"
       - "main-bootstrap.cjs"
       - "main.cjs"
       - "preload.cjs"
@@ -33,6 +45,10 @@ jobs:
         shell: pwsh
         run: npm install --no-audit --no-fund
 
+      - name: Verify R1 contracts before packaging
+        shell: pwsh
+        run: npm run verify
+
       - name: Build unpacked Windows application
         shell: pwsh
         run: npx electron-builder --win dir --x64 --publish never
@@ -51,38 +67,50 @@ jobs:
           console.log(files.join('\n'));
           const required = [
             'package.json',
+            'main-entry.cjs',
             'main-bootstrap.cjs',
             'main.cjs',
             'preload.cjs',
             'renderer/index.html',
             'renderer/styles.css',
             'renderer/v51.css',
-            'renderer/dashboard-vf.css',
             'renderer/app.js',
             'renderer/detail.js',
             'renderer/detail.css',
-            'renderer/assets/dashboard-hero-master.webp',
-            'renderer/assets/sidebar-logo-master.webp',
             'src/database.cjs',
+            'src/reparation-edit-extension.cjs',
             'src/storage.cjs',
             'src/portable-backup.cjs'
           ];
+          const forbidden = [
+            'renderer/dashboard-vf.css',
+            'renderer/assets/dashboard-hero-master.webp',
+            'renderer/assets/sidebar-logo-master.webp',
+            'design/reference/dashboard-master.png',
+            'quality/ui-contract.json',
+            'scripts/quality-contract.mjs'
+          ];
           const missing = required.filter((p) => !files.includes(p));
+          const leaked = forbidden.filter((p) => files.includes(p));
           if (missing.length) {
             console.error('ASAR_MISSING ' + JSON.stringify(missing));
             process.exit(73);
           }
-          console.log('ASAR_REQUIRED_FILES_PASS');
+          if (leaked.length) {
+            console.error('ASAR_FORBIDDEN ' + JSON.stringify(leaked));
+            process.exit(74);
+          }
+          console.log('ASAR_R1_CONTRACT_PASS');
           '@ | Set-Content -Path inspect-asar.cjs -Encoding utf8
           node inspect-asar.cjs
 
-      - name: Verify packaged DOM and real painted UI
+      - name: Verify packaged DOM, six-view navigation and real painted UI
         shell: pwsh
         run: |
           $exe = Get-ChildItem -Path dist -Recurse -Filter "Respect des Lieux PRO.exe" -File | Select-Object -First 1
           if (-not $exe) { throw "Exécutable unpacked introuvable." }
 
-          Write-Host "Launching rendered-UI smoke probe: $($exe.FullName)"
+          Write-Host "Launching real single-shell smoke probe: $($exe.FullName)"
           $stdout = Join-Path $env:RUNNER_TEMP "rdl-stdout.txt"
           $stderr = Join-Path $env:RUNNER_TEMP "rdl-stderr.txt"
           $env:RDL_PACKAGED_SMOKE = "1"
@@ -107,13 +135,13 @@ jobs:
           if ($p.ExitCode -ne 0) {
             Write-Host "--- Recent Windows Application errors ---"
             Get-WinEvent -FilterHashtable @{LogName='Application'; Level=2; StartTime=(Get-Date).AddMinutes(-5)} -ErrorAction SilentlyContinue | Select-Object -First 12 | Format-List TimeCreated,ProviderName,Id,Message
-            throw "L'application empaquetée a échoué au contrôle de rendu (code $($p.ExitCode))."
+            throw "L'application empaquetée a échoué au contrôle R1 (code $($p.ExitCode))."
           }
           if ($out -notmatch 'RDL_SMOKE_PASS') {
-            throw "L'application s'est arrêtée sans preuve de rendu UI valide."
+            throw "L'application s'est arrêtée sans preuve de shell unique rendue et navigable."
           }
 
-          Write-Host "Packaged DOM + painted UI smoke: PASS"
+          Write-Host "Packaged single-shell DOM + navigation + painted UI smoke: PASS"
 
       - name: Upload packaged runtime diagnostics
         if: always()

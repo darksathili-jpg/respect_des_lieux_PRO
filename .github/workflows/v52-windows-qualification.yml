@@ -14,8 +14,20 @@ on:
       - "tests/**"
       - "scripts/**"
       - "quality/**"
-      - "design/reference/dashboard-master.png"
-      - "design/visual/**"
+      - ".github/workflows/v52-windows-qualification.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "package.json"
+      - "main-entry.cjs"
+      - "main-bootstrap.cjs"
+      - "main.cjs"
+      - "preload.cjs"
+      - "src/**"
+      - "renderer/**"
+      - "tests/**"
+      - "scripts/**"
+      - "quality/**"
       - ".github/workflows/v52-windows-qualification.yml"
   workflow_dispatch:
 
@@ -49,29 +61,11 @@ jobs:
           node-version: "24.21.0"
           package-manager-cache: false
 
-      - name: Multi-Agent Quality Gate
-        shell: pwsh
-        run: node scripts/quality-contract.mjs --role all
-
-      - name: UX Architecture Guardrails
-        shell: pwsh
-        run: node scripts/ux-guardrails.mjs
-
-      - name: Verify approved master identity
-        shell: pwsh
-        run: |
-          $master = "design/reference/dashboard-master.png"
-          if (-not (Test-Path $master)) { throw "Master visuel absent: $master" }
-          $hash = (Get-FileHash $master -Algorithm SHA256).Hash.ToLowerInvariant()
-          $expected = "1106a0bcbc52d34ef6ea95f56ac999b2abc228034bd1a673023d3c761f155944"
-          Write-Host "dashboard-master.png SHA-256: $hash"
-          if ($hash -ne $expected) { throw "La source de vérité visuelle a changé sans validation explicite." }
-
       - name: Install pinned desktop toolchain
         shell: pwsh
         run: npm install --no-audit --no-fund
 
-      - name: Reliability and qualification tests
+      - name: R1 architecture and reliability gates
         shell: pwsh
         run: npm run verify
 
@@ -81,7 +75,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: npm run dist:win:dir
 
-      - name: Rendered UI smoke gate
+      - name: Real packaged UI smoke gate
         shell: pwsh
         run: |
           $exe = Get-ChildItem -Path dist -Recurse -Filter "Respect des Lieux PRO.exe" -File | Select-Object -First 1
@@ -93,7 +87,7 @@ jobs:
           $finished = $p.WaitForExit(25000)
           if (-not $finished) {
             try { Stop-Process -Id $p.Id -Force } catch {}
-            throw "Le contrôle de rendu UI n'a pas terminé dans le délai imparti."
+            throw "Le contrôle du vrai renderer empaqueté n'a pas terminé dans le délai imparti."
           }
           $p.Refresh()
           $out = if (Test-Path $stdout) { Get-Content $stdout -Raw } else { "" }
@@ -101,35 +95,8 @@ jobs:
           Write-Host $out
           Write-Host $err
           if ($p.ExitCode -ne 0 -or $out -notmatch 'RDL_SMOKE_PASS') {
-            throw "Qualification refusée : l'interface empaquetée n'a pas fourni de preuve de rendu valide."
+            throw "Qualification refusée : le vrai renderer empaqueté n'a pas fourni de preuve de démarrage valide."
           }
-
-      - name: Install pinned Playwright fidelity harness
-        shell: pwsh
-        working-directory: design/visual
-        run: npm install --no-audit --no-fund
-
-      - name: Prepare immutable Electron snapshot baseline
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path "design/visual/electron-snapshots" | Out-Null
-          Copy-Item "design/reference/dashboard-master.png" "design/visual/electron-snapshots/dashboard-master.png" -Force
-
-      - name: Packaged Electron visual and production UX gates
-        shell: pwsh
-        working-directory: design/visual
-        run: npx playwright test --config=playwright.electron.config.mjs
-
-      - name: Upload Electron visual evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-qualification-fidelity-evidence
-          path: |
-            design/visual/electron-artifacts/**
-            design/visual/playwright-report/**
-          if-no-files-found: ignore
-          retention-days: 14
 
       - name: Build x64 NSIS qualification installer
         shell: pwsh
@@ -145,13 +112,13 @@ jobs:
       - name: Upload unsigned qualification installer
         uses: actions/upload-artifact@v4
         with:
-          name: respect-des-lieux-pro-v5.2-windows-unsigned
+          name: respect-des-lieux-pro-r1-windows-unsigned
           path: dist/*.exe
           if-no-files-found: error
           retention-days: 14
 
       - name: Publish clickable GitHub prerelease
-        if: steps.release-state.outputs.publish == 'true'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.release-state.outputs.publish == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
