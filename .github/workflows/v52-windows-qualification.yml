@@ -5,6 +5,7 @@ on:
     branches: ["main"]
     paths:
       - "package.json"
+      - "main-entry.cjs"
       - "main-bootstrap.cjs"
       - "main.cjs"
       - "preload.cjs"
@@ -14,9 +15,7 @@ on:
       - "scripts/**"
       - "quality/**"
       - "design/reference/dashboard-master.png"
-      - "design/visual/electron-dashboard.spec.mjs"
-      - "design/visual/playwright.electron.config.mjs"
-      - "design/visual/package.json"
+      - "design/visual/**"
       - ".github/workflows/v52-windows-qualification.yml"
   workflow_dispatch:
 
@@ -26,10 +25,23 @@ permissions:
 jobs:
   qualify-windows:
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+
+      - name: Read release state
+        id: release-state
+        shell: pwsh
+        run: |
+          $state = Get-Content "quality/release-state.json" -Raw | ConvertFrom-Json
+          $publish = if ($state.releaseFrozen -eq $true) { "false" } else { "true" }
+          "publish=$publish" >> $env:GITHUB_OUTPUT
+          Write-Host "releaseFrozen=$($state.releaseFrozen)"
+          if ($state.releaseFrozen -eq $true) {
+            Write-Host "RELEASE FROZEN: $($state.reason)"
+            Write-Host "La qualification peut produire des preuves CI, mais aucune prerelease GitHub ne sera publiée."
+          }
 
       - name: Node 24.21
         uses: actions/setup-node@v5
@@ -40,6 +52,10 @@ jobs:
       - name: Multi-Agent Quality Gate
         shell: pwsh
         run: node scripts/quality-contract.mjs --role all
+
+      - name: UX Architecture Guardrails
+        shell: pwsh
+        run: node scripts/ux-guardrails.mjs
 
       - name: Verify approved master identity
         shell: pwsh
@@ -99,7 +115,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path "design/visual/electron-snapshots" | Out-Null
           Copy-Item "design/reference/dashboard-master.png" "design/visual/electron-snapshots/dashboard-master.png" -Force
 
-      - name: Electron master fidelity gate
+      - name: Packaged Electron visual and production UX gates
         shell: pwsh
         working-directory: design/visual
         run: npx playwright test --config=playwright.electron.config.mjs
@@ -135,6 +151,7 @@ jobs:
           retention-days: 14
 
       - name: Publish clickable GitHub prerelease
+        if: steps.release-state.outputs.publish == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -157,6 +174,6 @@ jobs:
             --target $env:GITHUB_SHA `
             --title $title `
             --prerelease `
-            --notes "Version de qualification Windows non signée. Le dashboard empaqueté a franchi le Visual Fidelity Gate face au master approuvé et le Multi-Agent Quality Gate. Utiliser uniquement des données fictives pour les essais."
+            --notes "Version de qualification Windows non signée. Publication autorisée uniquement après levée explicite du gel architectural."
 
           gh release upload $tag $exe.FullName --repo $env:GITHUB_REPOSITORY
