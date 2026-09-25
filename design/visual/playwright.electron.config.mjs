@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: '.',
-  testMatch: 'electron-dashboard.spec.mjs',
+  testMatch: ['electron-dashboard.spec.mjs', 'electron-ux.spec.mjs'],
   timeout: 120_000,
   fullyParallel: false,
   workers: 1,
