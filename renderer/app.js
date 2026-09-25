@@ -4,7 +4,8 @@ const state = {
   reparations: [],
   lifecycle: { policy: { active: false }, rows: [] },
   privacyEvents: [],
-  identitiesVisible: false
+  identitiesVisible: false,
+  signalQuery: { query: '', limit: 100, offset: 0, total: 0 }
 };
 
 const VIEW_LABELS = Object.freeze({
@@ -19,16 +20,18 @@ const VIEW_LABELS = Object.freeze({
 const REQUIRED_DOM_IDS = Object.freeze([
   'app-shell', 'main-region', 'page-title', 'privacy-toggle', 'health-pill',
   'backup-now', 'new-signalement', 'signal-search', 'signalements-body',
-  'reparations-body', 'backup-view-action', 'open-backups', 'encrypted-backup',
-  'encrypted-restore', 'retention-form', 'retention-enabled', 'retention-months',
-  'retention-note', 'retention-confirmed', 'rights-query', 'rights-export',
-  'open-exports', 'privacy-events', 'lifecycle-body', 'open-data',
-  'signal-dialog', 'signal-form', 'repair-dialog', 'repair-form',
-  'secret-dialog', 'secret-form', 'toast'
+  'signal-prev', 'signal-next', 'signal-page', 'reparations-body',
+  'backup-view-action', 'open-backups', 'encrypted-backup', 'encrypted-restore',
+  'retention-form', 'retention-enabled', 'retention-months', 'retention-note',
+  'retention-confirmed', 'rights-query', 'rights-export', 'open-exports',
+  'privacy-events', 'lifecycle-body', 'open-data', 'signal-dialog', 'signal-form',
+  'repair-dialog', 'repair-form', 'secret-dialog', 'secret-form', 'toast'
 ]);
 
 let secretResolver = null;
 let secretMode = 'export';
+let signalDialogInvoker = null;
+let signalSearchTimer = null;
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -66,6 +69,20 @@ function toast(message, error = false) {
   toast.timer = setTimeout(() => node.classList.remove('show'), 4200);
 }
 
+async function withBusy(control, operation) {
+  if (!control || control.dataset.busy === 'true') return null;
+  control.dataset.busy = 'true';
+  control.setAttribute('aria-busy', 'true');
+  control.disabled = true;
+  try {
+    return await operation();
+  } finally {
+    control.disabled = false;
+    control.removeAttribute('aria-busy');
+    delete control.dataset.busy;
+  }
+}
+
 function bytes(value) {
   const n = Number(value || 0);
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} Ko`;
@@ -98,12 +115,12 @@ function updatePrivacyButton() {
   button.classList.toggle('privacy-active', state.identitiesVisible);
 }
 
-function hideIdentities() {
+async function hideIdentities() {
   if (!state.identitiesVisible) return;
   state.identitiesVisible = false;
   updatePrivacyButton();
-  renderSignalements();
   renderReparations();
+  await refreshSignalements();
 }
 
 function setView(name) {
@@ -136,10 +153,10 @@ function renderDashboard() {
   $('#kpi-photos').textContent = stats.photos || 0;
   $('#kpi-photo-size').textContent = bytes(stats.photosBytes || 0);
 
-  const recent = state.signalements.slice(0, 6);
+  const recent = (state.bootstrap?.signalements || state.signalements).slice(0, 6);
   $('#recent-list').innerHTML = recent.length
     ? recent.map((s) => `
-      <div class="recent-item">
+      <div class="recent-item record-row" data-fiche-id="${Number(s.id)}" tabindex="0" role="button" aria-label="Ouvrir la fiche ${esc(s.num)}">
         <div class="recent-num">${esc(s.num)}</div>
         <div class="recent-main"><strong>${esc(s.lieu)}</strong><small>${esc(s.date)} · ${esc(s.type || 'Non catégorisé')}</small></div>
         ${statusBadge(s.statut)}
@@ -164,29 +181,49 @@ function renderDashboard() {
 }
 
 function renderSignalements() {
-  const q = $('#signal-search').value.trim().toLowerCase();
-  const rows = state.signalements.filter((s) => {
-    if (!q) return true;
-    const fields = [s.num, s.date, s.lieu, s.type, s.gravite, s.statut];
-    if (state.identitiesVisible) fields.push(s.eleve, s.classe, s.signale_par);
-    return fields.some((v) => String(v || '').toLowerCase().includes(q));
-  });
+  const rows = state.signalements;
+  $('#signalements-body').innerHTML = rows.length ? rows.map((s) => {
+    const closed = s.statut === 'Clos';
+    return `
+      <tr class="record-row" data-fiche-id="${Number(s.id)}" tabindex="0" role="button" aria-label="Ouvrir la fiche ${esc(s.num)}">
+        <td><strong>${esc(s.num)}</strong></td>
+        <td>${esc(s.date)}<br><small>${esc(s.heure)}</small></td>
+        <td>${esc(s.lieu)}</td>
+        <td>${esc(s.type || '—')}</td>
+        <td>${esc(s.gravite || '—')}</td>
+        <td>${protectedIdentity(s.eleve)}<br><small>${protectedIdentity(s.classe)}</small></td>
+        <td>${statusBadge(s.statut)}</td>
+        <td><div class="actions">
+          <button class="mini fiche" type="button" data-fiche-id="${Number(s.id)}">Fiche</button>
+          <button class="mini" type="button" data-edit-signalement="${Number(s.id)}" ${closed ? 'disabled title="Rouvrez le dossier pour le modifier"' : ''}>Modifier</button>
+          <button class="mini" type="button" data-photo="${Number(s.id)}" ${closed ? 'disabled title="Rouvrez le dossier pour ajouter une photo"' : ''}>+ Photo</button>
+          <button class="mini" type="button" data-repair="${Number(s.id)}" ${closed ? 'disabled title="Rouvrez le dossier pour ajouter une réparation"' : ''}>+ Réparation</button>
+          <button class="mini" type="button" data-set-status="${Number(s.id)}" data-status-target="${closed ? 'Ouvert' : 'Clos'}">${closed ? 'Rouvrir' : 'Clore'}</button>
+        </div></td>
+      </tr>`;
+  }).join('') : '<tr><td colspan="8">Aucun signalement.</td></tr>';
 
-  $('#signalements-body').innerHTML = rows.length ? rows.map((s) => `
-    <tr>
-      <td><strong>${esc(s.num)}</strong></td>
-      <td>${esc(s.date)}<br><small>${esc(s.heure)}</small></td>
-      <td>${esc(s.lieu)}</td>
-      <td>${esc(s.type || '—')}</td>
-      <td>${esc(s.gravite || '—')}</td>
-      <td>${protectedIdentity(s.eleve)}<br><small>${protectedIdentity(s.classe)}</small></td>
-      <td>${statusBadge(s.statut)}</td>
-      <td><div class="actions">
-        <button class="mini" type="button" data-photo="${s.id}">Photo (${Number(s.photo_count || 0)})</button>
-        <button class="mini" type="button" data-repair="${s.id}">Réparation</button>
-        <button class="mini" type="button" data-close="${s.id}">${s.statut === 'Clos' ? 'Rouvrir' : 'Clore'}</button>
-      </div></td>
-    </tr>`).join('') : '<tr><td colspan="8">Aucun signalement.</td></tr>';
+  const { offset, limit, total } = state.signalQuery;
+  const start = total ? offset + 1 : 0;
+  const end = Math.min(offset + rows.length, total);
+  $('#signal-page').textContent = total ? `${start}–${end} sur ${total}` : '0 dossier';
+  $('#signal-prev').disabled = offset <= 0;
+  $('#signal-next').disabled = offset + limit >= total;
+}
+
+async function refreshSignalements({ resetOffset = false } = {}) {
+  if (resetOffset) state.signalQuery.offset = 0;
+  const result = await window.rdl.querySignalements({
+    query: state.signalQuery.query,
+    limit: state.signalQuery.limit,
+    offset: state.signalQuery.offset,
+    includeIdentities: state.identitiesVisible
+  });
+  state.signalements = result.rows || [];
+  state.signalQuery.total = Number(result.total || 0);
+  state.signalQuery.limit = Number(result.limit || state.signalQuery.limit);
+  state.signalQuery.offset = Number(result.offset || 0);
+  renderSignalements();
 }
 
 function renderReparations() {
@@ -267,21 +304,29 @@ function renderPrivacyEvents() {
   container.classList.toggle('empty-state', rows.length === 0);
   container.innerHTML = rows.length ? rows.map((row) => `
     <div class="event-row">
-      <div><strong>${esc(eventLabel(row.event_type))}</strong><small>${esc(row.signalement_num || '—')} · ${esc(row.details || '—')}</small></div>
+      <div><strong>${esc(eventLabel(row.event_type))}</strong><small>${esc(row.dossier_num || row.signalement_num || '—')} · ${esc(row.detail || row.details || '—')}</small></div>
       <time datetime="${esc(row.created_at || '')}">${esc(new Date(row.created_at).toLocaleString('fr-FR'))}</time>
     </div>`).join('') : 'Aucune opération.';
 }
 
 async function reload() {
-  const [bootstrap, signalements, reparations, lifecycle, privacyEvents] = await Promise.all([
+  const [bootstrap, signalPage, reparations, lifecycle, privacyEvents] = await Promise.all([
     window.rdl.bootstrap(),
-    window.rdl.listSignalements(5000),
+    window.rdl.querySignalements({
+      query: state.signalQuery.query,
+      limit: state.signalQuery.limit,
+      offset: state.signalQuery.offset,
+      includeIdentities: state.identitiesVisible
+    }),
     window.rdl.listReparations(10000),
     window.rdl.lifecycleReview(),
     window.rdl.listPrivacyEvents(200)
   ]);
   state.bootstrap = bootstrap;
-  state.signalements = signalements;
+  state.signalements = signalPage.rows || [];
+  state.signalQuery.total = Number(signalPage.total || 0);
+  state.signalQuery.limit = Number(signalPage.limit || state.signalQuery.limit);
+  state.signalQuery.offset = Number(signalPage.offset || 0);
   state.reparations = reparations;
   state.lifecycle = lifecycle;
   state.privacyEvents = privacyEvents;
@@ -295,6 +340,77 @@ async function reload() {
 
 function formPayload(form) {
   return Object.fromEntries(new FormData(form).entries());
+}
+
+function closeSignalDialog(reason = 'cancel') {
+  const dialog = $('#signal-dialog');
+  if (!dialog.open) return;
+  dialog.dataset.closedBy = reason;
+  dialog.close();
+}
+
+function resetSignalIdentityFields(form) {
+  ['eleve', 'classe', 'signale_par'].forEach((name) => {
+    const field = form.elements[name];
+    field.disabled = false;
+    field.value = '';
+  });
+}
+
+function openCreateSignalement(invoker = null) {
+  const dialog = $('#signal-dialog');
+  const form = $('#signal-form');
+  signalDialogInvoker = invoker || document.activeElement;
+  form.reset();
+  resetSignalIdentityFields(form);
+  form.elements.signalement_id.value = '';
+  form.elements.date.value = new Date().toISOString().slice(0, 10);
+  dialog.dataset.mode = 'create';
+  $('#signal-dialog-eyebrow').textContent = 'Nouveau dossier';
+  $('#signal-dialog-title').textContent = 'Créer un signalement';
+  $('#save-signalement').textContent = 'Enregistrer localement';
+  dialog.showModal();
+  setTimeout(() => form.elements.lieu.focus(), 20);
+}
+
+async function openSignalementEditor(id, invoker = null) {
+  const signalementId = Number(id);
+  if (!Number.isSafeInteger(signalementId) || signalementId <= 0) return;
+  try {
+    const detail = await window.rdl.getSignalementDetail(signalementId);
+    const signalement = detail.signalement;
+    if (!signalement) throw new Error('Signalement introuvable.');
+    if (signalement.statut === 'Clos') throw new Error('Rouvrez le dossier avant de modifier ses informations.');
+
+    const dialog = $('#signal-dialog');
+    const form = $('#signal-form');
+    signalDialogInvoker = invoker || document.activeElement;
+    form.reset();
+    form.elements.signalement_id.value = String(signalement.id);
+    form.elements.date.value = signalement.date || '';
+    form.elements.heure.value = signalement.heure || '';
+    form.elements.lieu.value = signalement.lieu || '';
+    form.elements.type.value = signalement.type || '';
+    form.elements.gravite.value = signalement.gravite || '';
+    form.elements.description.value = signalement.description || '';
+
+    const identityReduced = Boolean(signalement.identity_reduced_at);
+    ['eleve', 'classe', 'signale_par'].forEach((name) => {
+      const field = form.elements[name];
+      const canEditIdentity = state.identitiesVisible && !identityReduced;
+      field.disabled = !canEditIdentity;
+      field.value = canEditIdentity ? (signalement[name] || '') : '';
+    });
+
+    dialog.dataset.mode = 'edit';
+    $('#signal-dialog-eyebrow').textContent = 'Dossier existant';
+    $('#signal-dialog-title').textContent = `Modifier ${signalement.num}`;
+    $('#save-signalement').textContent = 'Enregistrer les modifications';
+    dialog.showModal();
+    setTimeout(() => form.elements.lieu.focus(), 20);
+  } catch (error) {
+    toast(`Modification impossible : ${error.message}`, true);
+  }
 }
 
 function askSecret(mode) {
@@ -338,6 +454,45 @@ function bindSecretDialog() {
   });
 }
 
+function bindSignalDialog() {
+  const dialog = $('#signal-dialog');
+  const form = $('#signal-form');
+
+  $$('[data-signal-cancel]').forEach((button) => {
+    button.addEventListener('click', () => closeSignalDialog('button'));
+  });
+  dialog.addEventListener('click', (event) => {
+    if (event.target === dialog) closeSignalDialog('backdrop');
+  });
+  dialog.addEventListener('close', () => {
+    resetSignalIdentityFields(form);
+    const target = signalDialogInvoker;
+    signalDialogInvoker = null;
+    if (target && typeof target.focus === 'function' && target.isConnected) target.focus();
+  });
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const submit = $('#save-signalement');
+    await withBusy(submit, async () => {
+      try {
+        const payload = formPayload(form);
+        const id = Number(payload.signalement_id || 0);
+        delete payload.signalement_id;
+        if (id) await window.rdl.updateSignalement(id, payload);
+        else await window.rdl.createSignalement(payload);
+        closeSignalDialog(id ? 'updated' : 'created');
+        state.signalQuery.offset = 0;
+        await reload();
+        document.dispatchEvent(new CustomEvent('rdl:signalements-changed'));
+        toast(id ? 'Signalement modifié.' : 'Signalement enregistré sur ce PC.');
+      } catch (error) {
+        toast(error.message, true);
+      }
+    });
+  });
+}
+
 function toggleRetentionFields() {
   const enabled = $('#retention-enabled').checked;
   $('#retention-months').disabled = !enabled;
@@ -359,20 +514,40 @@ function bindStaticEvents() {
   $$('#app-shell .nav[data-view]').forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
   $$('[data-goto]').forEach((button) => button.addEventListener('click', () => setView(button.dataset.goto)));
 
-  $('#privacy-toggle').addEventListener('click', () => {
+  $('#privacy-toggle').addEventListener('click', async () => {
     state.identitiesVisible = !state.identitiesVisible;
     updatePrivacyButton();
-    renderSignalements();
     renderReparations();
+    await refreshSignalements({ resetOffset: true });
+    document.dispatchEvent(new CustomEvent('rdl:privacy-visibility-changed'));
   });
 
-  $('#signal-search').addEventListener('input', renderSignalements);
-  $('#new-signalement').addEventListener('click', () => {
-    const form = $('#signal-form');
-    form.reset();
-    form.elements.date.value = new Date().toISOString().slice(0, 10);
-    $('#signal-dialog').showModal();
+  $('#signal-search').addEventListener('input', (event) => {
+    clearTimeout(signalSearchTimer);
+    signalSearchTimer = setTimeout(async () => {
+      state.signalQuery.query = event.target.value.trim();
+      try {
+        await refreshSignalements({ resetOffset: true });
+      } catch (error) {
+        toast(`Recherche impossible : ${error.message}`, true);
+      }
+    }, 180);
   });
+
+  $('#signal-prev').addEventListener('click', async (event) => {
+    await withBusy(event.currentTarget, async () => {
+      state.signalQuery.offset = Math.max(0, state.signalQuery.offset - state.signalQuery.limit);
+      await refreshSignalements();
+    });
+  });
+  $('#signal-next').addEventListener('click', async (event) => {
+    await withBusy(event.currentTarget, async () => {
+      state.signalQuery.offset += state.signalQuery.limit;
+      await refreshSignalements();
+    });
+  });
+
+  $('#new-signalement').addEventListener('click', (event) => openCreateSignalement(event.currentTarget));
 
   $('#backup-now').addEventListener('click', createLocalBackup);
   $('#backup-view-action').addEventListener('click', createLocalBackup);
@@ -437,18 +612,6 @@ function bindStaticEvents() {
     }
   });
 
-  $('#signal-form').addEventListener('submit', async (event) => {
-    event.preventDefault();
-    try {
-      await window.rdl.createSignalement(formPayload(event.currentTarget));
-      $('#signal-dialog').close();
-      await reload();
-      toast('Signalement enregistré sur ce PC.');
-    } catch (error) {
-      toast(error.message, true);
-    }
-  });
-
   $('#repair-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     try {
@@ -462,32 +625,47 @@ function bindStaticEvents() {
   });
 
   $('#signalements-body').addEventListener('click', async (event) => {
+    const edit = event.target.closest('[data-edit-signalement]');
     const photo = event.target.closest('[data-photo]');
     const repair = event.target.closest('[data-repair]');
-    const close = event.target.closest('[data-close]');
+    const status = event.target.closest('[data-set-status]');
     try {
-      if (photo) {
-        const result = await window.rdl.attachPhoto(Number(photo.dataset.photo));
-        if (!result.canceled) {
-          await reload();
-          toast('Photo assainie et copiée dans le coffre local.');
-        }
+      if (edit) {
+        await openSignalementEditor(edit.dataset.editSignalement, edit);
+      } else if (photo) {
+        await withBusy(photo, async () => {
+          const result = await window.rdl.attachPhoto(Number(photo.dataset.photo));
+          if (!result.canceled) {
+            await reload();
+            document.dispatchEvent(new CustomEvent('rdl:signalements-changed'));
+            toast('Photo assainie et copiée dans le coffre local.');
+          }
+        });
       } else if (repair) {
         const form = $('#repair-form');
         form.reset();
         form.elements.signalement_id.value = repair.dataset.repair;
         form.elements.debut.value = new Date().toISOString().slice(0, 10);
         $('#repair-dialog').showModal();
-      } else if (close) {
-        const id = Number(close.dataset.close);
-        const current = state.signalements.find((s) => Number(s.id) === id);
-        await window.rdl.updateSignalement(id, { statut: current?.statut === 'Clos' ? 'Ouvert' : 'Clos' });
-        await reload();
-        toast(current?.statut === 'Clos' ? 'Dossier rouvert.' : 'Dossier clos : sa date de clôture est désormais tracée.');
+      } else if (status) {
+        await withBusy(status, async () => {
+          const target = status.dataset.statusTarget;
+          await window.rdl.setSignalementStatus(Number(status.dataset.setStatus), target);
+          await reload();
+          document.dispatchEvent(new CustomEvent('rdl:signalements-changed'));
+          toast(target === 'Clos' ? 'Dossier clos : sa date de clôture est tracée.' : 'Dossier rouvert.');
+        });
       }
     } catch (error) {
       toast(error.message, true);
     }
+  });
+
+  document.addEventListener('rdl:edit-signalement', async (event) => {
+    await openSignalementEditor(event.detail?.id, event.detail?.invoker || null);
+  });
+  document.addEventListener('rdl:signalements-changed', async () => {
+    try { await refreshSignalements(); } catch (error) { console.error(error); }
   });
 
   $('#lifecycle-body').addEventListener('click', async (event) => {
@@ -495,7 +673,7 @@ function bindStaticEvents() {
     const purge = event.target.closest('[data-purge]');
     try {
       if (reduce) {
-        const ok = window.confirm('Cette action efface les champs structurés « élève » et « classe » du dossier clos. Les textes libres et photos ne sont pas anonymisés. Continuer ?');
+        const ok = window.confirm('Cette action efface les champs structurés « élève », « classe » et « signalé par » du dossier clos. Les textes libres et photos ne sont pas anonymisés. Continuer ?');
         if (!ok) return;
         await window.rdl.reduceDirectIdentifiers(Number(reduce.dataset.reduce));
         await reload();
@@ -513,9 +691,9 @@ function bindStaticEvents() {
     }
   });
 
-  window.addEventListener('blur', hideIdentities);
+  window.addEventListener('blur', () => { void hideIdentities(); });
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) hideIdentities();
+    if (document.hidden) void hideIdentities();
   });
 }
 
@@ -524,6 +702,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   try {
     assertDomContract();
     bindSecretDialog();
+    bindSignalDialog();
     bindStaticEvents();
     updatePrivacyButton();
     toggleRetentionFields();
