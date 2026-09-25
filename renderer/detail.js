@@ -12,6 +12,7 @@
 
   let activeSignalementId = null;
   let dialog = null;
+  let detailInvoker = null;
   let decoratingRepairs = false;
 
   function identitiesVisible() {
@@ -55,6 +56,20 @@
     notify.timer = setTimeout(() => toast.classList.remove('show'), 4200);
   }
 
+  async function withBusy(control, operation) {
+    if (!control || control.dataset.busy === 'true') return null;
+    control.dataset.busy = 'true';
+    control.setAttribute('aria-busy', 'true');
+    control.disabled = true;
+    try {
+      return await operation();
+    } finally {
+      control.disabled = false;
+      control.removeAttribute('aria-busy');
+      delete control.dataset.busy;
+    }
+  }
+
   function closeDetailDialog(reason = 'button') {
     if (!dialog?.open) return false;
     dialog.dataset.closedBy = reason;
@@ -85,8 +100,6 @@
       </div>`;
     document.body.appendChild(dialog);
 
-    // Deux boutons de sortie directs : aucune délégation fragile ne peut les
-    // rendre inopérants à la suite d'un changement de contenu dans la fiche.
     $$('[data-detail-close]', dialog).forEach((button) => {
       button.addEventListener('click', (event) => {
         event.preventDefault();
@@ -95,24 +108,42 @@
       });
     });
 
-    // Troisième sortie : clic explicite sur l'arrière-plan du dialog.
     dialog.addEventListener('click', async (event) => {
       if (event.target === dialog) {
         closeDetailDialog('backdrop');
         return;
       }
 
-      const photo = event.target.closest('[data-detail-open-photo]');
-      if (photo) {
-        try {
-          await window.rdl.openPhoto(Number(photo.dataset.detailOpenPhoto));
-        } catch (error) {
-          notify(`Ouverture de la photo impossible : ${error.message}`, true);
+      const openPhoto = event.target.closest('[data-detail-open-photo]');
+      const removePhoto = event.target.closest('[data-detail-remove-photo]');
+      const editSignalement = event.target.closest('[data-edit-signalement]');
+      const editRepair = event.target.closest('[data-edit-repair]');
+
+      try {
+        if (openPhoto) {
+          await withBusy(openPhoto, () => window.rdl.openPhoto(Number(openPhoto.dataset.detailOpenPhoto)));
+        } else if (removePhoto) {
+          const ok = window.confirm('Retirer définitivement cette photo du dossier local ?');
+          if (!ok) return;
+          await withBusy(removePhoto, async () => {
+            await window.rdl.removePhoto(Number(removePhoto.dataset.detailRemovePhoto));
+            await refreshActiveDetail();
+            document.dispatchEvent(new CustomEvent('rdl:signalements-changed'));
+            notify('Photo retirée du dossier.');
+          });
+        } else if (editSignalement) {
+          const id = Number(editSignalement.dataset.editSignalement);
+          const invoker = detailInvoker;
+          closeDetailDialog('edit');
+          document.dispatchEvent(new CustomEvent('rdl:edit-signalement', { detail: { id, invoker } }));
+        } else if (editRepair) {
+          await openRepairEditor(editRepair.dataset.editRepair);
         }
+      } catch (error) {
+        notify(error.message, true);
       }
     });
 
-    // Échap reste disponible, mais n'est plus l'unique moyen de quitter.
     dialog.addEventListener('cancel', (event) => {
       event.preventDefault();
       closeDetailDialog('escape');
@@ -120,29 +151,31 @@
 
     dialog.addEventListener('close', () => {
       activeSignalementId = null;
+      const target = detailInvoker;
+      detailInvoker = null;
+      if (target && typeof target.focus === 'function' && target.isConnected) target.focus();
     });
 
     return dialog;
   }
 
-  function renderPhotos(photos) {
-    if (!photos.length) {
-      return '<div class="detail-empty">Aucune photo attachée à ce dossier.</div>';
-    }
+  function renderPhotos(photos, signalementClosed) {
+    if (!photos.length) return '<div class="detail-empty">Aucune photo attachée à ce dossier.</div>';
     return `<div class="detail-photo-list">${photos.map((photo) => `
       <div class="detail-photo-row">
         <div>
           <strong>${esc(photo.original_name || 'Photo JPEG')}</strong>
           <small>${bytes(photo.size_bytes)} · ajoutée le ${dateFr(photo.created_at)}</small>
         </div>
-        <button class="mini fiche" type="button" data-detail-open-photo="${Number(photo.id)}">Ouvrir</button>
+        <div class="actions">
+          <button class="mini fiche" type="button" data-detail-open-photo="${Number(photo.id)}">Ouvrir</button>
+          <button class="mini danger-mini" type="button" data-detail-remove-photo="${Number(photo.id)}" ${signalementClosed ? 'disabled title="Rouvrez le dossier pour retirer une photo"' : ''}>Retirer</button>
+        </div>
       </div>`).join('')}</div>`;
   }
 
   function renderRepairs(reparations) {
-    if (!reparations.length) {
-      return '<div class="detail-empty">Aucune réparation ou mesure enregistrée.</div>';
-    }
+    if (!reparations.length) return '<div class="detail-empty">Aucune réparation ou mesure enregistrée.</div>';
     return `<div class="detail-repair-list">${reparations.map((repair) => `
       <article class="detail-repair" data-detail-repair-id="${Number(repair.id)}">
         <div class="detail-repair-head">
@@ -162,9 +195,11 @@
       </article>`).join('')}</div>`;
   }
 
-  function renderDetail(signalement, reparations, photos) {
+  function renderDetail(detail) {
+    const { signalement, reparations = [], photos = [], events = [] } = detail;
     const body = $('#signal-detail-body');
     const title = $('#signal-detail-title');
+    const closed = signalement.statut === 'Clos';
     title.textContent = `Dossier ${signalement.num}`;
 
     body.innerHTML = `
@@ -174,7 +209,10 @@
           <h3>${esc(signalement.lieu || 'Lieu non renseigné')}</h3>
           <p>${esc(signalement.date || '—')}${signalement.heure ? ` · ${esc(signalement.heure)}` : ''}</p>
         </div>
-        <div class="detail-summary-status">${statusBadge(signalement.statut)}</div>
+        <div class="detail-summary-status">
+          ${statusBadge(signalement.statut)}
+          <button class="mini" type="button" data-edit-signalement="${Number(signalement.id)}" ${closed ? 'disabled title="Rouvrez le dossier pour le modifier"' : ''}>Modifier le dossier</button>
+        </div>
       </section>
 
       <div class="detail-columns">
@@ -208,44 +246,43 @@
 
       <section class="detail-block">
         <div class="detail-section-head split"><div><p class="eyebrow">Pièces</p><h3>Photos</h3></div><span class="badge">${photos.length}</span></div>
-        ${renderPhotos(photos)}
+        ${renderPhotos(photos, closed)}
       </section>
 
       <section class="detail-block">
         <div class="detail-section-head split"><div><p class="eyebrow">Suivi</p><h3>Réparations et mesures</h3></div><span class="badge">${reparations.length}</span></div>
         ${renderRepairs(reparations)}
+      </section>
+
+      <section class="detail-block">
+        <div class="detail-section-head split"><div><p class="eyebrow">Historique</p><h3>Événements du dossier</h3></div><span class="badge">${events.length}</span></div>
+        ${events.length ? `<div class="detail-repair-list">${events.map((event) => `<div class="detail-photo-row"><div><strong>${esc(event.event_type)}</strong><small>${dateFr(event.created_at)} · ${esc(event.detail || '')}</small></div></div>`).join('')}</div>` : '<div class="detail-empty">Aucun événement historisé.</div>'}
       </section>`;
   }
 
-  async function openSignalementById(id) {
+  async function openSignalementById(id, invoker = null) {
     const signalementId = Number(id);
     if (!Number.isSafeInteger(signalementId) || signalementId <= 0) return;
     try {
-      const [signalements, reparations, photos] = await Promise.all([
-        window.rdl.listSignalements(500),
-        window.rdl.listReparations(1000),
-        window.rdl.listPhotos(signalementId)
-      ]);
-      const signalement = signalements.find((row) => Number(row.id) === signalementId);
-      if (!signalement) throw new Error('Signalement introuvable.');
+      const detail = await window.rdl.getSignalementDetail(signalementId);
       activeSignalementId = signalementId;
-      const linkedRepairs = reparations.filter((row) => Number(row.signalement_id) === signalementId);
+      detailInvoker = invoker || document.activeElement;
       ensureDialog();
-      renderDetail(signalement, linkedRepairs, photos);
+      renderDetail(detail);
       if (!dialog.open) dialog.showModal();
     } catch (error) {
       notify(`Fiche inaccessible : ${error.message}`, true);
     }
   }
 
-  async function openSignalementByNum(num) {
+  async function openSignalementByNum(num, invoker = null) {
     const target = String(num || '').trim();
     if (!target) return;
     try {
-      const rows = await window.rdl.listSignalements(500);
-      const signalement = rows.find((row) => String(row.num) === target);
+      const result = await window.rdl.querySignalements({ query: target, limit: 20, offset: 0, includeIdentities: false });
+      const signalement = (result.rows || []).find((row) => String(row.num) === target);
       if (!signalement) throw new Error(`Dossier ${target} introuvable.`);
-      await openSignalementById(signalement.id);
+      await openSignalementById(signalement.id, invoker);
     } catch (error) {
       notify(`Fiche inaccessible : ${error.message}`, true);
     }
@@ -253,8 +290,8 @@
 
   async function refreshActiveDetail() {
     if (!dialog?.open || !activeSignalementId) return;
-    const id = activeSignalementId;
-    await openSignalementById(id);
+    const detail = await window.rdl.getSignalementDetail(activeSignalementId);
+    renderDetail(detail);
   }
 
   function ensureRepairEditField() {
@@ -316,22 +353,12 @@
     }
   }
 
-  async function refreshApplicationData() {
-    if (typeof window.reload === 'function') {
-      await window.reload();
-      return;
-    }
-    window.location.reload();
-  }
-
   function bindRepairEditing() {
     const form = $('#repair-form');
     const repairDialog = $('#repair-dialog');
     if (!form || !repairDialog) return;
     ensureRepairEditField();
 
-    // Capture=true : en mode édition, ce handler intercepte le submit avant
-    // l'ancien chemin de création d'app.js. En mode création il ne fait rien.
     form.addEventListener('submit', async (event) => {
       const repairId = Number(form.elements.reparation_id?.value || 0);
       if (!repairId) return;
@@ -343,7 +370,7 @@
         await window.rdl.updateReparation(repairId, payload);
         repairDialog.close('updated');
         setRepairDialogMode(null);
-        await refreshApplicationData();
+        document.dispatchEvent(new CustomEvent('rdl:signalements-changed'));
         await refreshActiveDetail();
         notify('Réparation modifiée et enregistrée localement.');
       } catch (error) {
@@ -352,50 +379,6 @@
     }, true);
 
     repairDialog.addEventListener('close', () => setRepairDialogMode(null));
-  }
-
-  function decorateSignalRows() {
-    const body = $('#signalements-body');
-    if (!body) return;
-    $$('tr', body).forEach((row) => {
-      const numNode = $('td:first-child strong', row);
-      const num = numNode?.textContent?.trim();
-      if (!num || num === 'Aucun signalement.') return;
-
-      row.classList.add('record-row');
-      row.dataset.ficheNum = num;
-      row.tabIndex = 0;
-      row.setAttribute('role', 'button');
-      row.setAttribute('aria-label', `Ouvrir la fiche ${num}`);
-      row.title = 'Cliquer pour ouvrir la fiche complète';
-
-      const actions = $('.actions', row);
-      if (actions && !actions.querySelector('[data-fiche]')) {
-        const button = document.createElement('button');
-        button.className = 'mini fiche';
-        button.type = 'button';
-        button.dataset.fiche = num;
-        button.textContent = 'Fiche';
-        button.title = `Ouvrir la fiche ${num}`;
-        actions.prepend(button);
-      }
-
-      const photoButton = $('[data-photo]', row);
-      if (photoButton) {
-        const match = /\((\d+)\)/.exec(photoButton.textContent || '');
-        const count = match ? Number(match[1]) : 0;
-        photoButton.textContent = '+ Photo';
-        photoButton.title = count
-          ? `${count} photo(s) déjà enregistrée(s). Les consulter depuis la fiche.`
-          : 'Ajouter une photo JPEG au dossier';
-      }
-
-      const repairButton = $('[data-repair]', row);
-      if (repairButton) {
-        repairButton.textContent = '+ Réparation';
-        repairButton.title = 'Ajouter une réparation ou mesure';
-      }
-    });
   }
 
   async function decorateRepairRows() {
@@ -431,61 +414,38 @@
     }
   }
 
-  function decorateRecentRows() {
-    const list = $('#recent-list');
-    if (!list) return;
-    $$('.recent-item', list).forEach((item) => {
-      const num = $('.recent-num', item)?.textContent?.trim();
-      if (!num) return;
-      item.classList.add('record-row', 'recent-record-row');
-      item.dataset.ficheNum = num;
-      item.tabIndex = 0;
-      item.setAttribute('role', 'button');
-      item.setAttribute('aria-label', `Ouvrir la fiche ${num}`);
-      item.title = 'Ouvrir la fiche complète';
-    });
-  }
-
   function bindNavigation() {
     document.addEventListener('click', (event) => {
+      const fiche = event.target.closest('[data-fiche-id]');
+      if (fiche && !event.target.closest('[data-edit-signalement],[data-photo],[data-repair],[data-set-status]')) {
+        event.preventDefault();
+        event.stopPropagation();
+        openSignalementById(fiche.dataset.ficheId, fiche);
+        return;
+      }
+
       const editRepair = event.target.closest('[data-edit-repair]');
-      if (editRepair) {
+      if (editRepair && !dialog?.open) {
         event.preventDefault();
         event.stopPropagation();
         openRepairEditor(editRepair.dataset.editRepair);
         return;
       }
 
-      const fiche = event.target.closest('[data-fiche]');
-      if (fiche) {
-        event.preventDefault();
-        event.stopPropagation();
-        openSignalementByNum(fiche.dataset.fiche);
-        return;
-      }
-
       const createRepair = event.target.closest('[data-repair]');
-      if (createRepair) {
-        // app.js ouvre le formulaire de création sur le même événement ;
-        // ce reset différé garantit qu'un ancien mode édition ne subsiste pas.
-        setTimeout(() => setRepairDialogMode(null), 0);
-      }
-
-      const row = event.target.closest('[data-fiche-num]');
-      if (!row || event.target.closest('button, a, input, select, textarea, label')) return;
-      openSignalementByNum(row.dataset.ficheNum);
+      if (createRepair) setTimeout(() => setRepairDialogMode(null), 0);
     });
 
     document.addEventListener('keydown', (event) => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
-      const row = event.target.closest('[data-fiche-num]');
+      const row = event.target.closest('[data-fiche-id]');
       if (!row || event.target.closest('button, a, input, select, textarea')) return;
       event.preventDefault();
-      openSignalementByNum(row.dataset.ficheNum);
+      openSignalementById(row.dataset.ficheId, row);
     });
 
-    $('#privacy-toggle')?.addEventListener('click', () => {
-      setTimeout(() => refreshActiveDetail(), 0);
+    document.addEventListener('rdl:privacy-visibility-changed', () => {
+      void refreshActiveDetail();
     });
 
     window.addEventListener('blur', () => {
@@ -496,22 +456,11 @@
     });
   }
 
-  function observeRenders() {
-    const signalBody = $('#signalements-body');
-    if (signalBody) {
-      decorateSignalRows();
-      new MutationObserver(decorateSignalRows).observe(signalBody, { childList: true });
-    }
+  function observeRepairRenders() {
     const repairBody = $('#reparations-body');
-    if (repairBody) {
-      decorateRepairRows();
-      new MutationObserver(() => decorateRepairRows()).observe(repairBody, { childList: true });
-    }
-    const recent = $('#recent-list');
-    if (recent) {
-      decorateRecentRows();
-      new MutationObserver(decorateRecentRows).observe(recent, { childList: true });
-    }
+    if (!repairBody) return;
+    decorateRepairRows();
+    new MutationObserver(() => decorateRepairRows()).observe(repairBody, { childList: true });
   }
 
   function init() {
@@ -519,7 +468,7 @@
     ensureDialog();
     bindRepairEditing();
     bindNavigation();
-    observeRenders();
+    observeRepairRenders();
   }
 
   if (document.readyState === 'loading') {
