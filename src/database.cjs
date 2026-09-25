@@ -2,6 +2,22 @@ const { DatabaseSync, backup } = require('node:sqlite');
 const path = require('node:path');
 const fs = require('node:fs');
 
+const SIGNALEMENT_STATUSES = Object.freeze(['Ouvert', 'Clos']);
+const SIGNALEMENT_GRAVITIES = Object.freeze(['', 'Mineure', 'Modérée', 'Importante', 'Critique']);
+const SIGNALEMENT_DIRECT_IDENTITY_FIELDS = Object.freeze(['eleve', 'classe', 'signale_par']);
+const SIGNAL_FIELD_LIMITS = Object.freeze({
+  date: 10,
+  heure: 8,
+  lieu: 200,
+  type: 120,
+  gravite: 80,
+  signale_par: 200,
+  description: 5000,
+  eleve: 200,
+  classe: 100,
+  statut: 80
+});
+
 const text = (value, max = 5000) => String(value ?? '').trim().slice(0, max);
 const idNumber = (value) => {
   const n = Number(value);
@@ -9,6 +25,45 @@ const idNumber = (value) => {
   return n;
 };
 const nowIso = () => new Date().toISOString();
+
+function boundedText(value, max, label, { required = false } = {}) {
+  const raw = String(value ?? '').trim();
+  if (raw.length > max) throw new Error(`${label} trop long : ${max} caractères maximum.`);
+  if (required && !raw) throw new Error(`${label} est obligatoire.`);
+  return raw;
+}
+
+function assertIsoDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error('Date invalide : format AAAA-MM-JJ attendu.');
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+    throw new Error('Date calendrier invalide.');
+  }
+  return value;
+}
+
+function assertTimeOrEmpty(value) {
+  if (!value) return '';
+  if (!/^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(value)) {
+    throw new Error('Heure invalide : format HH:MM attendu.');
+  }
+  return value;
+}
+
+function assertSignalementStatus(value) {
+  if (!SIGNALEMENT_STATUSES.includes(value)) throw new Error(`Statut invalide : ${SIGNALEMENT_STATUSES.join(' ou ')} attendu.`);
+  return value;
+}
+
+function assertSignalementGravity(value) {
+  if (!SIGNALEMENT_GRAVITIES.includes(value)) throw new Error('Gravité invalide.');
+  return value;
+}
+
+function escapeLike(value) {
+  return String(value).replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_');
+}
 
 function addMonthsIso(iso, months) {
   const date = new Date(iso);
@@ -52,6 +107,15 @@ class LocalDatabase {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         event_type TEXT NOT NULL,
         dossier_num TEXT NOT NULL DEFAULT '',
+        detail TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+      ) STRICT;
+
+      CREATE TABLE IF NOT EXISTS signalement_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        signalement_id INTEGER,
+        dossier_num TEXT NOT NULL DEFAULT '',
+        event_type TEXT NOT NULL,
         detail TEXT NOT NULL DEFAULT '',
         created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
       ) STRICT;
@@ -115,6 +179,7 @@ class LocalDatabase {
       CREATE INDEX IF NOT EXISTS idx_reparations_statut ON reparations(statut);
       CREATE INDEX IF NOT EXISTS idx_photos_signalement ON photos(signalement_id);
       CREATE INDEX IF NOT EXISTS idx_privacy_events_date ON privacy_events(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_signalement_events_signalement ON signalement_events(signalement_id, id DESC);
     `);
 
     this.migrateSchema();
@@ -132,7 +197,7 @@ class LocalDatabase {
     }
     this.db.exec('CREATE INDEX IF NOT EXISTS idx_signalements_closed_at ON signalements(closed_at)');
     this.db.prepare(`
-      INSERT INTO schema_meta(key, value) VALUES('schema_version', '2')
+      INSERT INTO schema_meta(key, value) VALUES('schema_version', '3')
       ON CONFLICT(key) DO UPDATE SET value = excluded.value
     `).run();
   }
@@ -158,6 +223,19 @@ class LocalDatabase {
     this.ensureOpen();
     this.db.prepare('INSERT INTO privacy_events(event_type, dossier_num, detail) VALUES(?, ?, ?)')
       .run(text(eventType, 100), text(dossierNum, 40), text(detail, 500));
+  }
+
+  recordSignalementEvent(signalementId, dossierNum, eventType, detail = '') {
+    this.ensureOpen();
+    this.db.prepare('INSERT INTO signalement_events(signalement_id, dossier_num, event_type, detail) VALUES(?, ?, ?, ?)')
+      .run(signalementId ? idNumber(signalementId) : null, text(dossierNum, 40), text(eventType, 100), text(detail, 500));
+  }
+
+  listSignalementEvents(signalementId, limit = 100) {
+    this.ensureOpen();
+    const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 500);
+    return this.db.prepare('SELECT * FROM signalement_events WHERE signalement_id = ? ORDER BY id DESC LIMIT ?')
+      .all(idNumber(signalementId), safeLimit);
   }
 
   listPrivacyEvents(limit = 100) {
@@ -228,11 +306,21 @@ class LocalDatabase {
   }
 
   createSignalement(payload = {}) {
-    const date = text(payload.date, 10) || new Date().toISOString().slice(0, 10);
-    const yearMatch = /^(\d{4})-/.exec(date);
-    const year = yearMatch ? Number(yearMatch[1]) : new Date().getFullYear();
-    const lieu = text(payload.lieu, 200);
-    if (!lieu) throw new Error('Le lieu est obligatoire.');
+    const date = boundedText(payload.date || new Date().toISOString().slice(0, 10), SIGNAL_FIELD_LIMITS.date, 'La date', { required: true });
+    assertIsoDate(date);
+    const heure = boundedText(payload.heure, SIGNAL_FIELD_LIMITS.heure, 'L’heure');
+    assertTimeOrEmpty(heure);
+    const lieu = boundedText(payload.lieu, SIGNAL_FIELD_LIMITS.lieu, 'Le lieu', { required: true });
+    const type = boundedText(payload.type, SIGNAL_FIELD_LIMITS.type, 'Le type');
+    const gravite = boundedText(payload.gravite, SIGNAL_FIELD_LIMITS.gravite, 'La gravité');
+    assertSignalementGravity(gravite);
+    const signalePar = boundedText(payload.signale_par, SIGNAL_FIELD_LIMITS.signale_par, 'Le champ « Signalé par »');
+    const description = boundedText(payload.description, SIGNAL_FIELD_LIMITS.description, 'La description');
+    const eleve = boundedText(payload.eleve, SIGNAL_FIELD_LIMITS.eleve, 'Le champ « Élève »');
+    const classe = boundedText(payload.classe, SIGNAL_FIELD_LIMITS.classe, 'Le champ « Classe »');
+    const statut = boundedText(payload.statut || 'Ouvert', SIGNAL_FIELD_LIMITS.statut, 'Le statut', { required: true });
+    assertSignalementStatus(statut);
+    const year = Number(date.slice(0, 4));
 
     return this.transaction(() => {
       this.db.prepare(`
@@ -247,20 +335,10 @@ class LocalDatabase {
           num, date, heure, lieu, type, gravite, signale_par,
           description, eleve, classe, famille, statut
         ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?)
-      `).run(
-        num,
-        date,
-        text(payload.heure, 8),
-        lieu,
-        text(payload.type, 120),
-        text(payload.gravite, 80),
-        text(payload.signale_par, 200),
-        text(payload.description, 5000),
-        text(payload.eleve, 200),
-        text(payload.classe, 100),
-        text(payload.statut, 80) || 'Ouvert'
-      );
-      return this.getSignalement(Number(result.lastInsertRowid));
+      `).run(num, date, heure, lieu, type, gravite, signalePar, description, eleve, classe, statut);
+      const id = Number(result.lastInsertRowid);
+      this.recordSignalementEvent(id, num, 'created', 'Signalement créé');
+      return this.getSignalement(id);
     });
   }
 
@@ -277,20 +355,60 @@ class LocalDatabase {
 
   getSignalementByNum(num) {
     this.ensureOpen();
-    return this.db.prepare('SELECT * FROM signalements WHERE num = ?').get(text(num, 40)) || null;
+    return this.db.prepare('SELECT * FROM signalements WHERE num = ?').get(boundedText(num, 40, 'Le numéro de dossier')) || null;
   }
 
-  listSignalements(limit = 500) {
+  querySignalements(options = {}) {
     this.ensureOpen();
-    const safeLimit = Math.min(Math.max(Number(limit) || 100, 1), 500);
-    return this.db.prepare(`
+    const query = boundedText(options.query, 200, 'La recherche');
+    const includeIdentities = options.includeIdentities === true;
+    const limit = Math.min(Math.max(Number(options.limit) || 100, 1), 200);
+    const offset = Math.max(Number(options.offset) || 0, 0);
+    if (!Number.isSafeInteger(limit) || !Number.isSafeInteger(offset) || offset > 1000000) {
+      throw new Error('Pagination invalide.');
+    }
+
+    let where = '';
+    let params = [];
+    if (query) {
+      const like = `%${escapeLike(query)}%`;
+      const searchable = ['s.num', 's.date', 's.heure', 's.lieu', 's.type', 's.gravite', 's.statut'];
+      if (includeIdentities) searchable.push('s.eleve', 's.classe', 's.signale_par', 's.description');
+      where = `WHERE (${searchable.map((column) => `${column} LIKE ? ESCAPE '\\'`).join(' OR ')})`;
+      params = searchable.map(() => like);
+    }
+
+    const rows = this.db.prepare(`
       SELECT s.*,
              (SELECT count(*) FROM photos p WHERE p.signalement_id = s.id) AS photo_count,
              (SELECT count(*) FROM reparations r WHERE r.signalement_id = s.id) AS reparation_count
       FROM signalements s
+      ${where}
       ORDER BY s.date DESC, s.id DESC
-      LIMIT ?
-    `).all(safeLimit);
+      LIMIT ? OFFSET ?
+    `).all(...params, limit, offset);
+    const total = this.db.prepare(`SELECT count(*) AS n FROM signalements s ${where}`).get(...params);
+    return { rows, total: Number(total?.n || 0), limit, offset, query, includeIdentities };
+  }
+
+  listSignalements(limit = 500) {
+    const safeLimit = Math.min(Math.max(Number(limit) || 100, 1), 500);
+    return this.querySignalements({ limit: Math.min(safeLimit, 200), offset: 0, includeIdentities: true }).rows;
+  }
+
+  getSignalementDetail(id) {
+    this.ensureOpen();
+    const signalementId = idNumber(id);
+    const signalement = this.getSignalement(signalementId);
+    if (!signalement) throw new Error('Signalement introuvable.');
+    const reparations = this.db.prepare(`
+      SELECT r.*, s.num AS signalement_num, s.lieu AS signalement_lieu
+      FROM reparations r JOIN signalements s ON s.id = r.signalement_id
+      WHERE r.signalement_id = ? ORDER BY r.id DESC
+    `).all(signalementId);
+    const photos = this.listPhotos(signalementId);
+    const events = this.listSignalementEvents(signalementId, 100);
+    return { signalement, reparations, photos, events };
   }
 
   updateSignalement(id, patch = {}) {
@@ -299,25 +417,70 @@ class LocalDatabase {
     const current = this.getSignalement(signalementId);
     if (!current) throw new Error('Signalement introuvable.');
 
-    const allowed = ['date','heure','lieu','type','gravite','signale_par','description','eleve','classe','statut'];
-    const entries = Object.entries(patch).filter(([key]) => allowed.includes(key));
-    if (!entries.length) return current;
-    if (entries.some(([key, value]) => key === 'lieu' && !text(value, 200))) {
-      throw new Error('Le lieu ne peut pas être vide.');
+    const keys = Object.keys(patch || {});
+    if (keys.includes('statut')) {
+      if (keys.length !== 1) throw new Error('Le statut doit être modifié séparément des données métier.');
+      return this.setSignalementStatus(signalementId, patch.statut);
+    }
+    if (current.statut === 'Clos') throw new Error('Le dossier est clos : rouvrez-le avant toute modification métier.');
+
+    const allowed = ['date', 'heure', 'lieu', 'type', 'gravite', 'signale_par', 'description', 'eleve', 'classe'];
+    const unknown = keys.filter((key) => !allowed.includes(key));
+    if (unknown.length) throw new Error(`Champ de modification non autorisé : ${unknown.join(', ')}.`);
+    if (!keys.length) return current;
+
+    const normalized = {};
+    for (const key of keys) {
+      const max = SIGNAL_FIELD_LIMITS[key];
+      const labels = { date: 'La date', heure: 'L’heure', lieu: 'Le lieu', type: 'Le type', gravite: 'La gravité', signale_par: 'Le champ « Signalé par »', description: 'La description', eleve: 'Le champ « Élève »', classe: 'Le champ « Classe »' };
+      normalized[key] = boundedText(patch[key], max, labels[key], { required: key === 'lieu' });
+    }
+    if (Object.hasOwn(normalized, 'date')) assertIsoDate(normalized.date);
+    if (Object.hasOwn(normalized, 'heure')) assertTimeOrEmpty(normalized.heure);
+    if (Object.hasOwn(normalized, 'gravite')) assertSignalementGravity(normalized.gravite);
+
+    if (current.identity_reduced_at) {
+      const reintroduced = SIGNALEMENT_DIRECT_IDENTITY_FIELDS.filter((field) => Object.hasOwn(normalized, field) && normalized[field]);
+      if (reintroduced.length) {
+        throw new Error('Identité réduite : réintroduction silencieuse interdite. Créez un nouveau besoin de traitement documenté si une identité redevient nécessaire.');
+      }
     }
 
     return this.transaction(() => {
+      const entries = Object.entries(normalized);
       const columns = entries.map(([key]) => `${key} = ?`).join(', ');
-      const values = entries.map(([key, value]) => text(value, key === 'description' ? 5000 : 200));
-      const nextStatus = entries.find(([key]) => key === 'statut')?.[1];
-      let closureSql = '';
-      if (nextStatus === 'Clos' && current.statut !== 'Clos') {
-        closureSql = ", closed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')";
-      } else if (nextStatus && nextStatus !== 'Clos' && current.statut === 'Clos') {
-        closureSql = ", closed_at = ''";
+      this.db.prepare(`UPDATE signalements SET ${columns}, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`)
+        .run(...entries.map(([, value]) => value), signalementId);
+      this.recordSignalementEvent(signalementId, current.num, 'updated', `Champs modifiés : ${entries.map(([key]) => key).join(', ')}`);
+      return this.getSignalement(signalementId);
+    });
+  }
+
+  setSignalementStatus(id, status) {
+    this.ensureOpen();
+    const signalementId = idNumber(id);
+    const current = this.getSignalement(signalementId);
+    if (!current) throw new Error('Signalement introuvable.');
+    const nextStatus = boundedText(status, SIGNAL_FIELD_LIMITS.statut, 'Le statut', { required: true });
+    assertSignalementStatus(nextStatus);
+    if (current.statut === nextStatus) return current;
+
+    return this.transaction(() => {
+      if (nextStatus === 'Clos') {
+        this.db.prepare(`
+          UPDATE signalements
+          SET statut = 'Clos', closed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+          WHERE id = ?
+        `).run(signalementId);
+        this.recordSignalementEvent(signalementId, current.num, 'closed', 'Dossier clos');
+      } else {
+        this.db.prepare(`
+          UPDATE signalements
+          SET statut = 'Ouvert', closed_at = '', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+          WHERE id = ?
+        `).run(signalementId);
+        this.recordSignalementEvent(signalementId, current.num, 'reopened', 'Dossier rouvert');
       }
-      this.db.prepare(`UPDATE signalements SET ${columns}${closureSql}, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`)
-        .run(...values, signalementId);
       return this.getSignalement(signalementId);
     });
   }
@@ -356,17 +519,21 @@ class LocalDatabase {
 
   insertPhotoMetadata(payload) {
     this.ensureOpen();
+    const signalementId = idNumber(payload.signalement_id);
     const result = this.db.prepare(`
       INSERT INTO photos(signalement_id, original_name, stored_name, mime_type, size_bytes, sha256)
       VALUES(?, ?, ?, 'image/jpeg', ?, ?)
     `).run(
-      idNumber(payload.signalement_id),
+      signalementId,
       text(payload.original_name, 300),
       text(payload.stored_name, 300),
       Number(payload.size_bytes),
       text(payload.sha256, 64)
     );
-    return this.getPhoto(Number(result.lastInsertRowid));
+    const photo = this.getPhoto(Number(result.lastInsertRowid));
+    const signalement = this.getSignalement(signalementId);
+    if (signalement) this.recordSignalementEvent(signalementId, signalement.num, 'photo_attached', 'Photo JPEG assainie ajoutée');
+    return photo;
   }
 
   getPhoto(id) {
@@ -377,6 +544,17 @@ class LocalDatabase {
   listPhotos(signalementId) {
     this.ensureOpen();
     return this.db.prepare('SELECT * FROM photos WHERE signalement_id = ? ORDER BY id DESC').all(idNumber(signalementId));
+  }
+
+  deletePhotoMetadata(id) {
+    this.ensureOpen();
+    const photoId = idNumber(id);
+    const photo = this.getPhoto(photoId);
+    if (!photo) throw new Error('Photo introuvable.');
+    const signalement = this.getSignalement(photo.signalement_id);
+    this.db.prepare('DELETE FROM photos WHERE id = ?').run(photoId);
+    if (signalement) this.recordSignalementEvent(signalement.id, signalement.num, 'photo_removed', 'Photo retirée du dossier');
+    return photo;
   }
 
   getLifecycleReview(referenceDate = new Date()) {
@@ -411,11 +589,12 @@ class LocalDatabase {
     return this.transaction(() => {
       this.db.prepare(`
         UPDATE signalements
-        SET eleve = '', classe = '', famille = '', identity_reduced_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+        SET eleve = '', classe = '', signale_par = '', famille = '', identity_reduced_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
         WHERE id = ?
       `).run(signalementId);
-      this.recordPrivacyEvent('direct_identifiers_reduced', current.num, 'Identité élève/classe supprimée des champs structurés');
+      this.recordPrivacyEvent('direct_identifiers_reduced', current.num, 'Élève, classe et signalé par supprimés des champs structurés');
+      this.recordSignalementEvent(signalementId, current.num, 'identities_reduced', 'Identifiants directs structurés réduits');
       return this.getSignalement(signalementId);
     });
   }
@@ -540,4 +719,10 @@ class LocalDatabase {
   }
 }
 
-module.exports = { LocalDatabase, addMonthsIso };
+module.exports = {
+  LocalDatabase,
+  addMonthsIso,
+  SIGNALEMENT_STATUSES,
+  SIGNALEMENT_GRAVITIES,
+  SIGNALEMENT_DIRECT_IDENTITY_FIELDS
+};
