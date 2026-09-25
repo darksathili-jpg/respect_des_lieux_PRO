@@ -274,9 +274,9 @@ try {
   await click(cdp, '#signal-dialog [data-signal-cancel]');
   await waitFor(cdp, `document.querySelector('#signal-dialog')?.open === false`, 'dialog fermé par contrôle visible');
   const afterCancel = await queryTotal(cdp);
-  const focusAfterCancel = await evaluate(cdp, `document.activeElement?.id || ''`);
   if (afterCancel !== baselineTotal) throw new Error('Annulation a écrit dans la base.');
-  if (focusAfterCancel !== 'new-signalement') throw new Error(`Focus non restitué après annulation: ${focusAfterCancel}`);
+  await waitFor(cdp, `document.activeElement?.id === 'new-signalement'`, 'focus restitué après annulation');
+  const focusAfterCancel = await evaluate(cdp, `document.activeElement?.id || ''`);
   record('cancel-create-without-write', { total: afterCancel, focus: focusAfterCancel });
   await click(cdp, '#new-signalement');
   await waitFor(cdp, `document.querySelector('#signal-dialog')?.open === true`, 'dialog création réouvert');
