@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "application": "Respect des Lieux PRO",
   "shell": {
     "id": "app-shell",
@@ -47,6 +47,32 @@
     "open-exports",
     "open-data"
   ],
+  "designSystem": {
+    "version": "r2",
+    "entrypoint": "renderer/styles.css",
+    "layers": [
+      "renderer/tokens.css",
+      "renderer/components.css",
+      "renderer/layout.css",
+      "renderer/home.css"
+    ],
+    "requiredAssets": [
+      "renderer/assets/sidebar-logo-production.svg",
+      "renderer/assets/dashboard-hero-production.svg"
+    ],
+    "requiredTokens": [
+      "--rdl-ds-ready",
+      "--rdl-font-sans",
+      "--rdl-canvas",
+      "--rdl-surface",
+      "--rdl-text-strong",
+      "--rdl-blue-700",
+      "--rdl-space-4",
+      "--rdl-radius-lg",
+      "--rdl-shadow-md",
+      "--rdl-focus"
+    ]
+  },
   "forbiddenRuntimeFiles": [
     "renderer/dashboard-vf.css"
   ],
@@ -62,6 +88,11 @@
     "masterScreenshotInRuntimeForbidden": true,
     "navigationAndViewsMustMatch": true,
     "allViewsMustUseHiddenState": true,
+    "designSystemLayeringRequired": true,
+    "productionAssetsRequired": true,
+    "focusVisibleRequired": true,
+    "reducedMotionRequired": true,
+    "responsiveFallbackRequired": true,
     "detailDialogRequiresStableScrollbar": true,
     "detailDialogRequiresSingleColumnFallback": true,
     "detailDialogRequiresMultipleExitPaths": true,

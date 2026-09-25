@@ -1,0 +1,86 @@
+/* R2 — Design tokens. Single source of visual truth for the production shell. */
+:root{
+  --rdl-ds-ready:r2;
+  color-scheme:light;
+
+  --rdl-font-sans:"Segoe UI Variable","Segoe UI",Inter,Roboto,Arial,sans-serif;
+  --rdl-font-mono:"Cascadia Code",Consolas,"Courier New",monospace;
+  --rdl-font-display:Georgia,"Times New Roman",serif;
+
+  --rdl-text-strong:#17283a;
+  --rdl-text:#2f4357;
+  --rdl-text-soft:#667b8e;
+  --rdl-text-faint:#8798a8;
+  --rdl-canvas:#f3f6f9;
+  --rdl-surface:#ffffff;
+  --rdl-surface-soft:#f8fafc;
+  --rdl-surface-tint:#eef4f8;
+  --rdl-line:#d9e2e9;
+  --rdl-line-strong:#c6d2dc;
+
+  --rdl-navy-950:#0b1b2d;
+  --rdl-navy-900:#10263d;
+  --rdl-navy-800:#173b58;
+  --rdl-blue-700:#245f8c;
+  --rdl-blue-600:#2f78aa;
+  --rdl-blue-100:#e8f2f8;
+  --rdl-brick-700:#9f312d;
+  --rdl-brick-600:#b94037;
+  --rdl-brick-100:#f8ebe8;
+  --rdl-green-700:#2d7652;
+  --rdl-green-100:#e7f5ed;
+  --rdl-amber-700:#8c5d1c;
+  --rdl-amber-100:#fff4df;
+  --rdl-red-700:#913f46;
+  --rdl-red-100:#fbecee;
+
+  --rdl-space-1:4px;
+  --rdl-space-2:8px;
+  --rdl-space-3:12px;
+  --rdl-space-4:16px;
+  --rdl-space-5:20px;
+  --rdl-space-6:24px;
+  --rdl-space-7:28px;
+  --rdl-space-8:32px;
+  --rdl-space-10:40px;
+  --rdl-space-12:48px;
+  --rdl-space-16:64px;
+
+  --rdl-radius-sm:8px;
+  --rdl-radius-md:12px;
+  --rdl-radius-lg:18px;
+  --rdl-radius-xl:24px;
+  --rdl-radius-pill:999px;
+
+  --rdl-shadow-sm:0 1px 2px rgba(12,31,48,.05),0 6px 18px rgba(12,31,48,.04);
+  --rdl-shadow-md:0 14px 36px rgba(12,31,48,.09);
+  --rdl-shadow-lg:0 24px 70px rgba(8,24,39,.16);
+  --rdl-focus:0 0 0 3px rgba(47,120,170,.22),0 0 0 1px #2f78aa;
+
+  --rdl-sidebar-width:272px;
+  --rdl-content-max:1540px;
+  --rdl-topbar-min:92px;
+  --rdl-control-min:42px;
+  --rdl-ease:cubic-bezier(.2,.75,.25,1);
+  --rdl-duration-fast:140ms;
+  --rdl-duration:220ms;
+
+  /* Compatibility aliases while R2 migrates every view to the shared system. */
+  --bg:var(--rdl-canvas);
+  --surface:var(--rdl-surface);
+  --surface2:var(--rdl-surface-soft);
+  --ink:var(--rdl-text);
+  --muted:var(--rdl-text-soft);
+  --border:var(--rdl-line);
+  --accent:var(--rdl-blue-700);
+  --accent2:var(--rdl-blue-100);
+  --green:var(--rdl-green-700);
+  --amber:var(--rdl-amber-700);
+  --red:var(--rdl-red-700);
+  --shadow:var(--rdl-shadow-md);
+  --radius:var(--rdl-radius-lg);
+}
+
+@media (prefers-reduced-motion:reduce){
+  :root{--rdl-duration-fast:0ms;--rdl-duration:0ms}
+}

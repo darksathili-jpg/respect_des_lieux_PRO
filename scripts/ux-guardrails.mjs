@@ -11,18 +11,22 @@ const html = read('renderer/index.html');
 const app = read('renderer/app.js');
 const preload = read('preload.cjs');
 const styles = read('renderer/styles.css');
+const tokens = read('renderer/tokens.css');
+const components = read('renderer/components.css');
+const layout = read('renderer/layout.css');
+const home = read('renderer/home.css');
 const detailJs = read('renderer/detail.js');
 const detailCss = read('renderer/detail.css');
 const pkg = JSON.parse(read('package.json'));
 const releaseState = JSON.parse(read('quality/release-state.json'));
 
-const runtime = [html, app, preload, styles, read('renderer/v51.css'), detailJs, detailCss].join('\n');
+const runtime = [html, app, preload, styles, tokens, components, layout, home, read('renderer/v51.css'), detailJs, detailCss].join('\n');
 const expectedViews = ['dashboard', 'signalements', 'reparations', 'sauvegardes', 'confidentialite', 'systeme'];
 
 const navViews = [...html.matchAll(/<button[^>]*class="nav[^>]*data-view="([^"]+)"/g)].map((match) => match[1]);
 const panelViews = [...html.matchAll(/<section[^>]*data-view-panel="([^"]+)"/g)].map((match) => match[1]);
 
-check(releaseState.releaseFrozen === true, 'le gel de release reste actif pendant R1');
+check(releaseState.releaseFrozen === true, 'le gel de release reste actif pendant R2');
 check(pkg.main === 'main-entry.cjs', 'le point d’entrée Electron déclaré correspond au runtime réel');
 
 check(count(html, /id="app-shell"/g) === 1, 'une seule AppShell existe');
@@ -36,6 +40,14 @@ check(!runtime.includes('vf-dashboard'), 'aucune seconde surface vf-dashboard ne
 check(!runtime.includes('dashboard-master.png'), 'la capture maître n’est jamais utilisée par le runtime');
 check(!runtime.includes('visual-test-mode') && !runtime.includes('RDL_VISUAL_TEST'), 'aucun mode UI alternatif de qualification ne subsiste');
 check(!/min-width\s*:\s*1448px/.test(runtime), 'aucune largeur maître figée à 1448 px ne subsiste');
+
+check(exists('renderer/tokens.css') && exists('renderer/components.css') && exists('renderer/layout.css') && exists('renderer/home.css'), 'les couches R2 tokens/composants/layout/Accueil existent');
+check(styles.includes("@import url('./tokens.css');") && styles.includes("@import url('./components.css');") && styles.includes("@import url('./layout.css');") && styles.includes("@import url('./home.css');"), 'styles.css charge explicitement les quatre couches R2');
+check(tokens.includes('--rdl-ds-ready:r2') && tokens.includes('--rdl-focus:'), 'les tokens R2 publient un marqueur de version et un focus partagé');
+check(components.includes(':focus-visible') && components.includes('prefers-reduced-motion:reduce'), 'accessibilité clavier et réduction des mouvements sont garanties');
+check(layout.includes("sidebar-logo-production.svg") && home.includes("dashboard-hero-production.svg"), 'les vrais SVG de production sont utilisés par la shell et l’Accueil');
+check(!/data:image|master\.png|reference\//i.test(`${layout}\n${home}`), 'aucune capture ou data URI ne remplace un asset de production');
+check(/@media \(max-width:820px\)/.test(layout) && /@media \(max-width:640px\)/.test(home), 'la shell et l’Accueil possèdent des replis responsive explicites');
 
 check(app.includes('function assertDomContract()'), 'le renderer possède un contrat DOM explicite');
 check(app.includes('view.hidden = !active'), 'le routeur UI pilote une seule collection de vues');
