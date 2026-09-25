@@ -380,12 +380,26 @@ async function purgeSignalement(id, confirmationNum) {
   }
 }
 
+function removePhoto(photoId) {
+  const photo = db.getPhoto(photoId);
+  if (!photo) throw new Error('Photo introuvable.');
+  const stage = photoStore.stageDelete([photo.stored_name]);
+  try {
+    const removed = db.transaction(() => db.deletePhotoMetadata(photo.id));
+    photoStore.commitStagedDelete(stage);
+    return { removed: true, photo: removed };
+  } catch (error) {
+    try { photoStore.rollbackStagedDelete(stage); } catch {}
+    throw error;
+  }
+}
+
 function registerIpc() {
   secureHandle('rdl:bootstrap', async () => ({
     appVersion: app.getVersion(),
     paths: { root: paths.root, database: paths.database, backups: paths.backups, exports: paths.exports },
     stats: db.getStats(),
-    signalements: db.listSignalements(500),
+    signalements: db.listSignalements(200),
     reparations: db.listReparations(1000),
     integrity: db.integrityCheck(),
     retention: db.getRetentionPolicy(),
@@ -393,9 +407,13 @@ function registerIpc() {
     privacyEvents: db.listPrivacyEvents(50)
   }));
 
-  secureHandle('rdl:signalements:list', (limit = 500) => db.listSignalements(limit));
+  secureHandle('rdl:signalements:list', (limit = 200) => db.listSignalements(limit));
+  secureHandle('rdl:signalements:query', (options = {}) => db.querySignalements(options));
+  secureHandle('rdl:signalements:get-detail', (id) => db.getSignalementDetail(id));
   secureHandle('rdl:signalements:create', (payload) => db.createSignalement(payload));
   secureHandle('rdl:signalements:update', (id, patch) => db.updateSignalement(id, patch));
+  secureHandle('rdl:signalements:set-status', (id, status) => db.setSignalementStatus(id, status));
+
   secureHandle('rdl:reparations:list', (limit = 1000) => db.listReparations(limit));
   secureHandle('rdl:reparations:create', (payload) => db.createReparation(payload));
 
@@ -417,6 +435,7 @@ function registerIpc() {
     if (error) throw new Error(error);
     return true;
   });
+  secureHandle('rdl:photos:remove', (photoId) => removePhoto(photoId));
 
   secureHandle('rdl:privacy:retention:get', () => db.getRetentionPolicy());
   secureHandle('rdl:privacy:retention:configure', (payload) => db.configureRetentionPolicy(payload));
