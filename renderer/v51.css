@@ -7,28 +7,5 @@ code{font-family:Consolas,"Courier New",monospace;background:#eef2f6;border-radi
 .secret-field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(85,125,183,.1)}
 .secret-field[hidden]{display:none}
 
-/* Frontière stricte production / master de qualification.
-   En production, l’asset SVG dédié est toujours au premier plan. Le WebP
-   historique reste uniquement en second plan de secours afin de préserver
-   la compatibilité des anciens contrôles de packaging pendant la migration. */
-body:not(.visual-test-mode) #vf-dashboard .vf-logo{
-  background-image:url("./assets/sidebar-logo-production.svg"),url("./assets/sidebar-logo-master.webp")!important;
-  background-position:center!important;
-  background-size:contain!important;
-  background-repeat:no-repeat!important;
-}
-body:not(.visual-test-mode).dashboard-mode #vf-dashboard .vf-hero{
-  background-image:url("./assets/dashboard-hero-production.svg"),url("./assets/dashboard-hero-master.webp")!important;
-  background-position:center!important;
-  background-size:cover!important;
-  background-repeat:no-repeat!important;
-  background-color:#fbf8f4!important;
-}
-
-/* Le bandeau de production est un vrai composant, jamais une tranche de la
-   capture maître. Les libellés de navigation restent ceux du HTML réel. */
-body:not(.visual-test-mode) #vf-dashboard .vf-topbar{
-  background:linear-gradient(180deg,#fffdf9 0%,#faf6f1 100%)!important;
-  border-bottom:1px solid #eadfd7!important;
-  box-shadow:0 4px 18px rgba(27,58,79,.05)!important;
-}
+/* R1 : aucune seconde shell, aucune maquette rasterisée dans le runtime.
+   Cette feuille reste limitée aux composants introduits après la base V5. */
