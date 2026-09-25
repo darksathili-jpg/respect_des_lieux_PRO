@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('rdl', Object.freeze({
   updateSignalement: (id, patch) => ipcRenderer.invoke('rdl:signalements:update', id, patch),
   listReparations: (limit) => ipcRenderer.invoke('rdl:reparations:list', limit),
   createReparation: (payload) => ipcRenderer.invoke('rdl:reparations:create', payload),
+  updateReparation: (id, payload) => ipcRenderer.invoke('rdl:reparations:create', { ...payload, _repair_id: id }),
   attachPhoto: (signalementId) => ipcRenderer.invoke('rdl:photos:attach', signalementId),
   listPhotos: (signalementId) => ipcRenderer.invoke('rdl:photos:list', signalementId),
   openPhoto: (photoId) => ipcRenderer.invoke('rdl:photos:open', photoId),
