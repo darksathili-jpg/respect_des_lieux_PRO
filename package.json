@@ -41,6 +41,9 @@
       "!tests/**",
       "!docs/**",
       "!.github/**",
+      "!design/**",
+      "!quality/**",
+      "!scripts/**",
       "!README.md"
     ],
     "win": {
