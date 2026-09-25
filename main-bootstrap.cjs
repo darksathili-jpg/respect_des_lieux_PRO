@@ -1,13 +1,18 @@
 const { app, dialog } = require('electron');
 
-// Respect des Lieux PRO does not need GPU acceleration. Disabling it avoids
-// blank Chromium surfaces caused by some Windows graphics/driver stacks while
-// keeping the application fully functional for this 2D administrative UI.
+// Interface administrative 2D : la désactivation de l'accélération matérielle
+// réduit les surfaces Chromium blanches sur certains postes Windows anciens.
 app.disableHardwareAcceleration();
 
 const smokeMode = process.env.RDL_PACKAGED_SMOKE === '1';
-const visualTestMode = process.env.RDL_VISUAL_TEST === '1'
-  || process.argv.some((arg) => arg === '--rdl-visual-test' || arg === '--rdl-visual-test=1');
+const EXPECTED_VIEWS = Object.freeze([
+  'dashboard',
+  'signalements',
+  'reparations',
+  'sauvegardes',
+  'confidentialite',
+  'systeme'
+]);
 const EXPECTED_NAV_LABELS = Object.freeze([
   'Accueil',
   'Signalements',
@@ -16,6 +21,7 @@ const EXPECTED_NAV_LABELS = Object.freeze([
   'Protection des données',
   'Système local'
 ]);
+
 let smokeFinished = false;
 let fatalShown = false;
 
@@ -26,7 +32,7 @@ function delay(ms) {
 function reportFatal(title, detail) {
   const message = String(detail || 'Erreur inconnue');
   console.error(`[RDL] ${title}: ${message}`);
-  if (!smokeMode && !visualTestMode && !fatalShown) {
+  if (!smokeMode && !fatalShown) {
     fatalShown = true;
     try {
       dialog.showErrorBox(
@@ -67,145 +73,116 @@ function paintProbe(nativeImage) {
   return { ok: samples >= 20 && range >= 80, range, samples, min, max };
 }
 
-function responsiveSurfaceOk(dom) {
-  const widthDelta = Math.abs(Number(dom.visualWidth || 0) - Number(dom.viewportWidth || 0));
-  const heightDelta = Math.abs(Number(dom.visualHeight || 0) - Number(dom.viewportHeight || 0));
-  return Number(dom.viewportWidth || 0) >= 800
-    && Number(dom.viewportHeight || 0) >= 600
-    && widthDelta <= 2
-    && heightDelta <= 2;
+async function probeShell(win) {
+  await delay(1800);
+  return win.webContents.executeJavaScript(`(() => {
+    const shells = [...document.querySelectorAll('#app-shell')];
+    const shell = shells[0] || null;
+    const mainRegions = [...document.querySelectorAll('#main-region')];
+    const sidebar = shell?.querySelector(':scope > .sidebar') || null;
+    const main = shell?.querySelector(':scope > .main') || null;
+    const navButtons = [...(shell?.querySelectorAll('.nav[data-view]') || [])];
+    const panels = [...(shell?.querySelectorAll('.view[data-view-panel]') || [])];
+    const shellRect = shell?.getBoundingClientRect();
+    const sidebarRect = sidebar?.getBoundingClientRect();
+    const mainRect = main?.getBoundingClientRect();
+    return {
+      readyState: document.readyState,
+      shellCount: shells.length,
+      mainRegionCount: mainRegions.length,
+      shellReady: shell?.dataset?.shellReady || '',
+      shellWidth: shellRect?.width || 0,
+      shellHeight: shellRect?.height || 0,
+      viewportWidth: window.innerWidth || 0,
+      viewportHeight: window.innerHeight || 0,
+      sidebarRight: sidebarRect?.right || 0,
+      mainLeft: mainRect?.left || 0,
+      navViews: navButtons.map((node) => node.dataset.view || ''),
+      navLabels: navButtons.map((node) => (node.textContent || '').trim()),
+      panelViews: panels.map((node) => node.dataset.viewPanel || ''),
+      activeNav: navButtons.filter((node) => node.classList.contains('active')).map((node) => node.dataset.view || ''),
+      activePanels: panels.filter((node) => node.classList.contains('active') && !node.hidden).map((node) => node.dataset.viewPanel || ''),
+      hiddenPanels: panels.filter((node) => node.hidden).map((node) => node.dataset.viewPanel || ''),
+      oldVisualShells: document.querySelectorAll('#vf-dashboard').length,
+      title: document.querySelector('#page-title')?.textContent?.trim() || '',
+      detailDialog: Boolean(document.querySelector('#signal-detail-dialog')),
+      bodyTextLength: (document.body?.innerText || '').trim().length,
+      documentScrollWidth: document.documentElement?.scrollWidth || 0,
+      bodyScrollWidth: document.body?.scrollWidth || 0
+    };
+  })()`);
 }
 
-function masterSurfaceOk(dom) {
-  return Number(dom.visualWidth || 0) === 1448
-    && Number(dom.visualHeight || 0) === 1086;
-}
-
-function productionUiContractOk(dom) {
-  if (visualTestMode) return true;
-  return JSON.stringify(dom.navLabels || []) === JSON.stringify(EXPECTED_NAV_LABELS)
-    && String(dom.heroBackgroundImage || '').includes('dashboard-hero-master.webp')
-    && !String(dom.topbarBackgroundImage || '').includes('dashboard-master.png');
+function shellContractOk(dom) {
+  const widthAligned = Math.abs(Number(dom.shellWidth || 0) - Number(dom.viewportWidth || 0)) <= 2;
+  const geometryAligned = Math.abs(Number(dom.sidebarRight || 0) - Number(dom.mainLeft || 0)) <= 2;
+  const noGlobalHorizontalOverflow = Math.max(Number(dom.documentScrollWidth || 0), Number(dom.bodyScrollWidth || 0)) <= Number(dom.viewportWidth || 0) + 2;
+  return dom.readyState === 'complete'
+    && dom.shellCount === 1
+    && dom.mainRegionCount === 1
+    && dom.shellReady === 'true'
+    && JSON.stringify(dom.navViews || []) === JSON.stringify(EXPECTED_VIEWS)
+    && JSON.stringify(dom.navLabels || []) === JSON.stringify(EXPECTED_NAV_LABELS)
+    && JSON.stringify(dom.panelViews || []) === JSON.stringify(EXPECTED_VIEWS)
+    && JSON.stringify(dom.activeNav || []) === JSON.stringify(['dashboard'])
+    && JSON.stringify(dom.activePanels || []) === JSON.stringify(['dashboard'])
+    && (dom.hiddenPanels || []).length === EXPECTED_VIEWS.length - 1
+    && dom.oldVisualShells === 0
+    && dom.detailDialog
+    && dom.title === 'Accueil'
+    && dom.bodyTextLength > 100
+    && widthAligned
+    && geometryAligned
+    && noGlobalHorizontalOverflow;
 }
 
 async function probeNavigationContinuity(win) {
-  const clickResult = await win.webContents.executeJavaScript(`(() => {
-    const target = document.querySelector('#vf-dashboard .vf-nav-item[data-view="signalements"]');
-    if (!target) return { clicked: false, reason: 'signalements-button-missing' };
-    target.click();
-    return { clicked: true };
-  })()`);
+  const steps = [];
+  for (const view of EXPECTED_VIEWS) {
+    const clicked = await win.webContents.executeJavaScript(`(() => {
+      const button = document.querySelector('#app-shell .nav[data-view=${JSON.stringify(view)}]');
+      if (!button) return false;
+      button.click();
+      return true;
+    })()`);
+    await delay(90);
+    const state = await win.webContents.executeJavaScript(`(() => {
+      const shell = document.querySelector('#app-shell');
+      const activeNav = [...shell.querySelectorAll('.nav[data-view].active')];
+      const activePanels = [...shell.querySelectorAll('.view[data-view-panel].active')].filter((node) => !node.hidden);
+      const target = shell.querySelector('.view[data-view-panel=${JSON.stringify(view)}]');
+      const nav = shell.querySelector('.nav[data-view=${JSON.stringify(view)}]');
+      return {
+        activeNav: activeNav.map((node) => node.dataset.view),
+        activePanels: activePanels.map((node) => node.dataset.viewPanel),
+        targetHidden: target?.hidden ?? true,
+        targetDisplay: target ? getComputedStyle(target).display : 'missing',
+        ariaCurrent: nav?.getAttribute('aria-current') || '',
+        title: document.querySelector('#page-title')?.textContent?.trim() || '',
+        shellCount: document.querySelectorAll('#app-shell').length
+      };
+    })()`);
+    const ok = clicked
+      && state.shellCount === 1
+      && JSON.stringify(state.activeNav) === JSON.stringify([view])
+      && JSON.stringify(state.activePanels) === JSON.stringify([view])
+      && state.targetHidden === false
+      && state.targetDisplay !== 'none'
+      && state.ariaCurrent === 'page';
+    steps.push({ view, ok, clicked, state });
+    if (!ok) break;
+  }
 
-  await delay(180);
-
-  const state = await win.webContents.executeJavaScript(`(() => {
-    const visualDashboard = document.querySelector('#vf-dashboard');
-    const visualSidebar = visualDashboard?.querySelector('.vf-sidebar');
-    const legacyShell = document.querySelector('body > .shell');
-    const legacySidebar = legacyShell?.querySelector(':scope > .sidebar');
-    const signalements = document.querySelector('#view-signalements');
-    const nav = visualDashboard?.querySelector('.vf-nav-item[data-view="signalements"]');
-    const visualRect = visualDashboard?.getBoundingClientRect();
-    const sidebarRect = visualSidebar?.getBoundingClientRect();
-    const shellRect = legacyShell?.getBoundingClientRect();
-    return {
-      dashboardMode: document.body.classList.contains('dashboard-mode'),
-      visualDashboardDisplay: visualDashboard ? getComputedStyle(visualDashboard).display : 'missing',
-      visualSidebarDisplay: visualSidebar ? getComputedStyle(visualSidebar).display : 'missing',
-      legacyShellDisplay: legacyShell ? getComputedStyle(legacyShell).display : 'missing',
-      legacySidebarDisplay: legacySidebar ? getComputedStyle(legacySidebar).display : 'missing',
-      signalementsDisplay: signalements ? getComputedStyle(signalements).display : 'missing',
-      signalementsActive: Boolean(signalements?.classList.contains('active')),
-      signalementsNavActive: Boolean(nav?.classList.contains('active')),
-      navLabels: [...document.querySelectorAll('#vf-dashboard .vf-nav-item span:last-child')].map((node) => node.textContent.trim()),
-      visualWidth: visualRect?.width || 0,
-      viewportWidth: window.innerWidth || 0,
-      sidebarRight: sidebarRect?.right || 0,
-      shellLeft: shellRect?.left || 0
-    };
-  })()`);
-
-  const geometryAligned = Math.abs(Number(state.shellLeft || 0) - Number(state.sidebarRight || 0)) <= 2;
-  const labelsOk = JSON.stringify(state.navLabels || []) === JSON.stringify(EXPECTED_NAV_LABELS);
-  const ok = Boolean(clickResult?.clicked)
-    && state.dashboardMode === false
-    && state.visualDashboardDisplay !== 'none'
-    && state.visualSidebarDisplay !== 'none'
-    && state.legacyShellDisplay !== 'none'
-    && state.legacySidebarDisplay === 'none'
-    && state.signalementsDisplay !== 'none'
-    && state.signalementsActive
-    && state.signalementsNavActive
-    && labelsOk
-    && geometryAligned;
-
-  // Revenir sur l'accueil afin que la capture peinture vérifie également que
-  // la navigation aller-retour ne casse pas le dashboard responsive.
-  await win.webContents.executeJavaScript(`(() => {
-    document.querySelector('#vf-dashboard .vf-nav-item[data-view="dashboard"]')?.click();
-  })()`);
-  await delay(120);
-
-  return { ok, clickResult, state, labelsOk, geometryAligned };
+  await win.webContents.executeJavaScript(`document.querySelector('#app-shell .nav[data-view="dashboard"]')?.click()`);
+  await delay(100);
+  return { ok: steps.length === EXPECTED_VIEWS.length && steps.every((step) => step.ok), steps };
 }
 
 async function probeRenderer(win) {
-  await delay(1800);
-  const dom = await win.webContents.executeJavaScript(`(() => {
-    const shell = document.querySelector('.shell');
-    const sidebar = document.querySelector('.sidebar');
-    const main = document.querySelector('.main');
-    const title = document.querySelector('#page-title');
-    const visualDashboard = document.querySelector('#vf-dashboard');
-    const visualSidebar = visualDashboard?.querySelector('.vf-sidebar');
-    const visualMain = visualDashboard?.querySelector('.vf-main');
-    const visualHero = visualDashboard?.querySelector('.vf-hero');
-    const visualTopbar = visualDashboard?.querySelector('.vf-topbar');
-    const shellRect = shell?.getBoundingClientRect();
-    const sidebarRect = sidebar?.getBoundingClientRect();
-    const visualRect = visualDashboard?.getBoundingClientRect();
-    const parity = window.RDL_PARITY?.snapshot?.() || null;
-    return {
-      readyState: document.readyState,
-      shell: Boolean(shell),
-      sidebar: Boolean(sidebar),
-      main: Boolean(main),
-      visualDashboard: Boolean(visualDashboard),
-      visualSidebar: Boolean(visualSidebar),
-      visualMain: Boolean(visualMain),
-      visualHero: Boolean(visualHero),
-      visualReady: visualDashboard?.dataset?.vfReady || '',
-      visualWidth: visualRect?.width || 0,
-      visualHeight: visualRect?.height || 0,
-      viewportWidth: window.innerWidth || 0,
-      viewportHeight: window.innerHeight || 0,
-      navLabels: [...document.querySelectorAll('#vf-dashboard .vf-nav-item span:last-child')].map((node) => node.textContent.trim()),
-      heroBackgroundImage: visualHero ? getComputedStyle(visualHero).backgroundImage : '',
-      topbarBackgroundImage: visualTopbar ? getComputedStyle(visualTopbar).backgroundImage : '',
-      signalDetailDialog: Boolean(document.querySelector('#signal-detail-dialog')),
-      detailScript: Boolean(document.querySelector('script[data-rdl-detail-layer]')),
-      detailStyle: Boolean(document.querySelector('link[data-rdl-detail-layer]')),
-      themeScript: Boolean(document.querySelector('script[data-rdl-theme-layer]')),
-      themeStyle: Boolean(document.querySelector('#rdl-theme-v521')),
-      themeSignature: Boolean(document.querySelector('[data-rdl-theme-signature="watteau-v5.2.1"]')),
-      themeVersion: document.documentElement?.dataset?.rdlTheme || '',
-      parityScript: Boolean(document.querySelector('script[data-rdl-parity-layer]')),
-      parityToolbar: Boolean(document.querySelector('[data-rdl-parity="v5.2.1"]')),
-      parityVersion: parity?.version || '',
-      parityPageSize: parity?.pageSize || 0,
-      shellWidth: shellRect?.width || 0,
-      shellHeight: shellRect?.height || 0,
-      sidebarWidth: sidebarRect?.width || 0,
-      bodyTextLength: (document.body?.innerText || '').trim().length,
-      title: title?.textContent || '',
-      hasBrandText: (document.body?.innerText || '').includes('Respect des Lieux')
-    };
-  })()`);
-
+  const dom = await probeShell(win);
   const navigation = await probeNavigationContinuity(win);
-
   win.show();
-  await delay(900);
+  await delay(700);
   const image = await win.webContents.capturePage();
   const paint = paintProbe(image);
   return { dom, navigation, paint, imageSize: image.getSize() };
@@ -229,66 +206,15 @@ app.on('browser-window-created', (_event, win) => {
     failSmoke('preload-error', { preloadPath, message: error?.message || String(error) });
   });
 
+  if (!smokeMode) return;
+
   win.webContents.once('did-finish-load', async () => {
     try {
-      // Deux contrats distincts et non négociables :
-      // - le gate visuel travaille sur le master immuable 1448×1086 ;
-      // - l'application réelle doit épouser le viewport Windows disponible et
-      //   n'afficher que les catégories, assets et contrôles réellement prévus.
-      const dom = await win.webContents.executeJavaScript(`(() => {
-        const visualDashboard = document.querySelector('#vf-dashboard');
-        const visualRect = visualDashboard?.getBoundingClientRect();
-        const visualHero = visualDashboard?.querySelector('.vf-hero');
-        const visualTopbar = visualDashboard?.querySelector('.vf-topbar');
-        return {
-          visualDashboard: Boolean(visualDashboard),
-          visualSidebar: Boolean(visualDashboard?.querySelector('.vf-sidebar')),
-          visualMain: Boolean(visualDashboard?.querySelector('.vf-main')),
-          visualHero: Boolean(visualHero),
-          visualWidth: visualRect?.width || 0,
-          visualHeight: visualRect?.height || 0,
-          viewportWidth: window.innerWidth || 0,
-          viewportHeight: window.innerHeight || 0,
-          navLabels: [...document.querySelectorAll('#vf-dashboard .vf-nav-item span:last-child')].map((node) => node.textContent.trim()),
-          heroBackgroundImage: visualHero ? getComputedStyle(visualHero).backgroundImage : '',
-          topbarBackgroundImage: visualTopbar ? getComputedStyle(visualTopbar).backgroundImage : '',
-          bodyTextLength: (document.body?.innerText || '').trim().length
-        };
-      })()`);
-
-      const surfaceReady = visualTestMode ? masterSurfaceOk(dom) : responsiveSurfaceOk(dom);
-      const productionReady = productionUiContractOk(dom);
-      const uiReady = dom.visualDashboard
-        && dom.visualSidebar
-        && dom.visualMain
-        && dom.visualHero
-        && surfaceReady
-        && productionReady;
-
-      if (!uiReady || dom.bodyTextLength < 100) {
-        reportFatal('interface incomplète', JSON.stringify({ ...dom, visualTestMode, productionReady }));
-        failSmoke('dom-incomplete', { ...dom, visualTestMode, productionReady });
-        return;
-      }
-
-      if (!smokeMode) return;
-
       const result = await probeRenderer(win);
-      const domOk = result.dom.readyState === 'complete'
-        && result.dom.visualDashboard
-        && result.dom.visualSidebar
-        && result.dom.visualMain
-        && result.dom.visualHero
-        && result.dom.signalDetailDialog
-        && responsiveSurfaceOk(result.dom)
-        && productionUiContractOk(result.dom)
-        && result.dom.bodyTextLength > 100;
-
-      if (!domOk || !result.navigation.ok || !result.paint.ok) {
+      if (!shellContractOk(result.dom) || !result.navigation.ok || !result.paint.ok) {
         failSmoke('ui-not-rendered', result);
         return;
       }
-
       smokeFinished = true;
       console.log(`RDL_SMOKE_PASS ${JSON.stringify(result)}`);
       app.exit(0);
