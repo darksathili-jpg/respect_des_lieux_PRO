@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "releaseFrozen": true,
+  "frozenAt": "2026-09-25",
+  "reason": "Audit architectural complet après défauts répétés de shell, responsive, modales, assets et parcours fonctionnels dans alpha.6.",
+  "lastAuthorizedPrerelease": "5.2.1-alpha.6",
+  "nextRelease": null,
+  "unfreezeRequirements": [
+    "Une seule shell de production dans le DOM",
+    "Aucun mode UI alternatif utilisé pour valider la production",
+    "Toutes les vues métier rendues dans la shell unique",
+    "Matrice CRUD complète et testée, notamment édition des réparations",
+    "Composant modal conforme clavier/souris/focus avec sorties testées",
+    "Assets de production décodés et effectivement peints dans le binaire empaqueté",
+    "Tests E2E sur vrai binaire Windows aux tailles cibles",
+    "Régression visuelle sur l'UI de production, pas sur une maquette recomposée",
+    "Tous les gates unitaires, sécurité, données, UX, visuels et packaging verts"
+  ]
+}
