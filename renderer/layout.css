@@ -1,6 +1,6 @@
 /* R2/R4-P3b — Application layout. Structural rules only. */
-html,body{max-width:100%;overflow-x:clip;overscroll-behavior-x:none}
-.shell{width:100%;max-width:100%;min-width:0;min-height:100vh;display:grid;grid-template-columns:var(--rdl-sidebar-width) minmax(0,1fr);overflow-x:clip;background:var(--watteau-canvas)}
+html,body{width:100%;height:100%;max-width:100%;overflow:hidden;overscroll-behavior:none}
+.shell{width:100%;height:100vh;max-width:100%;min-width:0;min-height:100vh;display:grid;grid-template-columns:var(--rdl-sidebar-width) minmax(0,1fr);overflow-x:hidden;overflow-y:auto;background:var(--watteau-canvas)}
 .sidebar{position:sticky;top:0;width:100%;max-width:100%;min-width:0;height:100vh;min-height:0;display:flex;flex-direction:column;gap:20px;overflow-x:hidden;overflow-y:auto;padding:20px 18px 18px;background:linear-gradient(180deg,var(--watteau-navy-deep) 0%,var(--watteau-navy) 56%,#153c59 100%);color:#f8fbfd;border-right:1px solid rgba(255,255,255,.07);box-shadow:14px 0 38px rgba(9,30,47,.08)}
 .brand{display:grid;grid-template-columns:76px minmax(0,1fr);align-items:center;gap:13px;min-width:0;min-height:102px;padding:4px 6px 17px;border-bottom:1px solid rgba(255,255,255,.12)}
 .brand-mark{width:74px;height:74px;border-radius:18px;background-image:url('./assets/watteau-sidebar-mark.svg');background-repeat:no-repeat;background-position:center;background-size:contain;font-size:0;color:transparent;filter:drop-shadow(0 8px 18px rgba(0,0,0,.12))}
@@ -24,7 +24,7 @@ html,body{max-width:100%;overflow-x:clip;overscroll-behavior-x:none}
 .local-seal strong{font-size:12px}
 .local-seal small{margin-top:3px;color:#b5c4cf;font-size:10px;line-height:1.45}
 
-.main{width:100%;max-width:100%;min-width:0;min-height:100vh;overflow-x:clip}
+.main{width:100%;max-width:100%;min-width:0;min-height:100vh;overflow-x:hidden}
 .topbar{width:100%;max-width:100%;min-width:0;min-height:var(--rdl-topbar-min);position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:var(--rdl-space-5);padding:15px clamp(22px,2.4vw,38px);background:rgba(255,253,249,.95);border-bottom:1px solid var(--rdl-line);backdrop-filter:blur(18px);box-shadow:0 1px 0 rgba(12,31,48,.025)}
 .topbar h1{margin:3px 0 0;color:var(--watteau-ink);font-size:clamp(23px,2vw,29px);line-height:1.05;letter-spacing:-.025em}
 .top-actions{min-width:0;display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
