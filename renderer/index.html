@@ -87,13 +87,18 @@
         <div class="panel">
           <div class="panel-head">
             <div><p class="eyebrow">Registre local</p><h3>Signalements</h3></div>
-            <input id="signal-search" class="search" type="search" placeholder="Rechercher…" autocomplete="off">
+            <input id="signal-search" class="search" type="search" placeholder="Rechercher…" autocomplete="off" aria-label="Rechercher dans les signalements" aria-controls="signalements-body">
           </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>N°</th><th>Date</th><th>Lieu</th><th>Type</th><th>Gravité</th><th>Élève / classe</th><th>Statut</th><th>Actions</th></tr></thead>
+          <div class="table-wrap" role="region" aria-label="Tableau des signalements" tabindex="0">
+            <table aria-label="Liste des signalements">
+              <thead><tr><th scope="col">N°</th><th scope="col">Date</th><th scope="col">Lieu</th><th scope="col">Type</th><th scope="col">Gravité</th><th scope="col">Élève / classe</th><th scope="col">Statut</th><th scope="col">Actions</th></tr></thead>
               <tbody id="signalements-body"></tbody>
             </table>
+          </div>
+          <div class="form-actions" role="navigation" aria-label="Pagination des signalements">
+            <button id="signal-prev" class="btn secondary" type="button" aria-controls="signalements-body">Précédents</button>
+            <span id="signal-page" aria-live="polite">0 dossier</span>
+            <button id="signal-next" class="btn secondary" type="button" aria-controls="signalements-body">Suivants</button>
           </div>
         </div>
       </section>
@@ -188,7 +193,7 @@
               <tbody id="lifecycle-body"><tr><td colspan="6">Politique de conservation non configurée.</td></tr></tbody>
             </table>
           </div>
-          <p class="microcopy">« Réduire les identifiants » efface uniquement les champs structurés élève/classe. Les textes libres et photographies doivent encore être revus. « Supprimer » exige la saisie exacte du numéro de dossier et inscrit un registre de purge pour éviter sa réapparition après restauration d’une ancienne sauvegarde.</p>
+          <p class="microcopy">« Réduire les identifiants » efface les champs structurés élève, classe et « signalé par ». Les textes libres et photographies doivent encore être revus. « Supprimer » exige la saisie exacte du numéro de dossier et inscrit un registre de purge pour éviter sa réapparition après restauration d’une ancienne sauvegarde.</p>
         </article>
 
         <div class="grid two">
@@ -243,8 +248,9 @@
   </div>
 
   <dialog id="signal-dialog" aria-labelledby="signal-dialog-title">
-    <form id="signal-form" method="dialog" class="dialog-card">
-      <header><div><p class="eyebrow">Nouveau dossier</p><h2 id="signal-dialog-title">Créer un signalement</h2></div><button class="close" value="cancel" aria-label="Fermer">×</button></header>
+    <form id="signal-form" class="dialog-card">
+      <header><div><p class="eyebrow" id="signal-dialog-eyebrow">Nouveau dossier</p><h2 id="signal-dialog-title">Créer un signalement</h2></div><button class="close" type="button" data-signal-cancel aria-label="Fermer">×</button></header>
+      <input type="hidden" name="signalement_id" value="">
       <div class="notice compact"><strong>Minimisation :</strong> saisissez uniquement les informations nécessaires au traitement du signalement. L’identité de l’élève est facultative.</div>
       <div class="form-grid">
         <label>Date<input name="date" type="date" required></label>
@@ -257,7 +263,7 @@
         <label class="span-2">Signalé par <span class="field-note">facultatif, uniquement si utile au suivi</span><input name="signale_par" maxlength="200" autocomplete="off"></label>
         <label class="span-2">Description factuelle <span class="field-note">éviter toute donnée sensible ou appréciation inutile</span><textarea name="description" rows="4" maxlength="5000"></textarea></label>
       </div>
-      <footer><button class="btn secondary" value="cancel">Annuler</button><button id="save-signalement" class="btn primary" value="default">Enregistrer localement</button></footer>
+      <footer><button class="btn secondary" type="button" data-signal-cancel>Annuler</button><button id="save-signalement" class="btn primary" type="submit">Enregistrer localement</button></footer>
     </form>
   </dialog>
 

@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 2,
+  "phase": "R3",
+  "feature": "signalements",
+  "baseCommit": "dafca10ea52becedb688e35d1566abf1f280b3c2",
+  "stage": "visual-reconstruction",
+  "releaseFrozen": true,
+  "cssSpecificWorkAllowed": true,
+  "functionalQualificationCommit": "161081ba7b71c06025c4e01dbc62c62790cecbf2",
+  "p0Qualification": {
+    "functionalGateRunId": 36171921280,
+    "packagedE2EArtifactId": 10880771688,
+    "packagedE2EArtifactSha256": "66b6b3967831f554b1584fdcb7071e66927faefaa9d49538c62d7846c63426eb",
+    "allTransverseGatesGreen": true,
+    "prereleasePublicationSkipped": true
+  },
+  "allowedStatuses": ["Ouvert", "Clos"],
+  "allowedGravities": ["", "Mineure", "Modérée", "Importante", "Critique"],
+  "requiredDomainOperations": [
+    "querySignalements",
+    "getSignalementDetail",
+    "createSignalement",
+    "updateSignalement",
+    "setSignalementStatus",
+    "attachPhoto",
+    "removePhoto"
+  ],
+  "requiredUserJourneys": [
+    "create-cancel-without-write",
+    "create-save-once",
+    "open-detail-by-id",
+    "edit-open-dossier",
+    "search-beyond-first-500",
+    "attach-photo",
+    "remove-photo",
+    "close-dossier",
+    "reopen-dossier",
+    "identity-reduction-cannot-be-silently-undone"
+  ],
+  "dialogContract": {
+    "cancelControlsMustNotSubmit": true,
+    "visibleCloseControlRequired": true,
+    "escapeRequired": true,
+    "focusMustStayInsideWhileOpen": true,
+    "focusMustReturnToInvoker": true
+  },
+  "dataContract": {
+    "lieuRequired": true,
+    "strictIsoDate": true,
+    "strictTimeOrEmpty": true,
+    "closedDossierBusinessEditForbidden": true,
+    "reducedIdentitySilentReintroductionForbidden": true,
+    "maxPhotosPerSignalement": 2,
+    "maxPhotoBytes": 3145728,
+    "photoMime": "image/jpeg",
+    "duplicatePhotoForbidden": true
+  },
+  "queryContract": {
+    "databaseSideSearchRequired": true,
+    "paginationRequired": true,
+    "mustFindRecordsBeyond500": true,
+    "identitySearchMustBeExplicit": true
+  },
+  "architectureContract": {
+    "functionalControlsInjectedByMutationObserverForbidden": true,
+    "listAllToOpenSingleDetailForbidden": true,
+    "dedicatedIpcForDetailRequired": true,
+    "asyncMutationBusyStateRequired": true,
+    "minimalEventHistoryRequired": true
+  },
+  "visualContract": {
+    "p0FunctionalQualificationMustRemainAncestor": true,
+    "functionalGateMustStayGreenDuringCssWork": true,
+    "packagedExeEvidenceRequiredBeforeVisualAcceptance": true,
+    "releaseFreezeMustRemainActive": true
+  },
+  "exitGateBeforeSignalementsCss": [
+    "domain-tests-green",
+    "ipc-tests-green",
+    "renderer-functional-tests-green",
+    "packaged-windows-journey-green",
+    "search-5000-records-green",
+    "dialog-keyboard-mouse-green",
+    "privacy-invariants-green"
+  ],
+  "governanceDecisionRequired": [
+    "whether signale_par is included in direct-identifier reduction"
+  ]
+}

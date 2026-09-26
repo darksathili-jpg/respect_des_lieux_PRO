@@ -23,13 +23,13 @@ function cleanup(ctx) {
   fs.rmSync(ctx.root, { recursive: true, force: true });
 }
 
-test('qualification volume : 5 000 signalements et 10 000 réparations restent lisibles dans la fenêtre UI', () => {
+test('qualification volume R3 : 5 000 signalements restent paginables et recherchables au-delà du 500e', () => {
   const ctx = fixture();
   try {
     ctx.db.transaction(() => {
       const insertSignalement = ctx.db.db.prepare('INSERT INTO signalements(num, date, lieu, statut) VALUES(?, ?, ?, ?)');
       for (let i = 1; i <= 5000; i += 1) {
-        insertSignalement.run(`2026-${String(i).padStart(4, '0')}`, '2026-09-23', `Lieu ${i % 80}`, i % 4 === 0 ? 'Clos' : 'Ouvert');
+        insertSignalement.run(`2026-${String(i).padStart(4, '0')}`, '2026-09-23', `Lieu ${i}`, i % 4 === 0 ? 'Clos' : 'Ouvert');
       }
       const insertReparation = ctx.db.db.prepare('INSERT INTO reparations(signalement_id, mesure, statut) VALUES(?, ?, ?)');
       for (let i = 1; i <= 10000; i += 1) {
@@ -38,16 +38,22 @@ test('qualification volume : 5 000 signalements et 10 000 réparations restent l
     });
 
     const started = performance.now();
-    const signalements = ctx.db.listSignalements(500);
+    const firstPage = ctx.db.querySignalements({ limit: 200, offset: 0, includeIdentities: false });
+    const deepPage = ctx.db.querySignalements({ limit: 200, offset: 4800, includeIdentities: false });
+    const target = ctx.db.querySignalements({ query: 'Lieu 4999', limit: 50, offset: 0, includeIdentities: false });
     const reparations = ctx.db.listReparations(1000);
     const elapsedMs = performance.now() - started;
 
-    assert.equal(signalements.length, 500);
+    assert.equal(firstPage.rows.length, 200);
+    assert.equal(firstPage.total, 5000);
+    assert.equal(deepPage.rows.length, 200);
+    assert.equal(deepPage.total, 5000);
+    assert.ok(target.rows.some((row) => row.lieu === 'Lieu 4999'), 'la recherche SQL doit trouver une ligne située au-delà des 500 premières');
     assert.equal(reparations.length, 1000);
     assert.equal(ctx.db.getStats().signalements, 5000);
     assert.equal(ctx.db.getStats().reparations, 10000);
     assert.equal(ctx.db.integrityCheck().ok, true);
-    assert.ok(elapsedMs < 3000, `Fenêtre de lecture trop lente: ${elapsedMs.toFixed(1)} ms`);
+    assert.ok(elapsedMs < 3000, `Pagination/recherche trop lente: ${elapsedMs.toFixed(1)} ms`);
   } finally {
     cleanup(ctx);
   }
