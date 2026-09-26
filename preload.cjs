@@ -12,7 +12,7 @@ contextBridge.exposeInMainWorld('rdl', Object.freeze({
 
   listReparations: (limit) => ipcRenderer.invoke('rdl:reparations:list', limit),
   queryReparations: (options) => ipcRenderer.invoke('rdl:reparations:query', options),
-  getReparation: (id) => ipcRenderer.invoke('rdl:reparations:get', id),
+  getReparation: (id, includeIdentities = false) => ipcRenderer.invoke('rdl:reparations:get', id, includeIdentities === true),
   createReparation: (payload) => ipcRenderer.invoke('rdl:reparations:create', payload),
   updateReparation: (id, patch) => ipcRenderer.invoke('rdl:reparations:update', id, patch),
   setReparationStatus: (id, status) => ipcRenderer.invoke('rdl:reparations:set-status', id, status),
