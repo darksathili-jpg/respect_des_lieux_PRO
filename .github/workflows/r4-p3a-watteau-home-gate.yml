@@ -1,4 +1,4 @@
-name: R4-P3a Watteau Home Visual Gate
+name: R4-P3 Watteau Home Visual Gate
 
 on:
   push:
@@ -52,7 +52,7 @@ jobs:
           if ($changed) {
             Write-Host "Fichiers R4-P2 runtime critiques modifiés :"
             $changed | ForEach-Object { Write-Host " - $_" }
-            throw "R4-P3a n'a pas le droit de modifier le runtime R4-P2 qualifié."
+            throw "R4-P3 n'a pas le droit de modifier le runtime R4-P2 qualifié."
           }
           Write-Host "R4-P2_RUNTIME_FILES_UNCHANGED"
 
@@ -64,7 +64,7 @@ jobs:
         shell: pwsh
         run: npm run dist:win:dir
 
-      - name: Capture true packaged Watteau Accueil
+      - name: Capture true packaged Watteau Accueil and horizontal-drift proof
         shell: pwsh
         run: |
           $local = Join-Path $env:RUNNER_TEMP "rdl-r4-p3a-localappdata"
@@ -86,6 +86,8 @@ jobs:
           try {
             node scripts/capture-packaged-ui.mjs --port $port --out $evidence
             if ($LASTEXITCODE -ne 0) { throw "Le Visual Evidence Gate R4-P3a a échoué (code $LASTEXITCODE)." }
+            node scripts/r4-p3b-horizontal-drift-gate.mjs --port $port --out $evidence
+            if ($LASTEXITCODE -ne 0) { throw "Le Horizontal Drift Gate R4-P3b a échoué (code $LASTEXITCODE)." }
           }
           finally {
             if ($p -and -not $p.HasExited) {
@@ -97,7 +99,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: r4-p3a-watteau-home-evidence
+          name: r4-p3-watteau-home-evidence
           path: ${{ runner.temp }}/rdl-r4-p3a-evidence/**
           if-no-files-found: warn
           retention-days: 14
