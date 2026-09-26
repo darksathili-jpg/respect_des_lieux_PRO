@@ -12,7 +12,7 @@ const outDir = path.resolve(arg('--out', 'artifacts/r3-packaged-e2e'));
 const fixture = JSON.parse(fs.readFileSync(path.resolve(arg('--fixture', path.join(outDir, 'fixture.json'))), 'utf8'));
 fs.mkdirSync(outDir, { recursive: true });
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-const evidence = { format: 3, startedAt: new Date().toISOString(), fixture, steps: [], visualEvidence: [] };
+const evidence = { format: 4, startedAt: new Date().toISOString(), fixture, steps: [], visualEvidence: [] };
 const record = (name, detail = {}) => {
   evidence.steps.push({ name, at: new Date().toISOString(), ...detail });
   console.log(`R3_E2E_STEP ${name} ${JSON.stringify(detail)}`);
@@ -84,6 +84,43 @@ async function fill(cdp, selector, value) {
   const ok = await evaluate(cdp, `(() => { const e=document.querySelector(${JSON.stringify(selector)}); if(!e)return false; e.value=${JSON.stringify(value)}; e.dispatchEvent(new Event('input',{bubbles:true})); e.dispatchEvent(new Event('change',{bubbles:true})); return true; })()`);
   if (!ok) throw new Error(`Champ introuvable: ${selector}`);
 }
+async function pressKey(cdp, key, { shift = false } = {}) {
+  const keys = {
+    Tab: { code: 'Tab', vk: 9 },
+    Enter: { code: 'Enter', vk: 13 },
+    Escape: { code: 'Escape', vk: 27 },
+    ArrowRight: { code: 'ArrowRight', vk: 39 }
+  };
+  const meta = keys[key];
+  if (!meta) throw new Error(`Touche E2E non configurée: ${key}`);
+  const modifiers = shift ? 8 : 0;
+  const payload = { key, code: meta.code, windowsVirtualKeyCode: meta.vk, nativeVirtualKeyCode: meta.vk, modifiers };
+  await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', ...payload });
+  await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', ...payload });
+  await wait(70);
+}
+async function focusSnapshot(cdp, dialogSelector = null) {
+  return evaluate(cdp, `(() => {
+    const a=document.activeElement;
+    return {
+      tag:a?.tagName||'',
+      id:a?.id||'',
+      name:a?.getAttribute?.('name')||'',
+      text:(a?.textContent||'').trim().slice(0,60),
+      inside:${dialogSelector ? `!!a?.closest(${JSON.stringify(dialogSelector)})` : 'true'}
+    };
+  })()`);
+}
+async function assertTabContainment(cdp, dialogSelector, samples = 10) {
+  const trail = [];
+  for (let i = 0; i < samples; i += 1) {
+    await pressKey(cdp, 'Tab');
+    const state = await focusSnapshot(cdp, dialogSelector);
+    if (!state.inside) throw new Error(`Le focus a quitté ${dialogSelector} après Tab: ${JSON.stringify(state)}`);
+    trail.push(`${state.tag}:${state.name || state.id || state.text}`);
+  }
+  return trail;
+}
 async function setViewport(cdp, width, height = 900) {
   await cdp.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false, screenWidth: width, screenHeight: height, positionX: 0, positionY: 0, dontSetVisibleSize: false });
   await wait(180);
@@ -114,14 +151,34 @@ try {
 
   await click(cdp, '#app-shell .nav[data-view="signalements"]');
   await waitFor(cdp, `document.querySelector('#app-shell')?.dataset.activeView==='signalements'`, 'vue Signalements');
-  await click(cdp, '#new-signalement');
-  await waitFor(cdp, `document.querySelector('#signal-dialog')?.open===true`, 'dialog création');
+
+  const semanticContract = await evaluate(cdp, `(() => ({
+    searchName: document.querySelector('#signal-search')?.getAttribute('aria-label') || '',
+    searchControls: document.querySelector('#signal-search')?.getAttribute('aria-controls') || '',
+    tableRegionRole: document.querySelector('#view-signalements .table-wrap')?.getAttribute('role') || '',
+    tableRegionTabIndex: document.querySelector('#view-signalements .table-wrap')?.tabIndex,
+    paginationRole: document.querySelector('#view-signalements .form-actions')?.getAttribute('role') || '',
+    scopedHeaders: [...document.querySelectorAll('#view-signalements thead th')].every(th=>th.getAttribute('scope')==='col')
+  }))()`);
+  if (!semanticContract.searchName || semanticContract.searchControls !== 'signalements-body') throw new Error(`Recherche sans nom/liaison accessible: ${JSON.stringify(semanticContract)}`);
+  if (semanticContract.tableRegionRole !== 'region' || semanticContract.tableRegionTabIndex !== 0) throw new Error(`Tableau responsive non accessible au clavier: ${JSON.stringify(semanticContract)}`);
+  if (semanticContract.paginationRole !== 'navigation' || !semanticContract.scopedHeaders) throw new Error(`Sémantique tableau/pagination incomplète: ${JSON.stringify(semanticContract)}`);
+  record('accessible-semantics', semanticContract);
+
+  await evaluate(cdp, `document.querySelector('#new-signalement').focus()`);
+  await pressKey(cdp, 'Enter');
+  await waitFor(cdp, `document.querySelector('#signal-dialog')?.open===true`, 'dialog création ouvert au clavier');
+  await waitFor(cdp, `document.activeElement?.closest('#signal-dialog') && document.activeElement?.getAttribute('name')==='lieu'`, 'focus initial dans le formulaire');
+  const createInitialFocus = await focusSnapshot(cdp, '#signal-dialog');
+  record('keyboard-open-create', createInitialFocus);
   record('visual-create-dialog', await shot(cdp, 'r3-signalements-create-dialog.png', 'create-dialog-desktop'));
-  await click(cdp, '#signal-dialog [data-signal-cancel]');
-  await waitFor(cdp, `document.querySelector('#signal-dialog')?.open===false`, 'annulation');
-  if (await queryTotal(cdp) !== baseline) throw new Error('Annulation a écrit dans la base.');
-  await waitFor(cdp, `document.activeElement?.id==='new-signalement'`, 'focus restitué');
-  record('cancel-create-without-write', { focus: 'new-signalement' });
+  const createFocusTrail = await assertTabContainment(cdp, '#signal-dialog', 12);
+  record('keyboard-create-focus-trap', { samples: createFocusTrail });
+  await pressKey(cdp, 'Escape');
+  await waitFor(cdp, `document.querySelector('#signal-dialog')?.open===false`, 'fermeture Échap du dialogue création');
+  if (await queryTotal(cdp) !== baseline) throw new Error('Annulation clavier a écrit dans la base.');
+  await waitFor(cdp, `document.activeElement?.id==='new-signalement'`, 'focus restitué après Échap');
+  record('cancel-create-without-write', { focus: 'new-signalement', method: 'Escape' });
 
   await click(cdp, '#new-signalement');
   await fill(cdp, '#signal-form [name="date"]', '2026-09-25');
@@ -138,10 +195,24 @@ try {
 
   await fill(cdp, '#signal-search', fixture.createLieu);
   await waitFor(cdp, `document.querySelector('#signalements-body')?.innerText.includes(${JSON.stringify(fixture.createLieu)})`, 'ligne créée');
-  await click(cdp, `#signalements-body button[data-fiche-id="${created.id}"]`);
-  await waitFor(cdp, `document.querySelector('#signal-detail-dialog')?.open===true`, 'fiche ouverte');
+  const rowSelector = `#signalements-body tr[data-fiche-id="${created.id}"]`;
+  await evaluate(cdp, `document.querySelector(${JSON.stringify(rowSelector)})?.focus()`);
+  await waitFor(cdp, `document.activeElement===document.querySelector(${JSON.stringify(rowSelector)})`, 'focus ligne Signalements');
+  await pressKey(cdp, 'Enter');
+  await waitFor(cdp, `document.querySelector('#signal-detail-dialog')?.open===true`, 'fiche ouverte avec Entrée');
+  await waitFor(cdp, `document.activeElement?.closest('#signal-detail-dialog')`, 'focus transféré dans la fiche');
+  record('keyboard-open-detail-from-row', await focusSnapshot(cdp, '#signal-detail-dialog'));
   record('consult-detail', { title: await evaluate(cdp, `document.querySelector('#signal-detail-title')?.textContent||''`) });
   record('visual-detail', await shot(cdp, 'r3-signalements-detail.png', 'detail-desktop'));
+  const detailFocusTrail = await assertTabContainment(cdp, '#signal-detail-dialog', 8);
+  record('keyboard-detail-focus-trap', { samples: detailFocusTrail });
+  await pressKey(cdp, 'Escape');
+  await waitFor(cdp, `document.querySelector('#signal-detail-dialog')?.open===false`, 'fiche fermée avec Échap');
+  await waitFor(cdp, `document.activeElement===document.querySelector(${JSON.stringify(rowSelector)})`, 'focus rendu à la ligne');
+  record('keyboard-detail-focus-return', { returnedTo: 'record-row' });
+
+  await click(cdp, `#signalements-body button[data-fiche-id="${created.id}"]`);
+  await waitFor(cdp, `document.querySelector('#signal-detail-dialog')?.open===true`, 'fiche rouverte');
   await click(cdp, '#signal-detail-dialog [data-edit-signalement]');
   await waitFor(cdp, `document.querySelector('#signal-dialog')?.dataset.mode==='edit' && document.querySelector('#signal-dialog')?.open===true`, 'éditeur');
   record('visual-edit-dialog', await shot(cdp, 'r3-signalements-edit-dialog.png', 'edit-dialog-desktop'));
@@ -212,8 +283,17 @@ try {
   await wait(220);
   const responsiveGeometry = await evaluate(cdp, `(() => ({ bodyOverflow: document.documentElement.scrollWidth-document.documentElement.clientWidth, tableScrollable: (()=>{const w=document.querySelector('#view-signalements .table-wrap'); return !!w && w.scrollWidth>w.clientWidth;})() }))()`);
   if (responsiveGeometry.bodyOverflow > 1) throw new Error(`Overflow horizontal du document en responsive: ${JSON.stringify(responsiveGeometry)}`);
+  if (!responsiveGeometry.tableScrollable) throw new Error(`Le tableau responsive devrait conserver un défilement local: ${JSON.stringify(responsiveGeometry)}`);
   record('responsive-geometry', responsiveGeometry);
   record('visual-responsive', await shot(cdp, 'r3-signalements-responsive-760.png', 'registry-responsive-760'));
+
+  const responsiveScroll = await evaluate(cdp, `(() => { const w=document.querySelector('#view-signalements .table-wrap'); w.focus(); w.scrollLeft=0; return {before:w.scrollLeft, focused:document.activeElement===w}; })()`);
+  if (!responsiveScroll.focused) throw new Error('La région du tableau responsive ne peut pas recevoir le focus.');
+  await pressKey(cdp, 'ArrowRight');
+  await wait(100);
+  const responsiveScrollAfter = await evaluate(cdp, `document.querySelector('#view-signalements .table-wrap')?.scrollLeft || 0`);
+  if (responsiveScrollAfter <= responsiveScroll.before) throw new Error(`Le tableau responsive ne défile pas au clavier: avant=${responsiveScroll.before}, après=${responsiveScrollAfter}`);
+  record('keyboard-responsive-table-scroll', { before: responsiveScroll.before, after: responsiveScrollAfter });
 
   await click(cdp, '#new-signalement');
   await waitFor(cdp, `document.querySelector('#signal-dialog')?.open===true`, 'dialog création responsive');
