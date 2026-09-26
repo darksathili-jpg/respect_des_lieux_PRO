@@ -1,0 +1,605 @@
+/* R4-P1 — Réparations visual layer.
+   Strictly scoped to the Repairs registry and its create/edit dialog.
+   Business behaviour remains in the already-qualified R4-P0 stack. */
+
+#view-reparations{
+  --r4-accent:#2d6f83;
+  --r4-accent-dark:#1d5164;
+  --r4-accent-soft:#edf6f8;
+  --r4-line:#d9e4e8;
+  --r4-terminal:#647786;
+  --r4-terminal-soft:#f0f4f6;
+}
+
+#view-reparations>.panel{
+  overflow:hidden;
+  padding:0;
+  border-color:#d5e0e5;
+  border-radius:var(--rdl-radius-xl);
+  box-shadow:0 18px 44px rgba(12,31,48,.075),0 1px 2px rgba(12,31,48,.04);
+}
+
+#view-reparations>.panel>.panel-head{
+  position:relative;
+  min-height:96px;
+  margin:0;
+  padding:20px 22px;
+  align-items:center;
+  border-bottom:1px solid var(--r4-line);
+  background:
+    radial-gradient(circle at 7% -35%,rgba(45,111,131,.14),transparent 42%),
+    linear-gradient(180deg,#fcfeff 0%,#f7fafb 100%);
+}
+
+#view-reparations>.panel>.panel-head::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:18px;
+  bottom:18px;
+  width:4px;
+  border-radius:0 6px 6px 0;
+  background:linear-gradient(180deg,#3c8aa0,var(--r4-accent-dark));
+}
+
+#view-reparations .panel-head>div{
+  min-width:0;
+  padding-left:6px;
+}
+
+#view-reparations .panel-head .eyebrow{
+  color:var(--r4-accent);
+}
+
+#view-reparations .panel-head h3{
+  margin-top:4px;
+  font-size:22px;
+  line-height:1.12;
+  letter-spacing:-.025em;
+}
+
+#view-reparations #repair-search{
+  width:min(420px,42vw);
+  min-width:280px;
+  height:46px;
+  border-color:#c9d8de;
+  border-radius:14px;
+  background:#fff;
+  box-shadow:0 1px 2px rgba(12,31,48,.025),inset 0 1px 0 rgba(255,255,255,.7);
+}
+
+#view-reparations #repair-search:focus-visible{
+  border-color:#5e98a9;
+  box-shadow:0 0 0 4px rgba(45,111,131,.13);
+}
+
+#view-reparations .table-wrap{
+  margin:18px 18px 0;
+  overflow:auto;
+  border-color:#d5e0e5;
+  border-radius:14px;
+  background:#fff;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85);
+  scrollbar-gutter:stable;
+}
+
+#view-reparations .table-wrap:focus-visible{
+  outline-color:#5f9bad;
+}
+
+#view-reparations table{
+  min-width:1010px;
+  table-layout:fixed;
+  font-size:12px;
+}
+
+#view-reparations th{
+  top:0;
+  height:44px;
+  padding:11px 12px;
+  background:linear-gradient(180deg,#f3f8f9 0%,#edf4f6 100%);
+  border-bottom-color:#cad9de;
+  color:#617783;
+  font-size:9px;
+  letter-spacing:.075em;
+}
+
+#view-reparations th:first-child,
+#view-reparations td:first-child{
+  padding-left:15px;
+}
+
+#view-reparations th:nth-child(1){width:150px}
+#view-reparations th:nth-child(2){width:230px}
+#view-reparations th:nth-child(3){width:130px}
+#view-reparations th:nth-child(4){width:104px}
+#view-reparations th:nth-child(5){width:100px}
+#view-reparations th:nth-child(6){width:110px}
+#view-reparations th:nth-child(7){width:186px}
+
+#view-reparations td{
+  min-width:0;
+  height:78px;
+  padding:12px;
+  border-bottom-color:#e6edf0;
+  color:#3c5260;
+  line-height:1.42;
+  vertical-align:middle;
+}
+
+#view-reparations td:nth-child(2),
+#view-reparations td:nth-child(3),
+#view-reparations td:nth-child(5){
+  overflow-wrap:anywhere;
+}
+
+#view-reparations td strong{
+  color:var(--rdl-text-strong);
+}
+
+#view-reparations td:first-child strong{
+  display:inline-flex;
+  align-items:center;
+  min-height:27px;
+  padding:4px 7px;
+  border:1px solid #d2e0e5;
+  border-radius:8px;
+  background:#f7fbfc;
+  color:#194d60;
+  font-family:var(--rdl-font-mono);
+  font-size:9px;
+  font-weight:800;
+  white-space:nowrap;
+}
+
+#view-reparations td:first-child small{
+  display:block;
+  margin-top:4px;
+  color:var(--rdl-text-faint);
+  font-size:10px;
+  line-height:1.35;
+}
+
+#view-reparations tbody tr{
+  background:#fff;
+  transition:background var(--rdl-duration-fast) var(--rdl-ease),box-shadow var(--rdl-duration-fast) var(--rdl-ease);
+}
+
+#view-reparations tbody tr:hover{
+  background:#f8fbfc;
+  box-shadow:inset 3px 0 0 #5c99aa;
+}
+
+#view-reparations tbody tr:has([data-edit-repair]:disabled){
+  background:#fafbfc;
+  color:#778995;
+}
+
+#view-reparations tbody tr:has([data-edit-repair]:disabled):hover{
+  background:#f7f9fa;
+  box-shadow:inset 3px 0 0 #9aaab4;
+}
+
+#view-reparations .badge{
+  min-width:70px;
+  min-height:27px;
+  padding:5px 9px;
+  border:1px solid transparent;
+  font-size:9px;
+  line-height:1.15;
+  letter-spacing:.01em;
+  white-space:nowrap;
+}
+
+#view-reparations .badge.open{
+  border-color:#edd39f;
+  background:#fff7e8;
+  color:#80571d;
+}
+
+#view-reparations .badge.closed{
+  border-color:#d5e0e5;
+  background:var(--r4-terminal-soft);
+  color:var(--r4-terminal);
+}
+
+#view-reparations .masked{
+  border:1px solid #d9e3e7;
+  background:#f0f4f6;
+  color:#728692;
+}
+
+#view-reparations .actions{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6px;
+  width:100%;
+}
+
+#view-reparations .mini{
+  min-height:32px;
+  min-width:0;
+  padding:5px 7px;
+  border-color:#cbd9df;
+  border-radius:9px;
+  background:#fff;
+  color:#405c69;
+  font-size:9px;
+  font-weight:800;
+  line-height:1.1;
+  white-space:nowrap;
+  box-shadow:0 1px 1px rgba(12,31,48,.025);
+  transition:background var(--rdl-duration-fast) var(--rdl-ease),border-color var(--rdl-duration-fast) var(--rdl-ease),color var(--rdl-duration-fast) var(--rdl-ease),transform var(--rdl-duration-fast) var(--rdl-ease);
+}
+
+#view-reparations .mini:not(:disabled):hover{
+  transform:translateY(-1px);
+  background:#f5fafb;
+  border-color:#9ebbc5;
+}
+
+#view-reparations .mini[data-edit-repair]{
+  grid-column:1/-1;
+  border-color:#acd0da;
+  background:#eef8fa;
+  color:#245f72;
+}
+
+#view-reparations .mini[data-edit-repair]:not(:disabled):hover{
+  background:#e3f2f5;
+  border-color:#7fb3c1;
+}
+
+#view-reparations .mini[data-repair-status-target="Terminée"]{
+  border-color:#bcdcca;
+  background:#f3faf6;
+  color:#2f7553;
+}
+
+#view-reparations .mini[data-repair-status-target="Annulée"]{
+  border-color:#e3c7ca;
+  background:#fff8f8;
+  color:#8a454a;
+}
+
+#view-reparations .mini[data-repair-status-target="En cours"]{
+  grid-column:1/-1;
+  border-color:#c2d5df;
+  background:#f3f8fb;
+  color:#3e6a82;
+}
+
+#view-reparations .mini:disabled{
+  border-color:#e1e7ea;
+  background:#f4f6f7;
+  color:#91a0a8;
+  opacity:.7;
+}
+
+#view-reparations>.panel>.form-actions{
+  min-height:72px;
+  align-items:center;
+  justify-content:center;
+  gap:16px;
+  margin-top:18px;
+  padding:14px 18px 16px;
+  border-top:1px solid var(--r4-line);
+  background:linear-gradient(180deg,#fbfcfd,#f7fafb);
+}
+
+#view-reparations #repair-page{
+  min-width:128px;
+  color:var(--rdl-text-soft);
+  font-size:11px;
+  font-weight:750;
+  text-align:center;
+  font-variant-numeric:tabular-nums;
+}
+
+#view-reparations #repair-prev,
+#view-reparations #repair-next{
+  min-width:112px;
+  min-height:38px;
+  border-radius:10px;
+  font-size:11px;
+}
+
+#repair-dialog{
+  width:min(820px,calc(100vw - 40px));
+  max-height:calc(100vh - 36px);
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.72);
+  border-radius:22px;
+  background:#fff;
+  box-shadow:0 30px 90px rgba(8,24,39,.24),0 0 0 1px rgba(13,41,62,.06);
+}
+
+#repair-dialog::backdrop{
+  background:rgba(7,22,35,.62);
+  backdrop-filter:blur(7px) saturate(.86);
+}
+
+#repair-dialog .dialog-card{
+  display:flex;
+  flex-direction:column;
+  max-height:calc(100vh - 36px);
+  padding:0;
+  overflow:hidden;
+}
+
+#repair-dialog .dialog-card>header{
+  flex:0 0 auto;
+  padding:20px 22px 18px;
+  border-bottom:1px solid #d8e4e8;
+  background:
+    radial-gradient(circle at 6% -25%,rgba(45,111,131,.15),transparent 40%),
+    linear-gradient(180deg,#fcfeff,#f6fafb);
+}
+
+#repair-dialog .dialog-card>header>div{
+  min-width:0;
+}
+
+#repair-dialog .dialog-card>header .eyebrow{
+  color:#2d6f83;
+}
+
+#repair-dialog .dialog-card>header h2{
+  margin-top:5px;
+  font-size:23px;
+  letter-spacing:-.025em;
+}
+
+#repair-dialog .close{
+  flex:0 0 40px;
+  border:1px solid #d6e1e5;
+  background:#fff;
+  color:#607682;
+  box-shadow:0 1px 2px rgba(12,31,48,.035);
+}
+
+#repair-dialog .close:hover{
+  background:#f1f6f7;
+  color:var(--rdl-text-strong);
+}
+
+#repair-dialog .form-grid{
+  flex:1 1 auto;
+  min-height:0;
+  overflow:auto;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px 16px;
+  padding:20px 22px 22px;
+}
+
+#repair-dialog .form-grid label{
+  min-width:0;
+  gap:7px;
+  color:#5c7280;
+  font-size:10px;
+  letter-spacing:.015em;
+}
+
+#repair-dialog .form-grid input,
+#repair-dialog .form-grid select,
+#repair-dialog .form-grid textarea{
+  border-color:#cbd8de;
+  border-radius:11px;
+  background:#fff;
+  color:var(--rdl-text-strong);
+  box-shadow:inset 0 1px 1px rgba(12,31,48,.018);
+}
+
+#repair-dialog .form-grid textarea[name="mesure"]{
+  min-height:118px;
+  resize:vertical;
+  line-height:1.55;
+}
+
+#repair-dialog .form-grid textarea[name="notes"]{
+  min-height:104px;
+  resize:vertical;
+  line-height:1.55;
+}
+
+#repair-dialog .form-grid label:has(input[name="referent"]){
+  padding:10px;
+  border:1px solid #e0e7ea;
+  border-radius:12px;
+  background:#f8fafb;
+}
+
+#repair-dialog .form-grid input[name="referent"]:disabled{
+  background:#eef2f4;
+  color:#7b8c95;
+}
+
+#repair-dialog .form-grid select[name="statut"]:disabled{
+  background:#f0f4f6;
+  color:#697d88;
+}
+
+#repair-dialog .field-note{
+  color:#84959e;
+  font-size:9px;
+  line-height:1.4;
+}
+
+#repair-dialog .dialog-card>footer{
+  flex:0 0 auto;
+  min-height:72px;
+  padding:14px 22px;
+  border-top:1px solid #d8e4e8;
+  background:#f8fafb;
+}
+
+#repair-dialog .dialog-card>footer .btn{
+  min-width:124px;
+}
+
+#repair-dialog #save-repair{
+  min-width:184px;
+  background:#2d6f83;
+  box-shadow:0 8px 18px rgba(45,111,131,.18);
+}
+
+#repair-dialog #save-repair:hover{
+  background:#1d5164;
+}
+
+#repair-dialog[data-mode="edit"] .dialog-card>header{
+  background:
+    radial-gradient(circle at 6% -25%,rgba(70,111,145,.14),transparent 40%),
+    linear-gradient(180deg,#fcfeff,#f6f9fb);
+}
+
+@media (max-width:1180px){
+  #view-reparations #repair-search{width:min(360px,38vw)}
+  #view-reparations table{min-width:980px}
+  #view-reparations th:nth-child(2){width:214px}
+  #view-reparations th:nth-child(7){width:180px}
+}
+
+@media (max-width:900px){
+  #view-reparations>.panel>.panel-head{
+    align-items:stretch;
+    flex-direction:column;
+    gap:14px;
+  }
+
+  #view-reparations #repair-search{
+    width:100%;
+    min-width:0;
+  }
+
+  #view-reparations .table-wrap{
+    margin:14px 14px 0;
+  }
+
+  #view-reparations>.panel>.form-actions{
+    margin-top:14px;
+  }
+}
+
+@media (max-width:760px){
+  #view-reparations>.panel{
+    border-radius:16px;
+  }
+
+  #view-reparations>.panel>.panel-head{
+    min-height:0;
+    padding:17px 16px;
+  }
+
+  #view-reparations .panel-head h3{
+    font-size:20px;
+  }
+
+  #view-reparations table{
+    min-width:890px;
+  }
+
+  #view-reparations>.panel>.form-actions{
+    min-height:66px;
+    gap:8px;
+    padding:12px 10px 14px;
+  }
+
+  #view-reparations #repair-page{
+    min-width:96px;
+    font-size:10px;
+  }
+
+  #view-reparations #repair-prev,
+  #view-reparations #repair-next{
+    min-width:0;
+    flex:1;
+    padding-inline:10px;
+  }
+
+  #repair-dialog{
+    width:calc(100vw - 20px);
+    max-height:calc(100vh - 20px);
+    border-radius:17px;
+  }
+
+  #repair-dialog .dialog-card{
+    max-height:calc(100vh - 20px);
+  }
+
+  #repair-dialog .dialog-card>header{
+    padding:16px 16px 14px;
+  }
+
+  #repair-dialog .dialog-card>header h2{
+    font-size:20px;
+  }
+
+  #repair-dialog .form-grid{
+    grid-template-columns:1fr;
+    gap:12px;
+    padding:16px;
+  }
+
+  #repair-dialog .form-grid .span-2{
+    grid-column:auto;
+  }
+
+  #repair-dialog .dialog-card>footer{
+    min-height:0;
+    padding:12px 16px;
+    gap:8px;
+  }
+
+  #repair-dialog .dialog-card>footer .btn,
+  #repair-dialog #save-repair{
+    min-width:0;
+    flex:1;
+    white-space:normal;
+  }
+}
+
+@media (max-width:520px){
+  #view-reparations>.panel>.form-actions{
+    flex-wrap:wrap;
+  }
+
+  #view-reparations #repair-page{
+    order:-1;
+    flex:0 0 100%;
+  }
+
+  #repair-dialog .dialog-card>footer{
+    flex-direction:column-reverse;
+    align-items:stretch;
+  }
+}
+
+@media (prefers-reduced-motion:reduce){
+  #view-reparations tbody tr,
+  #view-reparations .mini{
+    transition:none;
+  }
+}
+
+@media (prefers-contrast:more){
+  #view-reparations>.panel,
+  #view-reparations .table-wrap,
+  #view-reparations #repair-search,
+  #repair-dialog,
+  #repair-dialog .form-grid input,
+  #repair-dialog .form-grid select,
+  #repair-dialog .form-grid textarea{
+    border-color:#7b909b;
+  }
+}
+
+@media (forced-colors:active){
+  #view-reparations .mini,
+  #view-reparations .badge,
+  #repair-dialog .close{
+    forced-color-adjust:auto;
+  }
+}
