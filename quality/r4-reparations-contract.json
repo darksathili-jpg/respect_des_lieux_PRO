@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "phase": "R4",
   "feature": "reparations",
   "baseCommit": "a3a9210b54967ed67bd79319d088d6a7bbc37f1d",
@@ -33,7 +33,12 @@
     "cancel-repair-with-terminal-date",
     "search-beyond-first-1000",
     "closed-parent-forbids-child-mutation",
-    "referent-search-requires-explicit-identities"
+    "referent-search-requires-explicit-identities",
+    "signalement-close-refused-with-active-repairs",
+    "signalement-close-allowed-after-terminal-repairs",
+    "closed-parent-explicit-reopen-path",
+    "reopen-parent-restores-repair-mutation",
+    "legacy-closed-parent-active-repair-recoverable"
   ],
   "dataContract": {
     "mesureRequired": true,
@@ -41,6 +46,7 @@
     "terminalStatusesSetClosureDate": true,
     "enCoursClearsClosureDate": true,
     "closedSignalementChildMutationForbidden": true,
+    "signalementCloseRequiresNoActiveRepairs": true,
     "silentTruncationForbidden": true,
     "fieldLimits": {
       "mesure": 2000,
@@ -84,6 +90,8 @@
     "bodyOverflowForbidden": true,
     "localTableScrollAllowedOnReducedViewport": true,
     "keyboardEvidenceRequired": true,
+    "closedParentMustExplainLock": true,
+    "closedParentMustOfferExplicitReopen": true,
     "releaseFreezeMustRemainActive": true
   },
   "exitGateBeforeReparationsCss": [
