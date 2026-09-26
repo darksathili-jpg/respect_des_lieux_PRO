@@ -111,25 +111,29 @@
     const dialog = $('#repair-dialog');
     const form = $('#repair-form');
     if (!dialog || !form) return;
+    const canEditReferent = !repair || identitiesVisible();
     state.invoker = invoker || document.activeElement;
     form.reset();
     form.elements.reparation_id.value = repair ? String(repair.id) : '';
     form.elements.signalement_id.value = repair ? String(repair.signalement_id) : '';
     form.elements.mesure.value = repair?.mesure || '';
-    form.elements.referent.value = repair?.referent || '';
+    form.elements.referent.disabled = !canEditReferent;
+    form.elements.referent.value = canEditReferent ? (repair?.referent || '') : '';
     form.elements.debut.value = repair?.debut || (repair ? '' : new Date().toISOString().slice(0, 10));
     form.elements.duree.value = repair?.duree || '';
     form.elements.notes.value = repair?.notes || '';
     form.elements.statut.value = repair?.statut || 'En cours';
     form.elements.statut.disabled = Boolean(repair);
     dialog.dataset.mode = repair ? 'edit' : 'create';
+    dialog.dataset.identitiesVisible = identitiesVisible() ? 'true' : 'false';
     $('#repair-dialog-title').textContent = repair ? 'Modifier une réparation' : 'Ajouter une réparation';
     $('#save-repair').textContent = repair ? 'Enregistrer les modifications' : 'Enregistrer';
   }
 
   async function openEditor(id, invoker) {
     try {
-      const repair = await window.rdl.getReparation(Number(id));
+      const includeIdentities = identitiesVisible();
+      const repair = await window.rdl.getReparation(Number(id), includeIdentities);
       if (!repair) throw new Error('Réparation introuvable.');
       if (repair.signalement_statut === 'Clos') throw new Error('Rouvrez le dossier avant de modifier cette réparation.');
       setDialogMode(repair, invoker);
@@ -174,6 +178,8 @@
     });
     dialog.addEventListener('close', () => {
       form.elements.statut.disabled = false;
+      form.elements.referent.disabled = false;
+      delete dialog.dataset.identitiesVisible;
       const target = state.invoker;
       state.invoker = null;
       requestAnimationFrame(() => {
