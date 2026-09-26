@@ -72,8 +72,13 @@
         : '';
       const actions = parentClosed
         ? `<div class="actions repair-actions-locked">
+             <button class="mini" type="button" data-edit-repair="${Number(repair.id)}" disabled title="Rouvrez le dossier pour modifier cette réparation">Modifier</button>
+             ${terminal
+               ? `<button class="mini" type="button" data-repair-status="${Number(repair.id)}" data-repair-status-target="En cours" disabled title="Rouvrez le dossier pour reprendre cette réparation">Rouvrir la réparation</button>`
+               : `<button class="mini" type="button" data-repair-status="${Number(repair.id)}" data-repair-status-target="Terminée" disabled title="Rouvrez le dossier pour terminer cette réparation">Terminer</button>
+                  <button class="mini" type="button" data-repair-status="${Number(repair.id)}" data-repair-status-target="Annulée" disabled title="Rouvrez le dossier pour annuler cette réparation">Annuler</button>`}
              <button class="mini repair-parent-reopen" type="button" data-reopen-parent="${Number(repair.signalement_id)}">Rouvrir le dossier</button>
-             <span class="repair-lock-hint">Modification suspendue</span>
+             <span class="repair-lock-hint">Actions suspendues tant que le dossier parent est clos.</span>
            </div>`
         : `<div class="actions">
              <button class="mini" type="button" data-edit-repair="${Number(repair.id)}">Modifier</button>
