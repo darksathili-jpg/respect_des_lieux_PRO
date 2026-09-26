@@ -33,6 +33,16 @@ function changedFiles() {
   }
 }
 
+function commitIsAncestor(commit) {
+  if (!commit) return false;
+  try {
+    execFileSync('git', ['merge-base', '--is-ancestor', commit, 'HEAD'], { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function signalDialogBlock() {
   const match = html.match(/<dialog id="signal-dialog"[\s\S]*?<\/dialog>/);
   return match?.[0] || '';
@@ -47,9 +57,31 @@ function methodSource(source, name, nextName) {
 
 const changed = changedFiles();
 const cssChanged = changed.filter((file) => /^renderer\/.*\.css$/i.test(file));
-check(contract.cssSpecificWorkAllowed || cssChanged.length === 0,
-  'aucun CSS renderer n’est modifié avant le gate fonctionnel R3',
-  cssChanged.length ? cssChanged.join(', ') : 'diff CSS vide');
+const visualWorkRequested = cssChanged.length > 0;
+const qualifiedBaselinePresent = commitIsAncestor(contract.functionalQualificationCommit);
+const visualWorkAuthorized = Boolean(
+  contract.cssSpecificWorkAllowed
+  && contract.stage === 'visual-reconstruction'
+  && contract.releaseFrozen === true
+  && qualifiedBaselinePresent
+);
+
+check(!visualWorkRequested || visualWorkAuthorized,
+  'le CSS spécifique R3 n’est autorisé qu’après inclusion du socle P0 qualifié, avec gel de release actif',
+  visualWorkRequested
+    ? `CSS=${cssChanged.join(', ')}; baseline=${contract.functionalQualificationCommit || 'absente'}; ancestor=${qualifiedBaselinePresent}; frozen=${contract.releaseFrozen}`
+    : 'aucun CSS R3 modifié');
+
+check(contract.releaseFrozen === true,
+  'le gel de release R3 reste actif pendant la reconstruction visuelle');
+
+if (contract.cssSpecificWorkAllowed) {
+  check(Boolean(contract.functionalQualificationCommit),
+    'le contrat P1 référence explicitement le commit de qualification fonctionnelle P0');
+  check(qualifiedBaselinePresent,
+    'le commit de qualification fonctionnelle P0 est un ancêtre du HEAD courant',
+    contract.functionalQualificationCommit || 'commit absent');
+}
 
 const signalDialog = signalDialogBlock();
 check(Boolean(signalDialog), 'le dialogue de création Signalements existe');
@@ -178,8 +210,11 @@ for (const message of passes) console.log(`PASS [R3-SIGNALEMENTS] ${message}`);
 for (const message of failures) console.error(`FAIL [R3-SIGNALEMENTS] ${message}`);
 
 if (failures.length) {
-  console.error(`\nR3_SIGNALEMENTS_GATE_RED: ${failures.length} exigence(s) non satisfaite(s). Aucun CSS spécifique Signalements ne doit commencer.`);
+  console.error(`\nR3_SIGNALEMENTS_GATE_RED: ${failures.length} exigence(s) non satisfaite(s). R3-P1 est bloqué tant que les invariants P0 ne sont pas tous verts.`);
   process.exit(1);
 }
 
-console.log(`\nR3_SIGNALEMENTS_GATE_GREEN: ${passes.length} exigence(s) satisfaites. Le socle fonctionnel peut passer à la qualification E2E avant UI spécifique.`);
+const phaseMessage = visualWorkRequested
+  ? 'Socle P0 préservé : le travail visuel R3-P1 peut poursuivre sa qualification E2E.'
+  : 'Socle fonctionnel R3 qualifié.';
+console.log(`\nR3_SIGNALEMENTS_GATE_GREEN: ${passes.length} exigence(s) satisfaites. ${phaseMessage}`);
