@@ -11,6 +11,8 @@ on:
       - "main-entry.cjs"
       - "tests/**"
       - "scripts/r4-reparations-gate.mjs"
+      - "scripts/r4-seed-packaged-e2e.cjs"
+      - "scripts/r4-packaged-e2e.mjs"
       - "quality/r4-reparations-contract.json"
       - "docs/R4-REPARATIONS-AUDIT.md"
       - ".github/workflows/r4-reparations-functional-gate.yml"
@@ -24,6 +26,8 @@ on:
       - "main-entry.cjs"
       - "tests/**"
       - "scripts/r4-reparations-gate.mjs"
+      - "scripts/r4-seed-packaged-e2e.cjs"
+      - "scripts/r4-packaged-e2e.mjs"
       - "quality/r4-reparations-contract.json"
       - "docs/R4-REPARATIONS-AUDIT.md"
       - ".github/workflows/r4-reparations-functional-gate.yml"
@@ -66,3 +70,66 @@ jobs:
       - name: R4 Reparations contract — red first, CSS forbidden while red
         shell: pwsh
         run: node scripts/r4-reparations-gate.mjs
+
+  packaged-e2e:
+    needs: [functional-contract, inherited-r3-regression]
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Node 24.21
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24.21.0"
+
+      - name: Install pinned desktop toolchain
+        shell: pwsh
+        run: npm install --no-audit --no-fund
+
+      - name: Build true unpacked Windows application
+        shell: pwsh
+        run: npm run dist:win:dir
+
+      - name: Seed isolated R4 profile and execute full packaged Reparations journey
+        shell: pwsh
+        run: |
+          $local = Join-Path $env:RUNNER_TEMP "rdl-r4-e2e-localappdata"
+          $evidence = Join-Path $env:RUNNER_TEMP "rdl-r4-e2e-evidence"
+          Remove-Item $local -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item $evidence -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $local -Force | Out-Null
+          New-Item -ItemType Directory -Path $evidence -Force | Out-Null
+
+          node scripts/r4-seed-packaged-e2e.cjs $local $evidence
+          if ($LASTEXITCODE -ne 0) { throw "Création de la fixture R4 impossible." }
+
+          $exe = Get-ChildItem -Path dist -Recurse -Filter "Respect des Lieux PRO.exe" -File | Select-Object -First 1
+          if (-not $exe) { throw "Exécutable unpacked introuvable." }
+
+          $env:LOCALAPPDATA = $local
+          Remove-Item Env:RDL_PACKAGED_SMOKE -ErrorAction SilentlyContinue
+          Remove-Item Env:RDL_R3_E2E_PHOTO_PATH -ErrorAction SilentlyContinue
+          $stdout = Join-Path $evidence "electron-stdout.txt"
+          $stderr = Join-Path $evidence "electron-stderr.txt"
+          $port = 9554
+          $p = Start-Process -FilePath $exe.FullName -ArgumentList "--remote-debugging-port=$port" -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          try {
+            node scripts/r4-packaged-e2e.mjs --port $port --out $evidence --fixture (Join-Path $evidence "fixture.json")
+            if ($LASTEXITCODE -ne 0) { throw "Le parcours E2E R4 a échoué (code $LASTEXITCODE)." }
+          }
+          finally {
+            if ($p -and -not $p.HasExited) {
+              try { Stop-Process -Id $p.Id -Force } catch {}
+            }
+          }
+
+      - name: Upload R4 packaged E2E evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r4-reparations-packaged-e2e
+          path: ${{ runner.temp }}/rdl-r4-e2e-evidence/**
+          if-no-files-found: warn
+          retention-days: 14
