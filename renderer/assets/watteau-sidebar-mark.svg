@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 180" role="img" aria-labelledby="title desc">
+  <title id="title">Repère architectural du lycée Watteau</title>
+  <desc id="desc">Silhouette stylisée du bâtiment et de la tour du lycée Watteau.</desc>
+  <rect width="220" height="180" rx="28" fill="#0f2f49"/>
+  <circle cx="52" cy="42" r="24" fill="#dfeaf0" opacity=".18"/>
+  <g transform="translate(17 17)">
+    <path d="M17 116 75 80l46 24 32-20 45 26v42H17Z" fill="#c34a3c" stroke="#f6e6d8" stroke-width="3"/>
+    <path d="M68 84 78 70l14 11M145 89l11-15 15 12" fill="none" stroke="#f6e6d8" stroke-width="3"/>
+    <g fill="#f9f5ef">
+      <rect x="38" y="108" width="10" height="18" rx="3"/><rect x="57" y="103" width="10" height="18" rx="3"/><rect x="98" y="111" width="10" height="18" rx="3"/><rect x="121" y="108" width="10" height="18" rx="3"/><rect x="151" y="111" width="10" height="18" rx="3"/>
+    </g>
+    <path d="M80 152v-28c0-11 7-19 17-19s17 8 17 19v28Z" fill="#f6e6d8"/>
+    <g transform="translate(10 2)">
+      <ellipse cx="44" cy="21" rx="27" ry="8" fill="#f6e6d8"/>
+      <path d="M21 23h46l-4 11H25Z" fill="#c34a3c" stroke="#f6e6d8" stroke-width="2"/>
+      <rect x="29" y="32" width="30" height="79" rx="10" fill="#d98a6e" stroke="#f6e6d8" stroke-width="3"/>
+      <g stroke="#a63731" stroke-width="3" stroke-linecap="round"><path d="M38 50v13M49 50v13M38 72v13M49 72v13"/></g>
+    </g>
+  </g>
+</svg>
