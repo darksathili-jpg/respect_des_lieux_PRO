@@ -50,6 +50,30 @@ function failSmoke(reason, details = {}) {
   app.exit(86);
 }
 
+async function installHorizontalViewportGuard(win) {
+  return win.webContents.executeJavaScript(`(() => {
+    if (window.__rdlHorizontalViewportGuardInstalled === true) return true;
+    window.__rdlHorizontalViewportGuardInstalled = true;
+
+    const resetHorizontalOrigin = () => {
+      const root = document.scrollingElement || document.documentElement;
+      const rootLeft = Number(root?.scrollLeft || 0);
+      const windowLeft = Number(window.scrollX || 0);
+      if (Math.abs(rootLeft) < 0.5 && Math.abs(windowLeft) < 0.5) return;
+
+      const top = Number(root?.scrollTop ?? window.scrollY ?? 0);
+      if (root) root.scrollLeft = 0;
+      window.scrollTo(0, top);
+    };
+
+    window.addEventListener('scroll', resetHorizontalOrigin, { passive: true });
+    window.addEventListener('resize', resetHorizontalOrigin, { passive: true });
+    resetHorizontalOrigin();
+    requestAnimationFrame(resetHorizontalOrigin);
+    return true;
+  })()`);
+}
+
 function paintProbe(nativeImage) {
   const bitmap = nativeImage.toBitmap();
   if (!bitmap || bitmap.length < 16) return { ok: false, range: 0, samples: 0 };
@@ -100,6 +124,9 @@ async function probeShell(win) {
       viewportWidth: window.innerWidth || 0,
       layoutViewportWidth: document.documentElement?.clientWidth || 0,
       viewportHeight: window.innerHeight || 0,
+      viewportScrollX: window.scrollX || 0,
+      rootScrollLeft: document.scrollingElement?.scrollLeft || 0,
+      horizontalGuardInstalled: window.__rdlHorizontalViewportGuardInstalled === true,
       sidebarRight: sidebarRect?.right || 0,
       mainLeft: mainRect?.left || 0,
       navViews: navButtons.map((node) => node.dataset.view || ''),
@@ -135,6 +162,9 @@ function shellContractOk(dom) {
   const widthAligned = Math.abs(Number(dom.shellWidth || 0) - layoutWidth) <= 2;
   const geometryAligned = Math.abs(Number(dom.sidebarRight || 0) - Number(dom.mainLeft || 0)) <= 2;
   const noGlobalHorizontalOverflow = Math.max(Number(dom.documentScrollWidth || 0), Number(dom.bodyScrollWidth || 0)) <= layoutWidth + 2;
+  const horizontalOriginLocked = Math.abs(Number(dom.viewportScrollX || 0)) <= 0.5
+    && Math.abs(Number(dom.rootScrollLeft || 0)) <= 0.5
+    && dom.horizontalGuardInstalled === true;
   const designSystemOk = dom.designSystem?.ready === 'r2'
     && Boolean(dom.designSystem?.focusRing)
     && Boolean(dom.designSystem?.watteauNavy)
@@ -160,6 +190,7 @@ function shellContractOk(dom) {
     && widthAligned
     && geometryAligned
     && noGlobalHorizontalOverflow
+    && horizontalOriginLocked
     && designSystemOk;
 }
 
@@ -233,10 +264,18 @@ app.on('browser-window-created', (_event, win) => {
     failSmoke('preload-error', { preloadPath, message: error?.message || String(error) });
   });
 
+  win.webContents.on('did-finish-load', () => {
+    installHorizontalViewportGuard(win).catch((error) => {
+      reportFatal('garde de viewport impossible', error?.message || String(error));
+      failSmoke('viewport-guard-install-failed', { message: error?.message || String(error) });
+    });
+  });
+
   if (!smokeMode) return;
 
   win.webContents.once('did-finish-load', async () => {
     try {
+      await installHorizontalViewportGuard(win);
       const result = await probeRenderer(win);
       if (!shellContractOk(result.dom) || !result.navigation.ok || !result.paint.ok) {
         failSmoke('ui-not-rendered', result);
