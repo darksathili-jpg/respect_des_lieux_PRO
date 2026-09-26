@@ -15,18 +15,19 @@
       <div class="brand">
         <div class="brand-mark" aria-hidden="true">RL</div>
         <div>
-          <strong>Respect des Lieux</strong>
-          <span>PRO · Local</span>
+          <strong>Respect des Lieux PRO</strong>
+          <span>Lycée Watteau · Local</span>
         </div>
       </div>
       <nav aria-label="Sections de l’application">
-        <button type="button" class="nav active" data-view="dashboard" aria-current="page">Accueil</button>
-        <button type="button" class="nav" data-view="signalements">Signalements</button>
-        <button type="button" class="nav" data-view="reparations">Réparations</button>
-        <button type="button" class="nav" data-view="sauvegardes">Sauvegardes</button>
-        <button type="button" class="nav" data-view="confidentialite">Protection des données</button>
-        <button type="button" class="nav" data-view="systeme">Système local</button>
+        <button type="button" class="nav active" data-view="dashboard" aria-current="page"><span class="nav-icon" aria-hidden="true">⌂</span><span class="nav-label">Accueil</span></button>
+        <button type="button" class="nav" data-view="signalements"><span class="nav-icon" aria-hidden="true">⚑</span><span class="nav-label">Signalements</span></button>
+        <button type="button" class="nav" data-view="reparations"><span class="nav-icon" aria-hidden="true">⚒</span><span class="nav-label">Réparations</span></button>
+        <button type="button" class="nav" data-view="sauvegardes"><span class="nav-icon" aria-hidden="true">⇩</span><span class="nav-label">Sauvegardes</span></button>
+        <button type="button" class="nav" data-view="confidentialite"><span class="nav-icon" aria-hidden="true">◇</span><span class="nav-label">Protection des données</span></button>
+        <button type="button" class="nav" data-view="systeme"><span class="nav-icon" aria-hidden="true">⚙</span><span class="nav-label">Système local</span></button>
       </nav>
+      <div class="sidebar-motto" aria-hidden="true">Des lieux respectés<br>pour mieux apprendre</div>
       <div class="local-seal">
         <span class="dot" aria-hidden="true"></span>
         <div>
@@ -52,34 +53,50 @@
 
       <section id="view-dashboard" class="view active" data-view-panel="dashboard">
         <div class="hero">
-          <div>
-            <p class="eyebrow">Application locale</p>
-            <h2>Les données restent sur ce PC.</h2>
-            <p>SQLite local, réseau métier bloqué, identités masquées par défaut et cycle de vie contrôlé sans effacement automatique.</p>
+          <div class="hero-copy">
+            <p class="eyebrow">Lycée Watteau · Valenciennes</p>
+            <h2>Bonjour !</h2>
+            <p class="hero-lead">Ensemble, prenons soin de notre lycée.</p>
+            <p class="hero-detail">Signaler, suivre et résoudre les dégradations dans un environnement local, sécurisé et respectueux des données.</p>
+            <div class="hero-local-note">Données stockées localement</div>
           </div>
-          <div class="hero-badge">SQLite<br><strong>LOCAL</strong></div>
         </div>
-        <div class="kpis">
-          <article class="kpi"><span>Signalements</span><strong id="kpi-total">0</strong><small>dans la base locale</small></article>
-          <article class="kpi"><span>Ouverts</span><strong id="kpi-open">0</strong><small>à suivre</small></article>
-          <article class="kpi"><span>Réparations</span><strong id="kpi-repairs">0</strong><small>mesures enregistrées</small></article>
-          <article class="kpi"><span>Photos</span><strong id="kpi-photos">0</strong><small id="kpi-photo-size">0 Mo</small></article>
+
+        <div class="kpis" aria-label="Synthèse locale">
+          <article class="kpi"><span class="kpi-icon" aria-hidden="true">⚑</span><div class="kpi-copy"><span>Signalements</span><strong id="kpi-total">0</strong><small>dans la base locale</small></div></article>
+          <article class="kpi"><span class="kpi-icon" aria-hidden="true">◷</span><div class="kpi-copy"><span>À suivre</span><strong id="kpi-open">0</strong><small>dossiers ouverts</small></div></article>
+          <article class="kpi"><span class="kpi-icon" aria-hidden="true">⚒</span><div class="kpi-copy"><span>Réparations</span><strong id="kpi-repairs">0</strong><small>mesures enregistrées</small></div></article>
+          <article class="kpi"><span class="kpi-icon" aria-hidden="true">▣</span><div class="kpi-copy"><span>Photos</span><strong id="kpi-photos">0</strong><small id="kpi-photo-size">0 Mo</small></div></article>
         </div>
-        <div class="grid two">
-          <article class="panel">
-            <div class="panel-head"><h3>Derniers signalements</h3><button class="text-btn" type="button" data-goto="signalements">Voir tout</button></div>
+
+        <div class="home-lower">
+          <article class="panel home-recent">
+            <div class="panel-head"><h3>Signalements récents</h3><button class="text-btn" type="button" data-goto="signalements">Voir tout →</button></div>
             <div id="recent-list" class="stack empty-state">Aucun signalement.</div>
           </article>
-          <article class="panel">
-            <div class="panel-head"><h3>État local</h3></div>
-            <dl class="facts">
-              <div><dt>Base</dt><dd id="fact-db">—</dd></div>
-              <div><dt>Intégrité</dt><dd id="fact-integrity">—</dd></div>
-              <div><dt>Version</dt><dd id="fact-version">—</dd></div>
-              <div><dt>Réseau métier</dt><dd>bloqué</dd></div>
-              <div><dt>Conservation</dt><dd id="fact-retention">non configurée</dd></div>
-            </dl>
-          </article>
+
+          <div class="home-aside">
+            <article class="panel engagement-panel">
+              <div class="panel-head"><h3>Notre engagement</h3></div>
+              <p class="engagement-quote">« Un environnement respecté favorise la réussite de chacun. »</p>
+              <div class="engagement-principles" aria-label="Principes de l’application">
+                <div><strong aria-hidden="true">⌁</strong><span>Un lycée plus propre</span></div>
+                <div><strong aria-hidden="true">◎</strong><span>Une communauté responsable</span></div>
+                <div><strong aria-hidden="true">✓</strong><span>Des interventions suivies</span></div>
+              </div>
+            </article>
+
+            <article class="panel home-state">
+              <div class="panel-head"><h3>État local</h3></div>
+              <dl class="facts">
+                <div><dt>Base locale</dt><dd><span class="fact-ok">Active</span><span id="fact-db" hidden>—</span></dd></div>
+                <div><dt>Intégrité</dt><dd id="fact-integrity">—</dd></div>
+                <div><dt>Version</dt><dd><span>Validation R4-P3a</span><span id="fact-version" hidden>—</span></dd></div>
+                <div><dt>Réseau métier</dt><dd class="fact-blocked">Bloqué</dd></div>
+                <div><dt>Conservation</dt><dd id="fact-retention">non configurée</dd></div>
+              </dl>
+            </article>
+          </div>
         </div>
       </section>
 
@@ -105,12 +122,20 @@
 
       <section id="view-reparations" class="view" data-view-panel="reparations" hidden>
         <div class="panel">
-          <div class="panel-head"><div><p class="eyebrow">Suivi</p><h3>Réparations</h3></div></div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Signalement</th><th>Mesure</th><th>Référent</th><th>Début</th><th>Durée</th><th>Statut</th></tr></thead>
+          <div class="panel-head">
+            <div><p class="eyebrow">Suivi</p><h3>Réparations</h3></div>
+            <input id="repair-search" class="search" type="search" placeholder="Rechercher…" autocomplete="off" aria-label="Rechercher dans les réparations" aria-controls="reparations-body">
+          </div>
+          <div class="table-wrap" role="region" aria-label="Tableau des réparations" tabindex="0">
+            <table aria-label="Liste des réparations">
+              <thead><tr><th scope="col">Signalement</th><th scope="col">Mesure</th><th scope="col">Référent</th><th scope="col">Début</th><th scope="col">Durée</th><th scope="col">Statut</th><th scope="col">Actions</th></tr></thead>
               <tbody id="reparations-body"></tbody>
             </table>
+          </div>
+          <div class="form-actions" role="navigation" aria-label="Pagination des réparations">
+            <button id="repair-prev" class="btn secondary" type="button" aria-controls="reparations-body">Précédents</button>
+            <span id="repair-page" aria-live="polite">0 réparation</span>
+            <button id="repair-next" class="btn secondary" type="button" aria-controls="reparations-body">Suivants</button>
           </div>
         </div>
       </section>
@@ -268,9 +293,10 @@
   </dialog>
 
   <dialog id="repair-dialog" aria-labelledby="repair-dialog-title">
-    <form id="repair-form" method="dialog" class="dialog-card">
-      <header><div><p class="eyebrow">Mesure</p><h2 id="repair-dialog-title">Ajouter une réparation</h2></div><button class="close" value="cancel" aria-label="Fermer">×</button></header>
-      <input type="hidden" name="signalement_id">
+    <form id="repair-form" class="dialog-card">
+      <header><div><p class="eyebrow">Mesure</p><h2 id="repair-dialog-title">Ajouter une réparation</h2></div><button class="close" type="button" data-repair-cancel aria-label="Fermer">×</button></header>
+      <input type="hidden" name="reparation_id" value="">
+      <input type="hidden" name="signalement_id" value="">
       <div class="form-grid">
         <label class="span-2">Mesure / action<textarea name="mesure" rows="3" maxlength="2000" required></textarea></label>
         <label>Référent<input name="referent" maxlength="200" autocomplete="off"></label>
@@ -279,7 +305,7 @@
         <label>Statut<select name="statut"><option>En cours</option><option>Terminée</option><option>Annulée</option></select></label>
         <label class="span-2">Notes factuelles <span class="field-note">ne saisir que ce qui est nécessaire au suivi</span><textarea name="notes" rows="3" maxlength="5000"></textarea></label>
       </div>
-      <footer><button class="btn secondary" value="cancel">Annuler</button><button class="btn primary" value="default">Enregistrer</button></footer>
+      <footer><button class="btn secondary" type="button" data-repair-cancel>Annuler</button><button id="save-repair" class="btn primary" type="submit">Enregistrer</button></footer>
     </form>
   </dialog>
 
@@ -296,6 +322,7 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="./app.js"></script>
+  <script src="./reparations.js"></script>
   <script src="./detail.js"></script>
 </body>
 </html>

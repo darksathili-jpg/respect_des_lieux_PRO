@@ -26,7 +26,7 @@ const expectedViews = ['dashboard', 'signalements', 'reparations', 'sauvegardes'
 const navViews = [...html.matchAll(/<button[^>]*class="nav[^>]*data-view="([^"]+)"/g)].map((match) => match[1]);
 const panelViews = [...html.matchAll(/<section[^>]*data-view-panel="([^"]+)"/g)].map((match) => match[1]);
 
-check(releaseState.releaseFrozen === true, 'le gel de release reste actif pendant R2');
+check(releaseState.releaseFrozen === true, 'le gel de release reste actif pendant R4-P3a');
 check(pkg.main === 'main-entry.cjs', 'le point d’entrée Electron déclaré correspond au runtime réel');
 
 check(count(html, /id="app-shell"/g) === 1, 'une seule AppShell existe');
@@ -41,13 +41,18 @@ check(!runtime.includes('dashboard-master.png'), 'la capture maître n’est jam
 check(!runtime.includes('visual-test-mode') && !runtime.includes('RDL_VISUAL_TEST'), 'aucun mode UI alternatif de qualification ne subsiste');
 check(!/min-width\s*:\s*1448px/.test(runtime), 'aucune largeur maître figée à 1448 px ne subsiste');
 
-check(exists('renderer/tokens.css') && exists('renderer/components.css') && exists('renderer/layout.css') && exists('renderer/home.css'), 'les couches R2 tokens/composants/layout/Accueil existent');
-check(styles.includes("@import url('./tokens.css');") && styles.includes("@import url('./components.css');") && styles.includes("@import url('./layout.css');") && styles.includes("@import url('./home.css');"), 'styles.css charge explicitement les quatre couches R2');
-check(tokens.includes('--rdl-ds-ready:r2') && tokens.includes('--rdl-focus:'), 'les tokens R2 publient un marqueur de version et un focus partagé');
+check(exists('renderer/tokens.css') && exists('renderer/components.css') && exists('renderer/layout.css') && exists('renderer/home.css'), 'les couches tokens/composants/layout/Accueil existent');
+check(styles.includes("@import url('./tokens.css');") && styles.includes("@import url('./components.css');") && styles.includes("@import url('./layout.css');") && styles.includes("@import url('./home.css');"), 'styles.css charge explicitement les quatre couches');
+check(tokens.includes('--rdl-ds-ready:r2') && tokens.includes('--rdl-focus:') && tokens.includes('--watteau-navy:') && tokens.includes('--watteau-brick:'), 'les tokens publient le socle R2 et l’identité Watteau');
 check(components.includes(':focus-visible') && components.includes('prefers-reduced-motion:reduce'), 'accessibilité clavier et réduction des mouvements sont garanties');
-check(layout.includes("sidebar-logo-production.svg") && home.includes("dashboard-hero-production.svg"), 'les vrais SVG de production sont utilisés par la shell et l’Accueil');
+check(layout.includes("watteau-sidebar-mark.svg") && home.includes("watteau-home-hero.svg"), 'les vrais SVG Watteau sont utilisés par la shell et l’Accueil');
+check(exists('renderer/assets/watteau-sidebar-mark.svg') && exists('renderer/assets/watteau-home-hero.svg'), 'les assets Watteau sont des fichiers autonomes');
 check(!/data:image|master\.png|reference\//i.test(`${layout}\n${home}`), 'aucune capture ou data URI ne remplace un asset de production');
-check(/@media \(max-width:820px\)/.test(layout) && /@media \(max-width:640px\)/.test(home), 'la shell et l’Accueil possèdent des replis responsive explicites');
+check(/@media \(max-width:820px\)/.test(layout) && /@media \(max-width:(700|640)px\)/.test(home), 'la shell et l’Accueil possèdent des replis responsive explicites');
+check(html.includes('<h2>Bonjour !</h2>') && html.includes('Ensemble, prenons soin de notre lycée.'), 'le hero porte le message d’accueil Watteau');
+check(!html.includes('<h2>Les données restent sur ce PC.</h2>'), 'le message technique n’est plus utilisé comme titre principal');
+check(/id="fact-db" hidden/.test(html), 'le chemin de base reste hors de l’Accueil visible');
+check(!['Mme Dupont','Mardi 15 avril 2025','14 °C'].some((text) => html.includes(text)), 'aucun contenu fictif de la maquette ne revient dans le DOM');
 
 check(app.includes('function assertDomContract()'), 'le renderer possède un contrat DOM explicite');
 check(app.includes('view.hidden = !active'), 'le routeur UI pilote une seule collection de vues');

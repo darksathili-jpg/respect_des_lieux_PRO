@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 5,
+  "phase": "R4",
+  "feature": "reparations",
+  "baseCommit": "746aad43ce5fc34e597fea790e03139c49a1c89c",
+  "r3MergeCommit": "a3a9210b54967ed67bd79319d088d6a7bbc37f1d",
+  "signalementsQualificationCommit": "158f81e83fb6eba479c7070a05bdc8064900f663",
+  "stage": "visual-reconstruction",
+  "visualSubphase": "watteau-home",
+  "releaseFrozen": true,
+  "cssSpecificWorkAllowed": true,
+  "functionalQualificationCommit": "bc628489891c0e42bcf04c4391cdd00a8bf7fa1e",
+  "p0Qualification": {
+    "functionalGateRunId": 36243601094,
+    "packagedE2EArtifactId": 10906732243,
+    "packagedE2EArtifactSha256": "fb7d44775886b6b7c320787b4c6dc7ee0b9792396891094de7a18105ace65045",
+    "allTransverseGatesGreen": true,
+    "prereleasePublicationSkipped": true
+  },
+  "p2Qualification": {
+    "qualifiedCommit": "a20bff033452207b5b93f3af4296981bca2a308e",
+    "functionalGateRunId": 36250312910,
+    "packagedE2EArtifactId": 10908813257,
+    "packagedE2EArtifactSha256": "7b64c46d3d8f3a80cc38289ec7ad83158e5f6ae32c0300893f2be7ac28babec7",
+    "parentChildLifecycleGreen": true
+  },
+  "p3aQualification": {
+    "qualifiedSourceCommit": "e2ca57f79ae8ded8381af4bc10625d3253e44712",
+    "mergedBaselineCommit": "746aad43ce5fc34e597fea790e03139c49a1c89c",
+    "visualGateRunId": 36257095909,
+    "visualEvidenceArtifactId": 10910888389,
+    "visualEvidenceArtifactSha256": "24a37e5153e6e4754a1bf31a6c69e903ae20c86058419adfcaa77afbea1d316e",
+    "desktop1440Green": true,
+    "reduced1024Green": true,
+    "compact760Green": true,
+    "keyboardFocusGreen": true,
+    "noFictitiousContent": true,
+    "r4P2CriticalFilesUnchanged": true
+  },
+  "allowedStatuses": ["En cours", "Terminée", "Annulée"],
+  "requiredDomainOperations": [
+    "queryReparations",
+    "getReparation",
+    "createReparation",
+    "updateReparation",
+    "setReparationStatus"
+  ],
+  "requiredUserJourneys": [
+    "create-cancel-without-write",
+    "create-save-once",
+    "open-targeted-repair",
+    "edit-existing-repair-without-duplicate",
+    "complete-repair-with-closure-date",
+    "reopen-repair-clears-closure-date",
+    "cancel-repair-with-terminal-date",
+    "search-beyond-first-1000",
+    "closed-parent-forbids-child-mutation",
+    "referent-search-requires-explicit-identities",
+    "signalement-close-refused-with-active-repairs",
+    "signalement-close-allowed-after-terminal-repairs",
+    "closed-parent-explicit-reopen-path",
+    "reopen-parent-restores-repair-mutation",
+    "legacy-closed-parent-active-repair-recoverable"
+  ],
+  "dataContract": {
+    "mesureRequired": true,
+    "strictIsoDateOrEmpty": true,
+    "terminalStatusesSetClosureDate": true,
+    "enCoursClearsClosureDate": true,
+    "closedSignalementChildMutationForbidden": true,
+    "signalementCloseRequiresNoActiveRepairs": true,
+    "silentTruncationForbidden": true,
+    "fieldLimits": {
+      "mesure": 2000,
+      "referent": 200,
+      "debut": 10,
+      "duree": 100,
+      "notes": 5000,
+      "cloture": 10,
+      "statut": 80
+    }
+  },
+  "queryContract": {
+    "databaseSideSearchRequired": true,
+    "paginationRequired": true,
+    "mustFindRecordsBeyond1000": true,
+    "identitySearchMustBeExplicit": true,
+    "identityValuesMustBeMaskedWhenNotRequested": true
+  },
+  "architectureContract": {
+    "dedicatedCreateUpdateStatusIpcRequired": true,
+    "hiddenRepairIdMultiplexingForbidden": true,
+    "reparationEditExtensionForbidden": true,
+    "functionalControlsInjectedByMutationObserverForbidden": true,
+    "listAllToOpenSingleRepairForbidden": true,
+    "asyncMutationBusyStateRequired": true,
+    "minimalEventHistoryRequired": true
+  },
+  "dialogContract": {
+    "cancelControlsMustNotSubmit": true,
+    "visibleCloseControlRequired": true,
+    "escapeRequired": true,
+    "focusMustReturnToInvoker": true
+  },
+  "visualContract": {
+    "p0FunctionalQualificationMustRemainAncestor": true,
+    "functionalGateMustStayGreenDuringCssWork": true,
+    "cssMustRemainScopedToRepairsAfterCurrentVisualBaseline": true,
+    "visualBaselineCommit": "746aad43ce5fc34e597fea790e03139c49a1c89c",
+    "watteauHomeBaselineCommit": "a20bff033452207b5b93f3af4296981bca2a308e",
+    "watteauHomeAllowedSharedCss": [
+      "renderer/tokens.css",
+      "renderer/layout.css",
+      "renderer/home.css",
+      "renderer/styles.css"
+    ],
+    "watteauHomeRepairCssMustRemainFrozen": true,
+    "packagedExeEvidenceRequiredBeforeVisualAcceptance": true,
+    "desktopViewport": "1440x900",
+    "reducedViewport": "760x760",
+    "bodyOverflowForbidden": true,
+    "localTableScrollAllowedOnReducedViewport": true,
+    "keyboardEvidenceRequired": true,
+    "closedParentMustExplainLock": true,
+    "closedParentMustOfferExplicitReopen": true,
+    "releaseFreezeMustRemainActive": true
+  },
+  "exitGateBeforeReparationsCss": [
+    "domain-contract-green",
+    "dedicated-ipc-green",
+    "renderer-functional-contract-green",
+    "inherited-r3-regression-green",
+    "packaged-windows-repair-journey-green",
+    "search-beyond-1000-green",
+    "dialog-keyboard-mouse-green",
+    "privacy-invariants-green"
+  ]
+}

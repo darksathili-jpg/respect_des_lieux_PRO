@@ -50,6 +50,30 @@ function failSmoke(reason, details = {}) {
   app.exit(86);
 }
 
+async function installHorizontalViewportGuard(win) {
+  return win.webContents.executeJavaScript(`(() => {
+    if (window.__rdlHorizontalViewportGuardInstalled === true) return true;
+    window.__rdlHorizontalViewportGuardInstalled = true;
+
+    const resetHorizontalOrigin = () => {
+      const root = document.scrollingElement || document.documentElement;
+      const rootLeft = Number(root?.scrollLeft || 0);
+      const windowLeft = Number(window.scrollX || 0);
+      if (Math.abs(rootLeft) < 0.5 && Math.abs(windowLeft) < 0.5) return;
+
+      const top = Number(root?.scrollTop ?? window.scrollY ?? 0);
+      if (root) root.scrollLeft = 0;
+      window.scrollTo(0, top);
+    };
+
+    window.addEventListener('scroll', resetHorizontalOrigin, { passive: true });
+    window.addEventListener('resize', resetHorizontalOrigin, { passive: true });
+    resetHorizontalOrigin();
+    requestAnimationFrame(resetHorizontalOrigin);
+    return true;
+  })()`);
+}
+
 function paintProbe(nativeImage) {
   const bitmap = nativeImage.toBitmap();
   if (!bitmap || bitmap.length < 16) return { ok: false, range: 0, samples: 0 };
@@ -100,16 +124,22 @@ async function probeShell(win) {
       viewportWidth: window.innerWidth || 0,
       layoutViewportWidth: document.documentElement?.clientWidth || 0,
       viewportHeight: window.innerHeight || 0,
+      viewportScrollX: window.scrollX || 0,
+      rootScrollLeft: document.scrollingElement?.scrollLeft || 0,
+      horizontalGuardInstalled: window.__rdlHorizontalViewportGuardInstalled === true,
       sidebarRight: sidebarRect?.right || 0,
       mainLeft: mainRect?.left || 0,
       navViews: navButtons.map((node) => node.dataset.view || ''),
-      navLabels: navButtons.map((node) => (node.textContent || '').trim()),
+      navLabels: navButtons.map((node) => (node.querySelector('.nav-label')?.textContent || node.textContent || '').trim()),
       panelViews: panels.map((node) => node.dataset.viewPanel || ''),
       activeNav: navButtons.filter((node) => node.classList.contains('active')).map((node) => node.dataset.view || ''),
       activePanels: panels.filter((node) => node.classList.contains('active') && !node.hidden).map((node) => node.dataset.viewPanel || ''),
       hiddenPanels: panels.filter((node) => node.hidden).map((node) => node.dataset.viewPanel || ''),
       oldVisualShells: document.querySelectorAll('#vf-dashboard').length,
       title: document.querySelector('#page-title')?.textContent?.trim() || '',
+      heroHeadline: document.querySelector('#view-dashboard .hero h2')?.textContent?.trim() || '',
+      heroLead: document.querySelector('#view-dashboard .hero .hero-lead')?.textContent?.trim() || '',
+      localPathVisible: Boolean(document.querySelector('#view-dashboard #fact-db:not([hidden])')),
       detailDialog: Boolean(document.querySelector('#signal-detail-dialog')),
       bodyTextLength: (document.body?.innerText || '').trim().length,
       documentScrollWidth: document.documentElement?.scrollWidth || 0,
@@ -117,6 +147,7 @@ async function probeShell(win) {
       designSystem: {
         ready: rootStyles.getPropertyValue('--rdl-ds-ready').trim(),
         focusRing: rootStyles.getPropertyValue('--rdl-focus').trim(),
+        watteauNavy: rootStyles.getPropertyValue('--watteau-navy').trim(),
         brandAsset: brandMark ? getComputedStyle(brandMark).backgroundImage : '',
         heroAsset: heroAfter?.backgroundImage || ''
       }
@@ -131,10 +162,14 @@ function shellContractOk(dom) {
   const widthAligned = Math.abs(Number(dom.shellWidth || 0) - layoutWidth) <= 2;
   const geometryAligned = Math.abs(Number(dom.sidebarRight || 0) - Number(dom.mainLeft || 0)) <= 2;
   const noGlobalHorizontalOverflow = Math.max(Number(dom.documentScrollWidth || 0), Number(dom.bodyScrollWidth || 0)) <= layoutWidth + 2;
+  const horizontalOriginLocked = Math.abs(Number(dom.viewportScrollX || 0)) <= 0.5
+    && Math.abs(Number(dom.rootScrollLeft || 0)) <= 0.5
+    && dom.horizontalGuardInstalled === true;
   const designSystemOk = dom.designSystem?.ready === 'r2'
     && Boolean(dom.designSystem?.focusRing)
-    && String(dom.designSystem?.brandAsset || '').includes('sidebar-logo-production.svg')
-    && String(dom.designSystem?.heroAsset || '').includes('dashboard-hero-production.svg');
+    && Boolean(dom.designSystem?.watteauNavy)
+    && String(dom.designSystem?.brandAsset || '').includes('watteau-sidebar-mark.svg')
+    && String(dom.designSystem?.heroAsset || '').includes('watteau-home-hero.svg');
   return dom.readyState === 'complete'
     && dom.shellCount === 1
     && dom.mainRegionCount === 1
@@ -148,10 +183,14 @@ function shellContractOk(dom) {
     && dom.oldVisualShells === 0
     && dom.detailDialog
     && dom.title === 'Accueil'
+    && dom.heroHeadline === 'Bonjour !'
+    && dom.heroLead === 'Ensemble, prenons soin de notre lycée.'
+    && dom.localPathVisible === false
     && dom.bodyTextLength > 100
     && widthAligned
     && geometryAligned
     && noGlobalHorizontalOverflow
+    && horizontalOriginLocked
     && designSystemOk;
 }
 
@@ -225,10 +264,18 @@ app.on('browser-window-created', (_event, win) => {
     failSmoke('preload-error', { preloadPath, message: error?.message || String(error) });
   });
 
+  win.webContents.on('did-finish-load', () => {
+    installHorizontalViewportGuard(win).catch((error) => {
+      reportFatal('garde de viewport impossible', error?.message || String(error));
+      failSmoke('viewport-guard-install-failed', { message: error?.message || String(error) });
+    });
+  });
+
   if (!smokeMode) return;
 
   win.webContents.once('did-finish-load', async () => {
     try {
+      await installHorizontalViewportGuard(win);
       const result = await probeRenderer(win);
       if (!shellContractOk(result.dom) || !result.navigation.ok || !result.paint.ok) {
         failSmoke('ui-not-rendered', result);
