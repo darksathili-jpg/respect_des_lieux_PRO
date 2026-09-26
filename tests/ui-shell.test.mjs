@@ -99,3 +99,11 @@ test('R4-P3b : le root est verrouillé et la shell devient l’unique scroller v
   assert.match(layout, /\.sidebar\{[^}]*width:100%;[^}]*max-width:100%;[^}]*min-width:0/);
   assert.match(layout, /\.nav-label\{[^}]*min-width:0;[^}]*overflow-wrap:anywhere/);
 });
+
+test('R4-P3b : le bootstrap maintient l’origine horizontale même si Chromium tente de dériver', () => {
+  assert.match(bootstrap, /function installHorizontalViewportGuard\(win\)/);
+  assert.match(bootstrap, /__rdlHorizontalViewportGuardInstalled/);
+  assert.match(bootstrap, /window\.addEventListener\('scroll', resetHorizontalOrigin/);
+  assert.match(bootstrap, /window\.scrollTo\(0, top\)/);
+  assert.match(bootstrap, /horizontalOriginLocked/);
+});
