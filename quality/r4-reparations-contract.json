@@ -1,8 +1,9 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "phase": "R4",
   "feature": "reparations",
-  "baseCommit": "a3a9210b54967ed67bd79319d088d6a7bbc37f1d",
+  "baseCommit": "746aad43ce5fc34e597fea790e03139c49a1c89c",
+  "r3MergeCommit": "a3a9210b54967ed67bd79319d088d6a7bbc37f1d",
   "signalementsQualificationCommit": "158f81e83fb6eba479c7070a05bdc8064900f663",
   "stage": "visual-reconstruction",
   "releaseFrozen": true,
@@ -14,6 +15,26 @@
     "packagedE2EArtifactSha256": "fb7d44775886b6b7c320787b4c6dc7ee0b9792396891094de7a18105ace65045",
     "allTransverseGatesGreen": true,
     "prereleasePublicationSkipped": true
+  },
+  "p2Qualification": {
+    "qualifiedCommit": "a20bff033452207b5b93f3af4296981bca2a308e",
+    "functionalGateRunId": 36250312910,
+    "packagedE2EArtifactId": 10908813257,
+    "packagedE2EArtifactSha256": "7b64c46d3d8f3a80cc38289ec7ad83158e5f6ae32c0300893f2be7ac28babec7",
+    "parentChildLifecycleGreen": true
+  },
+  "p3aQualification": {
+    "qualifiedSourceCommit": "e2ca57f79ae8ded8381af4bc10625d3253e44712",
+    "mergedBaselineCommit": "746aad43ce5fc34e597fea790e03139c49a1c89c",
+    "visualGateRunId": 36257095909,
+    "visualEvidenceArtifactId": 10910888389,
+    "visualEvidenceArtifactSha256": "24a37e5153e6e4754a1bf31a6c69e903ae20c86058419adfcaa77afbea1d316e",
+    "desktop1440Green": true,
+    "reduced1024Green": true,
+    "compact760Green": true,
+    "keyboardFocusGreen": true,
+    "noFictitiousContent": true,
+    "r4P2CriticalFilesUnchanged": true
   },
   "allowedStatuses": ["En cours", "Terminée", "Annulée"],
   "requiredDomainOperations": [
@@ -83,7 +104,8 @@
   "visualContract": {
     "p0FunctionalQualificationMustRemainAncestor": true,
     "functionalGateMustStayGreenDuringCssWork": true,
-    "cssMustRemainScopedToRepairs": true,
+    "cssMustRemainScopedToRepairsAfterCurrentVisualBaseline": true,
+    "visualBaselineCommit": "746aad43ce5fc34e597fea790e03139c49a1c89c",
     "packagedExeEvidenceRequiredBeforeVisualAcceptance": true,
     "desktopViewport": "1440x900",
     "reducedViewport": "760x760",
