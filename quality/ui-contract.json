@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "application": "Respect des Lieux PRO",
   "shell": {
     "id": "app-shell",
@@ -48,7 +48,7 @@
     "open-data"
   ],
   "designSystem": {
-    "version": "r2",
+    "version": "r4-p3a",
     "entrypoint": "renderer/styles.css",
     "layers": [
       "renderer/tokens.css",
@@ -57,8 +57,8 @@
       "renderer/home.css"
     ],
     "requiredAssets": [
-      "renderer/assets/sidebar-logo-production.svg",
-      "renderer/assets/dashboard-hero-production.svg"
+      "renderer/assets/watteau-sidebar-mark.svg",
+      "renderer/assets/watteau-home-hero.svg"
     ],
     "requiredTokens": [
       "--rdl-ds-ready",
@@ -70,8 +70,18 @@
       "--rdl-space-4",
       "--rdl-radius-lg",
       "--rdl-shadow-md",
-      "--rdl-focus"
+      "--rdl-focus",
+      "--watteau-navy",
+      "--watteau-brick",
+      "--watteau-cream"
     ]
+  },
+  "visualIdentity": {
+    "homeHeadline": "Bonjour !",
+    "homeLead": "Ensemble, prenons soin de notre lycée.",
+    "localStorageMessage": "Données stockées localement",
+    "sidebarMotto": "Des lieux respectés pour mieux apprendre",
+    "forbiddenHomeHeadline": "Les données restent sur ce PC."
   },
   "forbiddenRuntimeFiles": [
     "renderer/dashboard-vf.css"
@@ -93,6 +103,8 @@
     "focusVisibleRequired": true,
     "reducedMotionRequired": true,
     "responsiveFallbackRequired": true,
+    "homeUsesRealDataOnly": true,
+    "homeMustNotExposeLocalPath": true,
     "detailDialogRequiresStableScrollbar": true,
     "detailDialogRequiresSingleColumnFallback": true,
     "detailDialogRequiresMultipleExitPaths": true,
