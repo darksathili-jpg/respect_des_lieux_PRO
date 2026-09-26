@@ -1,6 +1,7 @@
-/* R2 — Production stylesheet entry point.
-   Order is deliberate: tokens → components → layout → Accueil composition. */
+/* R2/R3 — Production stylesheet entry point.
+   Order is deliberate: tokens → components → layout → Accueil → view-specific visual layers. */
 @import url('./tokens.css');
 @import url('./components.css');
 @import url('./layout.css');
 @import url('./home.css');
+@import url('./signalements.css');
