@@ -105,12 +105,20 @@
 
       <section id="view-reparations" class="view" data-view-panel="reparations" hidden>
         <div class="panel">
-          <div class="panel-head"><div><p class="eyebrow">Suivi</p><h3>Réparations</h3></div></div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Signalement</th><th>Mesure</th><th>Référent</th><th>Début</th><th>Durée</th><th>Statut</th></tr></thead>
+          <div class="panel-head">
+            <div><p class="eyebrow">Suivi</p><h3>Réparations</h3></div>
+            <input id="repair-search" class="search" type="search" placeholder="Rechercher…" autocomplete="off" aria-label="Rechercher dans les réparations" aria-controls="reparations-body">
+          </div>
+          <div class="table-wrap" role="region" aria-label="Tableau des réparations" tabindex="0">
+            <table aria-label="Liste des réparations">
+              <thead><tr><th scope="col">Signalement</th><th scope="col">Mesure</th><th scope="col">Référent</th><th scope="col">Début</th><th scope="col">Durée</th><th scope="col">Statut</th><th scope="col">Actions</th></tr></thead>
               <tbody id="reparations-body"></tbody>
             </table>
+          </div>
+          <div class="form-actions" role="navigation" aria-label="Pagination des réparations">
+            <button id="repair-prev" class="btn secondary" type="button" aria-controls="reparations-body">Précédents</button>
+            <span id="repair-page" aria-live="polite">0 réparation</span>
+            <button id="repair-next" class="btn secondary" type="button" aria-controls="reparations-body">Suivants</button>
           </div>
         </div>
       </section>
@@ -268,9 +276,10 @@
   </dialog>
 
   <dialog id="repair-dialog" aria-labelledby="repair-dialog-title">
-    <form id="repair-form" method="dialog" class="dialog-card">
-      <header><div><p class="eyebrow">Mesure</p><h2 id="repair-dialog-title">Ajouter une réparation</h2></div><button class="close" value="cancel" aria-label="Fermer">×</button></header>
-      <input type="hidden" name="signalement_id">
+    <form id="repair-form" class="dialog-card">
+      <header><div><p class="eyebrow">Mesure</p><h2 id="repair-dialog-title">Ajouter une réparation</h2></div><button class="close" type="button" data-repair-cancel aria-label="Fermer">×</button></header>
+      <input type="hidden" name="reparation_id" value="">
+      <input type="hidden" name="signalement_id" value="">
       <div class="form-grid">
         <label class="span-2">Mesure / action<textarea name="mesure" rows="3" maxlength="2000" required></textarea></label>
         <label>Référent<input name="referent" maxlength="200" autocomplete="off"></label>
@@ -279,7 +288,7 @@
         <label>Statut<select name="statut"><option>En cours</option><option>Terminée</option><option>Annulée</option></select></label>
         <label class="span-2">Notes factuelles <span class="field-note">ne saisir que ce qui est nécessaire au suivi</span><textarea name="notes" rows="3" maxlength="5000"></textarea></label>
       </div>
-      <footer><button class="btn secondary" value="cancel">Annuler</button><button class="btn primary" value="default">Enregistrer</button></footer>
+      <footer><button class="btn secondary" type="button" data-repair-cancel>Annuler</button><button id="save-repair" class="btn primary" type="submit">Enregistrer</button></footer>
     </form>
   </dialog>
 
@@ -296,6 +305,7 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="./app.js"></script>
+  <script src="./reparations.js"></script>
   <script src="./detail.js"></script>
 </body>
 </html>
