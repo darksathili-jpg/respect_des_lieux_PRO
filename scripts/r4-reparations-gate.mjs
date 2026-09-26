@@ -17,6 +17,8 @@ const preload = read('preload.cjs');
 const main = read('main.cjs');
 const mainEntry = read('main-entry.cjs');
 const domainSource = read('src/reparation-domain.cjs');
+const stylesEntry = read('renderer/styles.css');
+const repairCss = fs.existsSync('renderer/reparations.css') ? read('renderer/reparations.css') : '';
 
 const failures = [];
 const passes = [];
@@ -57,12 +59,29 @@ function repairDialogBlock() {
 
 const changed = changedFiles();
 const cssChanged = changed.filter((file) => /^renderer\/.*\.css$/i.test(file));
+const visualPhase = contract.stage === 'visual-reconstruction' && contract.cssSpecificWorkAllowed === true;
 check(commitIsAncestor(contract.baseCommit), 'R4 reste descendant du merge qui fige R3', contract.baseCommit);
 check(commitIsAncestor(contract.signalementsQualificationCommit), 'le commit qualifié Signalements reste un ancêtre du HEAD R4', contract.signalementsQualificationCommit);
 check(contract.releaseFrozen === true, 'le gel de release reste actif pendant R4');
-check(contract.stage === 'functional-audit', 'R4 reste en phase audit fonctionnel tant que P0 est rouge');
-check(contract.cssSpecificWorkAllowed === false, 'le CSS spécifique Réparations reste interdit pendant P0');
-check(cssChanged.length === 0, 'aucun CSS n’est modifié tant que le contrat Réparations est rouge', cssChanged.join(', ') || 'aucun CSS');
+
+if (visualPhase) {
+  check(commitIsAncestor(contract.functionalQualificationCommit), 'le commit fonctionnel R4-P0 qualifié reste un ancêtre du HEAD', contract.functionalQualificationCommit || 'absent');
+  check(contract.p0Qualification?.allTransverseGatesGreen === true, 'le contrat enregistre la qualification transversale R4-P0');
+  check(contract.p0Qualification?.prereleasePublicationSkipped === true, 'la publication prerelease est restée gelée lors de R4-P0');
+  check(Boolean(repairCss), 'la couche visuelle dédiée renderer/reparations.css existe');
+  check(stylesEntry.includes("@import url('./reparations.css');"), 'styles.css charge explicitement la couche visuelle Réparations');
+  check(repairCss.includes('#view-reparations'), 'le CSS Réparations est explicitement scopé sur la vue');
+  check(repairCss.includes('#repair-dialog'), 'le CSS Réparations est explicitement scopé sur son dialogue');
+  check(!repairCss.includes('!important'), 'la couche Réparations n’utilise aucun !important');
+  const unscopedRoot = /(^|\n)\s*(?:html|body|\*|\.panel|\.table-wrap|table|thead|tbody|tr|th|td|\.actions|\.mini|\.btn|dialog)\s*(?:,|\{)/m.test(repairCss);
+  check(!unscopedRoot, 'la couche Réparations ne redéfinit pas de composant global hors scope');
+  const allowedCss = new Set(['renderer/reparations.css', 'renderer/styles.css']);
+  check(cssChanged.every((file) => allowedCss.has(file)), 'les changements CSS R4-P1 restent limités à la couche Réparations et à son import', cssChanged.join(', ') || 'aucun CSS');
+} else {
+  check(contract.stage === 'functional-audit', 'R4 reste en phase audit fonctionnel tant que P0 est rouge');
+  check(contract.cssSpecificWorkAllowed === false, 'le CSS spécifique Réparations reste interdit pendant P0');
+  check(cssChanged.length === 0, 'aucun CSS n’est modifié tant que le contrat Réparations est rouge', cssChanged.join(', ') || 'aucun CSS');
+}
 
 const repairDialog = repairDialogBlock();
 check(Boolean(repairDialog), 'le dialogue Réparations existe');
@@ -182,7 +201,7 @@ try {
 for (const message of passes) console.log(`PASS [R4-REPARATIONS] ${message}`);
 for (const message of failures) console.error(`FAIL [R4-REPARATIONS] ${message}`);
 if (failures.length) {
-  console.error(`\nR4_REPARATIONS_GATE_RED: ${failures.length} exigence(s) non satisfaite(s). Aucun travail CSS Réparations n’est autorisé tant que R4-P0 n’est pas vert.`);
+  console.error(`\nR4_REPARATIONS_GATE_RED: ${failures.length} exigence(s) non satisfaite(s). Aucun travail visuel Réparations n’est accepté tant que le socle R4-P0 ou le contrat R4-P1 est violé.`);
   process.exit(1);
 }
-console.log(`\nR4_REPARATIONS_GATE_GREEN: ${passes.length} exigence(s) satisfaites. Le socle fonctionnel Réparations peut passer à la qualification du vrai EXE.`);
+console.log(`\nR4_REPARATIONS_GATE_GREEN: ${passes.length} exigence(s) satisfaites. Socle fonctionnel et frontière visuelle R4 conformes.`);
