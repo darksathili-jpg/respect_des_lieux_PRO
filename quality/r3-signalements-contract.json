@@ -1,11 +1,19 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "phase": "R3",
   "feature": "signalements",
   "baseCommit": "dafca10ea52becedb688e35d1566abf1f280b3c2",
-  "stage": "functional-audit",
+  "stage": "visual-reconstruction",
   "releaseFrozen": true,
-  "cssSpecificWorkAllowed": false,
+  "cssSpecificWorkAllowed": true,
+  "functionalQualificationCommit": "161081ba7b71c06025c4e01dbc62c62790cecbf2",
+  "p0Qualification": {
+    "functionalGateRunId": 36171921280,
+    "packagedE2EArtifactId": 10880771688,
+    "packagedE2EArtifactSha256": "66b6b3967831f554b1584fdcb7071e66927faefaa9d49538c62d7846c63426eb",
+    "allTransverseGatesGreen": true,
+    "prereleasePublicationSkipped": true
+  },
   "allowedStatuses": ["Ouvert", "Clos"],
   "allowedGravities": ["", "Mineure", "Modérée", "Importante", "Critique"],
   "requiredDomainOperations": [
@@ -59,6 +67,12 @@
     "dedicatedIpcForDetailRequired": true,
     "asyncMutationBusyStateRequired": true,
     "minimalEventHistoryRequired": true
+  },
+  "visualContract": {
+    "p0FunctionalQualificationMustRemainAncestor": true,
+    "functionalGateMustStayGreenDuringCssWork": true,
+    "packagedExeEvidenceRequiredBeforeVisualAcceptance": true,
+    "releaseFreezeMustRemainActive": true
   },
   "exitGateBeforeSignalementsCss": [
     "domain-tests-green",
