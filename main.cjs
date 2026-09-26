@@ -416,9 +416,9 @@ function registerIpc() {
   secureHandle('rdl:signalements:update', (id, patch) => db.updateSignalement(id, patch));
   secureHandle('rdl:signalements:set-status', (id, status) => db.setSignalementStatus(id, status));
 
-  secureHandle('rdl:reparations:list', (limit = 200) => repairDomain.queryReparations({ limit, offset: 0, includeIdentities: true }).rows);
+  secureHandle('rdl:reparations:list', (limit = 200) => repairDomain.queryReparations({ limit, offset: 0, includeIdentities: false }).rows);
   secureHandle('rdl:reparations:query', (options = {}) => repairDomain.queryReparations(options));
-  secureHandle('rdl:reparations:get', (id) => repairDomain.getReparation(id));
+  secureHandle('rdl:reparations:get', (id, includeIdentities = false) => repairDomain.getReparation(id, { includeIdentities: includeIdentities === true }));
   secureHandle('rdl:reparations:create', (payload) => repairDomain.createReparation(payload));
   secureHandle('rdl:reparations:update', (id, patch) => repairDomain.updateReparation(id, patch));
   secureHandle('rdl:reparations:set-status', (id, status) => repairDomain.setReparationStatus(id, status));
