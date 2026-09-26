@@ -61,6 +61,7 @@ function repairDialogBlock() {
 const changed = changedFiles();
 const cssChanged = changed.filter((file) => /^renderer\/.*\.css$/i.test(file));
 const visualPhase = contract.stage === 'visual-reconstruction' && contract.cssSpecificWorkAllowed === true;
+const watteauHomePhase = visualPhase && contract.visualSubphase === 'watteau-home';
 check(commitIsAncestor(contract.baseCommit), 'R4 reste descendant du merge qui fige R3', contract.baseCommit);
 check(commitIsAncestor(contract.signalementsQualificationCommit), 'le commit qualifié Signalements reste un ancêtre du HEAD R4', contract.signalementsQualificationCommit);
 check(contract.releaseFrozen === true, 'le gel de release reste actif pendant R4');
@@ -76,8 +77,28 @@ if (visualPhase) {
   check(!repairCss.includes('!important'), 'la couche Réparations n’utilise aucun !important');
   const unscopedRoot = /(^|\n)\s*(?:html|body|\*|\.panel|\.table-wrap|table|thead|tbody|tr|th|td|\.actions|\.mini|\.btn|dialog)\s*(?:,|\{)/m.test(repairCss);
   check(!unscopedRoot, 'la couche Réparations ne redéfinit pas de composant global hors scope');
-  const allowedCss = new Set(['renderer/reparations.css', 'renderer/styles.css']);
-  check(cssChanged.every((file) => allowedCss.has(file)), 'les changements CSS R4 restent limités à la couche Réparations et à son import', cssChanged.join(', ') || 'aucun CSS');
+
+  if (watteauHomePhase) {
+    const allowedShared = new Set(contract.visualContract?.watteauHomeAllowedSharedCss || []);
+    const allowedCss = new Set(['renderer/reparations.css', 'renderer/styles.css', ...allowedShared]);
+    check(
+      cssChanged.every((file) => allowedCss.has(file)),
+      'R4-P3a autorise uniquement les couches CSS Watteau déclarées tout en conservant Réparations dans sa frontière',
+      cssChanged.join(', ') || 'aucun CSS'
+    );
+    check(
+      contract.visualContract?.watteauHomeRepairCssMustRemainFrozen === true,
+      'R4-P3a exige explicitement le gel du CSS Réparations qualifié'
+    );
+    check(
+      commitIsAncestor(contract.p2Qualification?.qualifiedCommit),
+      'le commit R4-P2 qualifié reste un ancêtre du chantier Watteau',
+      contract.p2Qualification?.qualifiedCommit || 'absent'
+    );
+  } else {
+    const allowedCss = new Set(['renderer/reparations.css', 'renderer/styles.css']);
+    check(cssChanged.every((file) => allowedCss.has(file)), 'les changements CSS R4 restent limités à la couche Réparations et à son import', cssChanged.join(', ') || 'aucun CSS');
+  }
 } else {
   check(contract.stage === 'functional-audit', 'R4 reste en phase audit fonctionnel tant que P0 est rouge');
   check(contract.cssSpecificWorkAllowed === false, 'le CSS spécifique Réparations reste interdit pendant P0');
