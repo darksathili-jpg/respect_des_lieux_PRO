@@ -64,7 +64,7 @@ class ReparationDomain {
     return signalement;
   }
 
-  getReparation(id) {
+  _getReparationRaw(id) {
     const repairId = idNumber(id);
     return this.database.db.prepare(`
       SELECT r.*, s.num AS signalement_num, s.lieu AS signalement_lieu, s.statut AS signalement_statut
@@ -72,6 +72,13 @@ class ReparationDomain {
       JOIN signalements s ON s.id = r.signalement_id
       WHERE r.id = ?
     `).get(repairId) || null;
+  }
+
+  getReparation(id, options = {}) {
+    const repair = this._getReparationRaw(id);
+    if (!repair) return null;
+    if (options.includeIdentities === true) return repair;
+    return { ...repair, referent: '' };
   }
 
   queryReparations(options = {}) {
@@ -142,7 +149,7 @@ class ReparationDomain {
         INSERT INTO reparations(signalement_id, mesure, referent, debut, duree, notes, cloture, statut)
         VALUES(?, ?, ?, ?, ?, ?, ?, ?)
       `).run(signalementId, mesure, referent, debut, duree, notes, cloture, statut);
-      const repair = this.getReparation(Number(result.lastInsertRowid));
+      const repair = this._getReparationRaw(Number(result.lastInsertRowid));
       this.database.recordSignalementEvent(
         signalementId,
         signalement.num,
@@ -155,7 +162,7 @@ class ReparationDomain {
 
   updateReparation(id, patch = {}) {
     const repairId = idNumber(id);
-    const current = this.getReparation(repairId);
+    const current = this._getReparationRaw(repairId);
     if (!current) throw new Error('Réparation introuvable.');
     const signalement = this.ensureParentOpen(current.signalement_id);
 
@@ -202,13 +209,13 @@ class ReparationDomain {
         'repair_updated',
         `Réparation ${repairId} · champs modifiés : ${entries.map(([key]) => key).join(', ')}`
       );
-      return this.getReparation(repairId);
+      return this._getReparationRaw(repairId);
     });
   }
 
   setReparationStatus(id, status) {
     const repairId = idNumber(id);
-    const current = this.getReparation(repairId);
+    const current = this._getReparationRaw(repairId);
     if (!current) throw new Error('Réparation introuvable.');
     const signalement = this.ensureParentOpen(current.signalement_id);
     const nextStatus = assertStatus(
@@ -229,7 +236,7 @@ class ReparationDomain {
         'repair_status_changed',
         `Réparation ${repairId} · ${current.statut} → ${nextStatus}`
       );
-      return this.getReparation(repairId);
+      return this._getReparationRaw(repairId);
     });
   }
 }
