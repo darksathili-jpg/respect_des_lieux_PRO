@@ -103,13 +103,16 @@ async function probeShell(win) {
       sidebarRight: sidebarRect?.right || 0,
       mainLeft: mainRect?.left || 0,
       navViews: navButtons.map((node) => node.dataset.view || ''),
-      navLabels: navButtons.map((node) => (node.textContent || '').trim()),
+      navLabels: navButtons.map((node) => (node.querySelector('.nav-label')?.textContent || node.textContent || '').trim()),
       panelViews: panels.map((node) => node.dataset.viewPanel || ''),
       activeNav: navButtons.filter((node) => node.classList.contains('active')).map((node) => node.dataset.view || ''),
       activePanels: panels.filter((node) => node.classList.contains('active') && !node.hidden).map((node) => node.dataset.viewPanel || ''),
       hiddenPanels: panels.filter((node) => node.hidden).map((node) => node.dataset.viewPanel || ''),
       oldVisualShells: document.querySelectorAll('#vf-dashboard').length,
       title: document.querySelector('#page-title')?.textContent?.trim() || '',
+      heroHeadline: document.querySelector('#view-dashboard .hero h2')?.textContent?.trim() || '',
+      heroLead: document.querySelector('#view-dashboard .hero .hero-lead')?.textContent?.trim() || '',
+      localPathVisible: Boolean(document.querySelector('#view-dashboard #fact-db:not([hidden])')),
       detailDialog: Boolean(document.querySelector('#signal-detail-dialog')),
       bodyTextLength: (document.body?.innerText || '').trim().length,
       documentScrollWidth: document.documentElement?.scrollWidth || 0,
@@ -117,6 +120,7 @@ async function probeShell(win) {
       designSystem: {
         ready: rootStyles.getPropertyValue('--rdl-ds-ready').trim(),
         focusRing: rootStyles.getPropertyValue('--rdl-focus').trim(),
+        watteauNavy: rootStyles.getPropertyValue('--watteau-navy').trim(),
         brandAsset: brandMark ? getComputedStyle(brandMark).backgroundImage : '',
         heroAsset: heroAfter?.backgroundImage || ''
       }
@@ -133,8 +137,9 @@ function shellContractOk(dom) {
   const noGlobalHorizontalOverflow = Math.max(Number(dom.documentScrollWidth || 0), Number(dom.bodyScrollWidth || 0)) <= layoutWidth + 2;
   const designSystemOk = dom.designSystem?.ready === 'r2'
     && Boolean(dom.designSystem?.focusRing)
-    && String(dom.designSystem?.brandAsset || '').includes('sidebar-logo-production.svg')
-    && String(dom.designSystem?.heroAsset || '').includes('dashboard-hero-production.svg');
+    && Boolean(dom.designSystem?.watteauNavy)
+    && String(dom.designSystem?.brandAsset || '').includes('watteau-sidebar-mark.svg')
+    && String(dom.designSystem?.heroAsset || '').includes('watteau-home-hero.svg');
   return dom.readyState === 'complete'
     && dom.shellCount === 1
     && dom.mainRegionCount === 1
@@ -148,6 +153,9 @@ function shellContractOk(dom) {
     && dom.oldVisualShells === 0
     && dom.detailDialog
     && dom.title === 'Accueil'
+    && dom.heroHeadline === 'Bonjour !'
+    && dom.heroLead === 'Ensemble, prenons soin de notre lycée.'
+    && dom.localPathVisible === false
     && dom.bodyTextLength > 100
     && widthAligned
     && geometryAligned

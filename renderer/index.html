@@ -15,18 +15,19 @@
       <div class="brand">
         <div class="brand-mark" aria-hidden="true">RL</div>
         <div>
-          <strong>Respect des Lieux</strong>
-          <span>PRO · Local</span>
+          <strong>Respect des Lieux PRO</strong>
+          <span>Lycée Watteau · Local</span>
         </div>
       </div>
       <nav aria-label="Sections de l’application">
-        <button type="button" class="nav active" data-view="dashboard" aria-current="page">Accueil</button>
-        <button type="button" class="nav" data-view="signalements">Signalements</button>
-        <button type="button" class="nav" data-view="reparations">Réparations</button>
-        <button type="button" class="nav" data-view="sauvegardes">Sauvegardes</button>
-        <button type="button" class="nav" data-view="confidentialite">Protection des données</button>
-        <button type="button" class="nav" data-view="systeme">Système local</button>
+        <button type="button" class="nav active" data-view="dashboard" aria-current="page"><span class="nav-icon" aria-hidden="true">⌂</span><span class="nav-label">Accueil</span></button>
+        <button type="button" class="nav" data-view="signalements"><span class="nav-icon" aria-hidden="true">⚑</span><span class="nav-label">Signalements</span></button>
+        <button type="button" class="nav" data-view="reparations"><span class="nav-icon" aria-hidden="true">⚒</span><span class="nav-label">Réparations</span></button>
+        <button type="button" class="nav" data-view="sauvegardes"><span class="nav-icon" aria-hidden="true">⇩</span><span class="nav-label">Sauvegardes</span></button>
+        <button type="button" class="nav" data-view="confidentialite"><span class="nav-icon" aria-hidden="true">◇</span><span class="nav-label">Protection des données</span></button>
+        <button type="button" class="nav" data-view="systeme"><span class="nav-icon" aria-hidden="true">⚙</span><span class="nav-label">Système local</span></button>
       </nav>
+      <div class="sidebar-motto" aria-hidden="true">Des lieux respectés<br>pour mieux apprendre</div>
       <div class="local-seal">
         <span class="dot" aria-hidden="true"></span>
         <div>
@@ -52,34 +53,50 @@
 
       <section id="view-dashboard" class="view active" data-view-panel="dashboard">
         <div class="hero">
-          <div>
-            <p class="eyebrow">Application locale</p>
-            <h2>Les données restent sur ce PC.</h2>
-            <p>SQLite local, réseau métier bloqué, identités masquées par défaut et cycle de vie contrôlé sans effacement automatique.</p>
+          <div class="hero-copy">
+            <p class="eyebrow">Lycée Watteau · Valenciennes</p>
+            <h2>Bonjour !</h2>
+            <p class="hero-lead">Ensemble, prenons soin de notre lycée.</p>
+            <p class="hero-detail">Signaler, suivre et résoudre les dégradations dans un environnement local, sécurisé et respectueux des données.</p>
+            <div class="hero-local-note">Données stockées localement</div>
           </div>
-          <div class="hero-badge">SQLite<br><strong>LOCAL</strong></div>
         </div>
-        <div class="kpis">
-          <article class="kpi"><span>Signalements</span><strong id="kpi-total">0</strong><small>dans la base locale</small></article>
-          <article class="kpi"><span>Ouverts</span><strong id="kpi-open">0</strong><small>à suivre</small></article>
-          <article class="kpi"><span>Réparations</span><strong id="kpi-repairs">0</strong><small>mesures enregistrées</small></article>
-          <article class="kpi"><span>Photos</span><strong id="kpi-photos">0</strong><small id="kpi-photo-size">0 Mo</small></article>
+
+        <div class="kpis" aria-label="Synthèse locale">
+          <article class="kpi"><span class="kpi-icon" aria-hidden="true">⚑</span><div class="kpi-copy"><span>Signalements</span><strong id="kpi-total">0</strong><small>dans la base locale</small></div></article>
+          <article class="kpi"><span class="kpi-icon" aria-hidden="true">◷</span><div class="kpi-copy"><span>À suivre</span><strong id="kpi-open">0</strong><small>dossiers ouverts</small></div></article>
+          <article class="kpi"><span class="kpi-icon" aria-hidden="true">⚒</span><div class="kpi-copy"><span>Réparations</span><strong id="kpi-repairs">0</strong><small>mesures enregistrées</small></div></article>
+          <article class="kpi"><span class="kpi-icon" aria-hidden="true">▣</span><div class="kpi-copy"><span>Photos</span><strong id="kpi-photos">0</strong><small id="kpi-photo-size">0 Mo</small></div></article>
         </div>
-        <div class="grid two">
-          <article class="panel">
-            <div class="panel-head"><h3>Derniers signalements</h3><button class="text-btn" type="button" data-goto="signalements">Voir tout</button></div>
+
+        <div class="home-lower">
+          <article class="panel home-recent">
+            <div class="panel-head"><h3>Signalements récents</h3><button class="text-btn" type="button" data-goto="signalements">Voir tout →</button></div>
             <div id="recent-list" class="stack empty-state">Aucun signalement.</div>
           </article>
-          <article class="panel">
-            <div class="panel-head"><h3>État local</h3></div>
-            <dl class="facts">
-              <div><dt>Base</dt><dd id="fact-db">—</dd></div>
-              <div><dt>Intégrité</dt><dd id="fact-integrity">—</dd></div>
-              <div><dt>Version</dt><dd id="fact-version">—</dd></div>
-              <div><dt>Réseau métier</dt><dd>bloqué</dd></div>
-              <div><dt>Conservation</dt><dd id="fact-retention">non configurée</dd></div>
-            </dl>
-          </article>
+
+          <div class="home-aside">
+            <article class="panel engagement-panel">
+              <div class="panel-head"><h3>Notre engagement</h3></div>
+              <p class="engagement-quote">« Un environnement respecté favorise la réussite de chacun. »</p>
+              <div class="engagement-principles" aria-label="Principes de l’application">
+                <div><strong aria-hidden="true">⌁</strong><span>Un lycée plus propre</span></div>
+                <div><strong aria-hidden="true">◎</strong><span>Une communauté responsable</span></div>
+                <div><strong aria-hidden="true">✓</strong><span>Des interventions suivies</span></div>
+              </div>
+            </article>
+
+            <article class="panel home-state">
+              <div class="panel-head"><h3>État local</h3></div>
+              <dl class="facts">
+                <div><dt>Base locale</dt><dd><span class="fact-ok">Active</span><span id="fact-db" hidden>—</span></dd></div>
+                <div><dt>Intégrité</dt><dd id="fact-integrity">—</dd></div>
+                <div><dt>Version</dt><dd><span>Validation R4-P3a</span><span id="fact-version" hidden>—</span></dd></div>
+                <div><dt>Réseau métier</dt><dd class="fact-blocked">Bloqué</dd></div>
+                <div><dt>Conservation</dt><dd id="fact-retention">non configurée</dd></div>
+              </dl>
+            </article>
+          </div>
         </div>
       </section>
 
