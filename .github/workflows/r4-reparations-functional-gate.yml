@@ -1,0 +1,68 @@
+name: R4 Reparations Functional Gate
+
+on:
+  push:
+    branches: ["r4-reparations"]
+    paths:
+      - "src/**"
+      - "renderer/**"
+      - "preload.cjs"
+      - "main.cjs"
+      - "main-entry.cjs"
+      - "tests/**"
+      - "scripts/r4-reparations-gate.mjs"
+      - "quality/r4-reparations-contract.json"
+      - "docs/R4-REPARATIONS-AUDIT.md"
+      - ".github/workflows/r4-reparations-functional-gate.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "src/**"
+      - "renderer/**"
+      - "preload.cjs"
+      - "main.cjs"
+      - "main-entry.cjs"
+      - "tests/**"
+      - "scripts/r4-reparations-gate.mjs"
+      - "quality/r4-reparations-contract.json"
+      - "docs/R4-REPARATIONS-AUDIT.md"
+      - ".github/workflows/r4-reparations-functional-gate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inherited-r3-regression:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Node 24.21
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24.21.0"
+
+      - name: Preserve inherited R3 and local reliability contracts
+        shell: pwsh
+        run: npm run verify
+
+  functional-contract:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Node 24.21
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24.21.0"
+
+      - name: R4 Reparations contract — red first, CSS forbidden while red
+        shell: pwsh
+        run: node scripts/r4-reparations-gate.mjs
