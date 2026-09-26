@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const { DatabaseSync } = require('node:sqlite');
 const { app, BrowserWindow, ipcMain, dialog, shell, session } = require('electron');
 const { LocalDatabase } = require('./src/database.cjs');
+const { ReparationDomain } = require('./src/reparation-domain.cjs');
 const { LocalPhotoStore } = require('./src/storage.cjs');
 const { createEncryptedBackup, extractEncryptedBackup, validatePassphrase } = require('./src/portable-backup.cjs');
 
@@ -17,6 +18,7 @@ if (!gotLock) app.quit();
 
 let mainWindow = null;
 let db = null;
+let repairDomain = null;
 let photoStore = null;
 let paths = null;
 
@@ -400,7 +402,7 @@ function registerIpc() {
     paths: { root: paths.root, database: paths.database, backups: paths.backups, exports: paths.exports },
     stats: db.getStats(),
     signalements: db.listSignalements(200),
-    reparations: db.listReparations(1000),
+    reparations: repairDomain.queryReparations({ limit: 200, offset: 0, includeIdentities: false }).rows,
     integrity: db.integrityCheck(),
     retention: db.getRetentionPolicy(),
     lifecycle: db.getLifecycleReview(),
@@ -414,8 +416,12 @@ function registerIpc() {
   secureHandle('rdl:signalements:update', (id, patch) => db.updateSignalement(id, patch));
   secureHandle('rdl:signalements:set-status', (id, status) => db.setSignalementStatus(id, status));
 
-  secureHandle('rdl:reparations:list', (limit = 1000) => db.listReparations(limit));
-  secureHandle('rdl:reparations:create', (payload) => db.createReparation(payload));
+  secureHandle('rdl:reparations:list', (limit = 200) => repairDomain.queryReparations({ limit, offset: 0, includeIdentities: true }).rows);
+  secureHandle('rdl:reparations:query', (options = {}) => repairDomain.queryReparations(options));
+  secureHandle('rdl:reparations:get', (id) => repairDomain.getReparation(id));
+  secureHandle('rdl:reparations:create', (payload) => repairDomain.createReparation(payload));
+  secureHandle('rdl:reparations:update', (id, patch) => repairDomain.updateReparation(id, patch));
+  secureHandle('rdl:reparations:set-status', (id, status) => repairDomain.setReparationStatus(id, status));
 
   secureHandle('rdl:photos:attach', async (signalementId) => {
     const result = await dialog.showOpenDialog(mainWindow, {
@@ -479,6 +485,7 @@ app.whenReady().then(async () => {
   const restoreResult = applyPendingRestoreBeforeOpen();
   db = new LocalDatabase(paths.database);
   db.init();
+  repairDomain = new ReparationDomain(db);
   photoStore = new LocalPhotoStore(paths.photos);
   enforcePurgeLedger();
   if (restoreResult.restored) {
