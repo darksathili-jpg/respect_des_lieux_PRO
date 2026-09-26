@@ -23,15 +23,37 @@ jobs:
         with:
           node-version: "24.21.0"
 
-      - name: Preserve architecture, R3 and R4 contracts
+      - name: Preserve architecture and R3 contracts
         shell: pwsh
         run: |
           npm run verify
           if ($LASTEXITCODE -ne 0) { throw "Le contrat global a échoué." }
           node scripts/r3-signalements-gate.mjs
           if ($LASTEXITCODE -ne 0) { throw "Le contrat R3 a régressé." }
-          node scripts/r4-reparations-gate.mjs
-          if ($LASTEXITCODE -ne 0) { throw "Le contrat R4 a régressé." }
+
+      - name: Preserve exact qualified R4-P2 critical implementation
+        shell: pwsh
+        run: |
+          $baseline = "a20bff033452207b5b93f3af4296981bca2a308e"
+          git merge-base --is-ancestor $baseline HEAD
+          if ($LASTEXITCODE -ne 0) { throw "Le commit R4-P2 qualifié n'est plus un ancêtre du HEAD." }
+          $critical = @(
+            "src/database.cjs",
+            "src/reparation-domain.cjs",
+            "renderer/reparations.js",
+            "renderer/reparations.css",
+            "preload.cjs",
+            "main.cjs",
+            "tests/reparation-edit.test.mjs",
+            "quality/r4-reparations-contract.json"
+          )
+          $changed = git diff --name-only "$baseline...HEAD" -- $critical
+          if ($changed) {
+            Write-Host "Fichiers R4-P2 critiques modifiés :"
+            $changed | ForEach-Object { Write-Host " - $_" }
+            throw "R4-P3a n'a pas le droit de modifier le socle R4-P2 qualifié."
+          }
+          Write-Host "R4-P2_CRITICAL_FILES_UNCHANGED"
 
       - name: Install pinned desktop toolchain
         shell: pwsh
