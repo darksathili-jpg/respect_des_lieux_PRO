@@ -1,12 +1,20 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "phase": "R4",
   "feature": "reparations",
   "baseCommit": "a3a9210b54967ed67bd79319d088d6a7bbc37f1d",
   "signalementsQualificationCommit": "158f81e83fb6eba479c7070a05bdc8064900f663",
-  "stage": "functional-audit",
+  "stage": "visual-reconstruction",
   "releaseFrozen": true,
-  "cssSpecificWorkAllowed": false,
+  "cssSpecificWorkAllowed": true,
+  "functionalQualificationCommit": "bc628489891c0e42bcf04c4391cdd00a8bf7fa1e",
+  "p0Qualification": {
+    "functionalGateRunId": 36243601094,
+    "packagedE2EArtifactId": 10906732243,
+    "packagedE2EArtifactSha256": "fb7d44775886b6b7c320787b4c6dc7ee0b9792396891094de7a18105ace65045",
+    "allTransverseGatesGreen": true,
+    "prereleasePublicationSkipped": true
+  },
   "allowedStatuses": ["En cours", "Terminée", "Annulée"],
   "requiredDomainOperations": [
     "queryReparations",
@@ -65,6 +73,18 @@
     "visibleCloseControlRequired": true,
     "escapeRequired": true,
     "focusMustReturnToInvoker": true
+  },
+  "visualContract": {
+    "p0FunctionalQualificationMustRemainAncestor": true,
+    "functionalGateMustStayGreenDuringCssWork": true,
+    "cssMustRemainScopedToRepairs": true,
+    "packagedExeEvidenceRequiredBeforeVisualAcceptance": true,
+    "desktopViewport": "1440x900",
+    "reducedViewport": "760x760",
+    "bodyOverflowForbidden": true,
+    "localTableScrollAllowedOnReducedViewport": true,
+    "keyboardEvidenceRequired": true,
+    "releaseFreezeMustRemainActive": true
   },
   "exitGateBeforeReparationsCss": [
     "domain-contract-green",
