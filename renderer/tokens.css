@@ -1,4 +1,4 @@
-/* R2 — Design tokens. Single source of visual truth for the production shell. */
+/* R2/R4-P3a — Design tokens. Single source of visual truth for the production shell. */
 :root{
   --rdl-ds-ready:r2;
   color-scheme:light;
@@ -7,32 +7,46 @@
   --rdl-font-mono:"Cascadia Code",Consolas,"Courier New",monospace;
   --rdl-font-display:Georgia,"Times New Roman",serif;
 
-  --rdl-text-strong:#17283a;
-  --rdl-text:#2f4357;
-  --rdl-text-soft:#667b8e;
-  --rdl-text-faint:#8798a8;
-  --rdl-canvas:#f3f6f9;
-  --rdl-surface:#ffffff;
-  --rdl-surface-soft:#f8fafc;
-  --rdl-surface-tint:#eef4f8;
-  --rdl-line:#d9e2e9;
-  --rdl-line-strong:#c6d2dc;
+  --rdl-text-strong:#10283d;
+  --rdl-text:#30465a;
+  --rdl-text-soft:#687d8f;
+  --rdl-text-faint:#8a9aa8;
+  --rdl-canvas:#f3f6f8;
+  --rdl-surface:#fffdf9;
+  --rdl-surface-soft:#f9fbfc;
+  --rdl-surface-tint:#edf4f7;
+  --rdl-line:#d7e1e8;
+  --rdl-line-strong:#c3d0da;
 
-  --rdl-navy-950:#0b1b2d;
-  --rdl-navy-900:#10263d;
-  --rdl-navy-800:#173b58;
+  --rdl-navy-950:#0b2033;
+  --rdl-navy-900:#0f2f49;
+  --rdl-navy-800:#173f5f;
   --rdl-blue-700:#245f8c;
-  --rdl-blue-600:#2f78aa;
+  --rdl-blue-600:#2d78a9;
   --rdl-blue-100:#e8f2f8;
-  --rdl-brick-700:#9f312d;
-  --rdl-brick-600:#b94037;
-  --rdl-brick-100:#f8ebe8;
+  --rdl-brick-700:#98312d;
+  --rdl-brick-600:#b84639;
+  --rdl-brick-100:#faece8;
   --rdl-green-700:#2d7652;
   --rdl-green-100:#e7f5ed;
   --rdl-amber-700:#8c5d1c;
   --rdl-amber-100:#fff4df;
   --rdl-red-700:#913f46;
   --rdl-red-100:#fbecee;
+
+  /* R4-P3a — identité Watteau. */
+  --watteau-navy:#0f2f49;
+  --watteau-navy-deep:#0a2237;
+  --watteau-blue:#245f8c;
+  --watteau-brick:#b84639;
+  --watteau-brick-dark:#98312d;
+  --watteau-cream:#f7eee4;
+  --watteau-cream-soft:#fff8f0;
+  --watteau-canvas:#f2f5f7;
+  --watteau-surface:#fffdf9;
+  --watteau-ink:#10283d;
+  --watteau-gold:#d38b38;
+  --watteau-green:#2d7652;
 
   --rdl-space-1:4px;
   --rdl-space-2:8px;
@@ -49,25 +63,25 @@
   --rdl-radius-sm:8px;
   --rdl-radius-md:12px;
   --rdl-radius-lg:18px;
-  --rdl-radius-xl:24px;
+  --rdl-radius-xl:26px;
   --rdl-radius-pill:999px;
 
-  --rdl-shadow-sm:0 1px 2px rgba(12,31,48,.05),0 6px 18px rgba(12,31,48,.04);
-  --rdl-shadow-md:0 14px 36px rgba(12,31,48,.09);
-  --rdl-shadow-lg:0 24px 70px rgba(8,24,39,.16);
+  --rdl-shadow-sm:0 1px 2px rgba(12,31,48,.05),0 7px 20px rgba(12,31,48,.045);
+  --rdl-shadow-md:0 14px 38px rgba(12,31,48,.10);
+  --rdl-shadow-lg:0 25px 72px rgba(8,24,39,.17);
   --rdl-focus:0 0 0 3px rgba(47,120,170,.22),0 0 0 1px #2f78aa;
   --rdl-focus-ring:#2f78aa;
-  --rdl-focus-ring-dark:#8fd3ff;
+  --rdl-focus-ring-dark:#9bddff;
 
-  --rdl-sidebar-width:272px;
+  --rdl-sidebar-width:286px;
   --rdl-content-max:1540px;
   --rdl-topbar-min:92px;
-  --rdl-control-min:42px;
+  --rdl-control-min:44px;
   --rdl-ease:cubic-bezier(.2,.75,.25,1);
   --rdl-duration-fast:140ms;
   --rdl-duration:220ms;
 
-  /* Compatibility aliases while R2 migrates every view to the shared system. */
+  /* Compatibility aliases while every view remains on the shared system. */
   --bg:var(--rdl-canvas);
   --surface:var(--rdl-surface);
   --surface2:var(--rdl-surface-soft);
