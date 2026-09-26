@@ -17,6 +17,7 @@
     total: 0,
     rows: [],
     invoker: null,
+    invokerRepairId: null,
     searchTimer: null
   };
 
@@ -113,6 +114,7 @@
     if (!dialog || !form) return;
     const canEditReferent = !repair || identitiesVisible();
     state.invoker = invoker || document.activeElement;
+    state.invokerRepairId = repair ? Number(repair.id) : null;
     form.reset();
     form.elements.reparation_id.value = repair ? String(repair.id) : '';
     form.elements.signalement_id.value = repair ? String(repair.signalement_id) : '';
@@ -161,6 +163,16 @@
     dialog.close();
   }
 
+  function restoreInvokerFocus(originalTarget, repairId) {
+    if ($('#repair-dialog')?.open || document.querySelector('dialog[open]')) return false;
+    const liveTarget = originalTarget?.isConnected
+      ? originalTarget
+      : (repairId ? document.querySelector(`[data-edit-repair="${repairId}"]`) : null);
+    if (!liveTarget || typeof liveTarget.focus !== 'function') return false;
+    liveTarget.focus();
+    return document.activeElement === liveTarget;
+  }
+
   function bindDialog() {
     const dialog = $('#repair-dialog');
     const form = $('#repair-form');
@@ -181,9 +193,14 @@
       form.elements.referent.disabled = false;
       delete dialog.dataset.identitiesVisible;
       const target = state.invoker;
+      const repairId = state.invokerRepairId;
       state.invoker = null;
+      state.invokerRepairId = null;
       requestAnimationFrame(() => {
-        if (target && target.isConnected && typeof target.focus === 'function') target.focus();
+        const restored = restoreInvokerFocus(target, repairId);
+        if (!restored && repairId) {
+          setTimeout(() => restoreInvokerFocus(target, repairId), 140);
+        }
       });
     });
 
