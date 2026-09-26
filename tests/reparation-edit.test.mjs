@@ -87,16 +87,31 @@ test('le statut passe par une transition dédiée et date les états terminaux',
   }
 });
 
-test('un dossier clos interdit toute mutation de ses réparations', () => {
+test('un dossier ne peut être clos avec une réparation active puis verrouille ses réparations une fois clos', () => {
   const ctx = fixture('rdl-repair-domain-closed-');
   try {
     const signalement = ctx.db.createSignalement({ date: '2026-09-25', lieu: 'Salle close' });
     const repair = ctx.repairs.createReparation({ signalement_id: signalement.id, mesure: 'Avant clôture' });
-    ctx.db.setSignalementStatus(signalement.id, 'Clos');
+
+    assert.throws(
+      () => ctx.db.setSignalementStatus(signalement.id, 'Clos'),
+      /Impossible de clore|réparation.*en cours/i
+    );
+    assert.equal(ctx.db.getSignalement(signalement.id).statut, 'Ouvert');
+
+    ctx.repairs.setReparationStatus(repair.id, 'Terminée');
+    const closed = ctx.db.setSignalementStatus(signalement.id, 'Clos');
+    assert.equal(closed.statut, 'Clos');
 
     assert.throws(() => ctx.repairs.createReparation({ signalement_id: signalement.id, mesure: 'Nouvelle' }), /clos|rouvr/i);
     assert.throws(() => ctx.repairs.updateReparation(repair.id, { mesure: 'Modification' }), /clos|rouvr/i);
-    assert.throws(() => ctx.repairs.setReparationStatus(repair.id, 'Terminée'), /clos|rouvr/i);
+    assert.throws(() => ctx.repairs.setReparationStatus(repair.id, 'En cours'), /clos|rouvr/i);
+
+    const reopenedParent = ctx.db.setSignalementStatus(signalement.id, 'Ouvert');
+    assert.equal(reopenedParent.statut, 'Ouvert');
+    const resumed = ctx.repairs.setReparationStatus(repair.id, 'En cours');
+    assert.equal(resumed.statut, 'En cours');
+    assert.equal(resumed.cloture, '');
   } finally {
     cleanup(ctx);
   }
