@@ -12,7 +12,7 @@ const outDir = path.resolve(arg('--out', 'artifacts/r3-packaged-e2e'));
 const fixture = JSON.parse(fs.readFileSync(path.resolve(arg('--fixture', path.join(outDir, 'fixture.json'))), 'utf8'));
 fs.mkdirSync(outDir, { recursive: true });
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-const evidence = { format: 2, startedAt: new Date().toISOString(), fixture, steps: [] };
+const evidence = { format: 3, startedAt: new Date().toISOString(), fixture, steps: [], visualEvidence: [] };
 const record = (name, detail = {}) => {
   evidence.steps.push({ name, at: new Date().toISOString(), ...detail });
   console.log(`R3_E2E_STEP ${name} ${JSON.stringify(detail)}`);
@@ -84,12 +84,18 @@ async function fill(cdp, selector, value) {
   const ok = await evaluate(cdp, `(() => { const e=document.querySelector(${JSON.stringify(selector)}); if(!e)return false; e.value=${JSON.stringify(value)}; e.dispatchEvent(new Event('input',{bubbles:true})); e.dispatchEvent(new Event('change',{bubbles:true})); return true; })()`);
   if (!ok) throw new Error(`Champ introuvable: ${selector}`);
 }
-async function shot(cdp, name) {
+async function setViewport(cdp, width, height = 900) {
+  await cdp.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false, screenWidth: width, screenHeight: height, positionX: 0, positionY: 0, dontSetVisibleSize: false });
+  await wait(180);
+}
+async function shot(cdp, name, state = '') {
   const r = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false });
   const bytes = Buffer.from(r.data || '', 'base64');
   fs.writeFileSync(path.join(outDir, name), bytes);
   if (bytes.length < 5000) throw new Error(`Capture trop petite: ${name}`);
-  return { file: name, bytes: bytes.length };
+  const item = { file: name, bytes: bytes.length, state };
+  evidence.visualEvidence.push(item);
+  return item;
 }
 async function queryTotal(cdp, query = '') {
   return evaluate(cdp, `window.rdl.querySignalements({query:${JSON.stringify(query)},limit:1,offset:0,includeIdentities:false}).then(r=>r.total)`);
@@ -100,7 +106,7 @@ const cdp = new Cdp(target.webSocketDebuggerUrl);
 await cdp.connect();
 try {
   await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
-  await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false, screenWidth: 1440, screenHeight: 900, positionX: 0, positionY: 0, dontSetVisibleSize: false });
+  await setViewport(cdp, 1440, 900);
   await waitFor(cdp, `document.querySelector('#app-shell')?.dataset.shellReady==='true'`, 'shell prête');
   const baseline = await queryTotal(cdp);
   if (baseline !== fixture.seededSignalements) throw new Error(`Fixture inattendue: ${baseline}`);
@@ -110,6 +116,7 @@ try {
   await waitFor(cdp, `document.querySelector('#app-shell')?.dataset.activeView==='signalements'`, 'vue Signalements');
   await click(cdp, '#new-signalement');
   await waitFor(cdp, `document.querySelector('#signal-dialog')?.open===true`, 'dialog création');
+  record('visual-create-dialog', await shot(cdp, 'r3-signalements-create-dialog.png', 'create-dialog-desktop'));
   await click(cdp, '#signal-dialog [data-signal-cancel]');
   await waitFor(cdp, `document.querySelector('#signal-dialog')?.open===false`, 'annulation');
   if (await queryTotal(cdp) !== baseline) throw new Error('Annulation a écrit dans la base.');
@@ -134,8 +141,10 @@ try {
   await click(cdp, `#signalements-body button[data-fiche-id="${created.id}"]`);
   await waitFor(cdp, `document.querySelector('#signal-detail-dialog')?.open===true`, 'fiche ouverte');
   record('consult-detail', { title: await evaluate(cdp, `document.querySelector('#signal-detail-title')?.textContent||''`) });
+  record('visual-detail', await shot(cdp, 'r3-signalements-detail.png', 'detail-desktop'));
   await click(cdp, '#signal-detail-dialog [data-edit-signalement]');
   await waitFor(cdp, `document.querySelector('#signal-dialog')?.dataset.mode==='edit' && document.querySelector('#signal-dialog')?.open===true`, 'éditeur');
+  record('visual-edit-dialog', await shot(cdp, 'r3-signalements-edit-dialog.png', 'edit-dialog-desktop'));
   await fill(cdp, '#signal-form [name="lieu"]', fixture.editedLieu);
   await click(cdp, '#save-signalement');
   await waitFor(cdp, `document.querySelector('#signal-dialog')?.open===false`, 'édition terminée');
@@ -153,6 +162,7 @@ try {
 
   await click(cdp, `#signalements-body button[data-fiche-id="${created.id}"]`);
   await waitFor(cdp, `document.querySelector('#signal-detail-dialog')?.open===true`, 'fiche photo');
+  record('visual-detail-photo', await shot(cdp, 'r3-signalements-detail-photo.png', 'detail-with-photo-desktop'));
   await evaluate(cdp, `(() => { window.__r3OriginalConfirm=window.confirm; window.__r3ConfirmCount=0; window.confirm=()=>{window.__r3ConfirmCount++;return true}; return true; })()`);
   await click(cdp, `#signal-detail-dialog [data-detail-remove-photo="${photoId}"]`);
   await waitFor(cdp, `window.rdl.getSignalementDetail(${created.id}).then(d=>d.photos.length===0)`, 'photo retirée');
@@ -170,6 +180,7 @@ try {
   if (!closed.signalement.closed_at) throw new Error('closed_at absent');
   await waitFor(cdp, `document.querySelector('#signalements-body [data-edit-signalement="${created.id}"]')?.disabled===true`, 'édition verrouillée');
   record('close', { closedAt: closed.signalement.closed_at });
+  record('visual-closed-row', await shot(cdp, 'r3-signalements-closed-row.png', 'closed-row-desktop'));
   await click(cdp, `#signalements-body [data-set-status="${created.id}"]`);
   await waitFor(cdp, `window.rdl.getSignalementDetail(${created.id}).then(d=>d.signalement.statut==='Ouvert')`, 'rouvert');
   record('reopen');
@@ -180,13 +191,42 @@ try {
   if (!text.includes('2025-0001')) throw new Error(`Dossier profond inattendu: ${text}`);
   record('search-beyond-500', { num: '2025-0001' });
 
-  const screenshot = await shot(cdp, 'r3-signalements-final.png'); record('screenshot', screenshot);
+  const desktopGeometry = await evaluate(cdp, `(() => {
+    const wrap=document.querySelector('#view-signalements .table-wrap');
+    const actions=[...document.querySelectorAll('#signalements-body .actions button')];
+    const wr=wrap?.getBoundingClientRect();
+    return {
+      bodyOverflow: document.documentElement.scrollWidth-document.documentElement.clientWidth,
+      tableOverflow: wrap ? wrap.scrollWidth-wrap.clientWidth : -1,
+      actionsInside: !!wr && actions.every(b=>{const r=b.getBoundingClientRect(); return r.left>=wr.left-1 && r.right<=wr.right+1;})
+    };
+  })()`);
+  if (desktopGeometry.bodyOverflow > 1) throw new Error(`Overflow horizontal du document en desktop: ${JSON.stringify(desktopGeometry)}`);
+  if (desktopGeometry.tableOverflow > 1) throw new Error(`Overflow horizontal de la table en 1440px: ${JSON.stringify(desktopGeometry)}`);
+  if (!desktopGeometry.actionsInside) throw new Error(`Actions tronquées en 1440px: ${JSON.stringify(desktopGeometry)}`);
+  record('desktop-geometry', desktopGeometry);
+  const finalDesktop = await shot(cdp, 'r3-signalements-final.png', 'registry-desktop'); record('screenshot', finalDesktop);
+
+  await setViewport(cdp, 760, 900);
+  await evaluate(cdp, `(() => { document.querySelector('#view-signalements')?.scrollIntoView({block:'start'}); return true; })()`);
+  await wait(220);
+  const responsiveGeometry = await evaluate(cdp, `(() => ({ bodyOverflow: document.documentElement.scrollWidth-document.documentElement.clientWidth, tableScrollable: (()=>{const w=document.querySelector('#view-signalements .table-wrap'); return !!w && w.scrollWidth>w.clientWidth;})() }))()`);
+  if (responsiveGeometry.bodyOverflow > 1) throw new Error(`Overflow horizontal du document en responsive: ${JSON.stringify(responsiveGeometry)}`);
+  record('responsive-geometry', responsiveGeometry);
+  record('visual-responsive', await shot(cdp, 'r3-signalements-responsive-760.png', 'registry-responsive-760'));
+
+  await click(cdp, '#new-signalement');
+  await waitFor(cdp, `document.querySelector('#signal-dialog')?.open===true`, 'dialog création responsive');
+  record('visual-responsive-dialog', await shot(cdp, 'r3-signalements-responsive-dialog-760.png', 'create-dialog-responsive-760'));
+  await click(cdp, '#signal-dialog [data-signal-cancel]');
+  await waitFor(cdp, `document.querySelector('#signal-dialog')?.open===false`, 'dialog responsive fermé');
+
   evidence.ok = true; evidence.finishedAt = new Date().toISOString();
   fs.writeFileSync(path.join(outDir, 'r3-e2e-evidence.json'), JSON.stringify(evidence, null, 2));
-  console.log(`R3_PACKAGED_E2E_PASS ${JSON.stringify({ createdId: created.id, steps: evidence.steps.length, screenshot })}`);
+  console.log(`R3_PACKAGED_E2E_PASS ${JSON.stringify({ createdId: created.id, steps: evidence.steps.length, visualEvidence: evidence.visualEvidence.length, screenshot: finalDesktop })}`);
 } catch (error) {
   evidence.ok = false; evidence.finishedAt = new Date().toISOString(); evidence.error = error?.stack || String(error);
-  try { await shot(cdp, 'r3-signalements-failure.png'); } catch {}
+  try { await shot(cdp, 'r3-signalements-failure.png', 'failure'); } catch {}
   fs.writeFileSync(path.join(outDir, 'r3-e2e-evidence.json'), JSON.stringify(evidence, null, 2));
   throw error;
 } finally {
