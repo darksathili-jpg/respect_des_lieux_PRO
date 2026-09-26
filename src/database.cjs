@@ -241,7 +241,7 @@ class LocalDatabase {
   listPrivacyEvents(limit = 100) {
     this.ensureOpen();
     const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 500);
-    return this.db.prepare('SELECT * FROM privacy_events ORDER BY id DESC LIMIT ?').all(safeLimit);
+    return this.db.prepare('SELECT * FROM privacy_events ORDER BY created_at DESC LIMIT ?').all(safeLimit);
   }
 
   getSetting(key) {
@@ -464,6 +464,18 @@ class LocalDatabase {
     const nextStatus = boundedText(status, SIGNAL_FIELD_LIMITS.statut, 'Le statut', { required: true });
     assertSignalementStatus(nextStatus);
     if (current.statut === nextStatus) return current;
+
+    if (nextStatus === 'Clos') {
+      const active = this.db.prepare(`
+        SELECT count(*) AS n
+        FROM reparations
+        WHERE signalement_id = ? AND statut = 'En cours'
+      `).get(signalementId);
+      const activeCount = Number(active?.n || 0);
+      if (activeCount > 0) {
+        throw new Error(`Impossible de clore le dossier : ${activeCount} réparation${activeCount > 1 ? 's sont' : ' est'} encore en cours. Terminez ou annulez-${activeCount > 1 ? 'les' : 'la'} d’abord.`);
+      }
+    }
 
     return this.transaction(() => {
       if (nextStatus === 'Clos') {
