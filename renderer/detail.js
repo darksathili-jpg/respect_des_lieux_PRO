@@ -77,11 +77,41 @@
     return true;
   }
 
+  function detailFocusableElements() {
+    if (!dialog) return [];
+    return $$('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])', dialog)
+      .filter((element) => !element.hidden && element.getAttribute('aria-hidden') !== 'true' && element.getClientRects().length > 0);
+  }
+
+  function keepDetailFocusInside(event) {
+    if (event.key !== 'Tab' || !dialog?.open) return;
+    const focusable = detailFocusableElements();
+    if (!focusable.length) {
+      event.preventDefault();
+      dialog.focus();
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const current = document.activeElement;
+    const outside = !current || !dialog.contains(current);
+
+    if (event.shiftKey && (outside || current === first)) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && (outside || current === last)) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
   function ensureDialog() {
     if (dialog) return dialog;
     dialog = document.createElement('dialog');
     dialog.id = 'signal-detail-dialog';
     dialog.className = 'detail-dialog';
+    dialog.tabIndex = -1;
     dialog.setAttribute('aria-labelledby', 'signal-detail-title');
     dialog.innerHTML = `
       <div class="dialog-card detail-card">
@@ -143,6 +173,8 @@
         notify(error.message, true);
       }
     });
+
+    dialog.addEventListener('keydown', keepDetailFocusInside);
 
     dialog.addEventListener('cancel', (event) => {
       event.preventDefault();
@@ -269,7 +301,10 @@
       detailInvoker = invoker || document.activeElement;
       ensureDialog();
       renderDetail(detail);
-      if (!dialog.open) dialog.showModal();
+      if (!dialog.open) {
+        dialog.showModal();
+        requestAnimationFrame(() => detailFocusableElements()[0]?.focus());
+      }
     } catch (error) {
       notify(`Fiche inaccessible : ${error.message}`, true);
     }
