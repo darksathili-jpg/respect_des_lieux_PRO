@@ -8,6 +8,7 @@
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
+  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   const state = {
     query: '',
@@ -113,7 +114,7 @@
     state.invoker = invoker || document.activeElement;
     form.reset();
     form.elements.reparation_id.value = repair ? String(repair.id) : '';
-    form.elements.signalement_id.value = repair ? String(repair.signalement_id) : String(form.elements.signalement_id.value || '');
+    form.elements.signalement_id.value = repair ? String(repair.signalement_id) : '';
     form.elements.mesure.value = repair?.mesure || '';
     form.elements.referent.value = repair?.referent || '';
     form.elements.debut.value = repair?.debut || (repair ? '' : new Date().toISOString().slice(0, 10));
@@ -261,17 +262,28 @@
       });
     });
 
-    $('#privacy-toggle')?.addEventListener('click', () => setTimeout(() => refresh({ resetOffset: true }).catch(() => {}), 0));
+    document.addEventListener('rdl:privacy-visibility-changed', () => refresh({ resetOffset: true }).catch(() => {}));
     document.addEventListener('rdl:reparations-changed', () => refresh().catch(() => {}));
+  }
+
+  async function waitForShellReady() {
+    const shell = $('#app-shell');
+    for (let i = 0; i < 120; i += 1) {
+      if (shell?.dataset.shellReady === 'true') return true;
+      if (shell?.dataset.shellReady === 'false') return false;
+      await wait(50);
+    }
+    throw new Error('Le shell n’a pas terminé son initialisation.');
   }
 
   async function init() {
     if (!window.rdl || !$('#reparations-body') || !$('#repair-form')) return;
     bindDialog();
     bindActions();
-    await refresh();
+    const ready = await waitForShellReady();
+    if (ready) await refresh();
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => void init(), { once: true });
   else void init();
 })();
