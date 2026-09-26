@@ -87,18 +87,18 @@
         <div class="panel">
           <div class="panel-head">
             <div><p class="eyebrow">Registre local</p><h3>Signalements</h3></div>
-            <input id="signal-search" class="search" type="search" placeholder="Rechercher…" autocomplete="off">
+            <input id="signal-search" class="search" type="search" placeholder="Rechercher…" autocomplete="off" aria-label="Rechercher dans les signalements" aria-controls="signalements-body">
           </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>N°</th><th>Date</th><th>Lieu</th><th>Type</th><th>Gravité</th><th>Élève / classe</th><th>Statut</th><th>Actions</th></tr></thead>
+          <div class="table-wrap" role="region" aria-label="Tableau des signalements" tabindex="0">
+            <table aria-label="Liste des signalements">
+              <thead><tr><th scope="col">N°</th><th scope="col">Date</th><th scope="col">Lieu</th><th scope="col">Type</th><th scope="col">Gravité</th><th scope="col">Élève / classe</th><th scope="col">Statut</th><th scope="col">Actions</th></tr></thead>
               <tbody id="signalements-body"></tbody>
             </table>
           </div>
-          <div class="form-actions" aria-label="Pagination des signalements">
-            <button id="signal-prev" class="btn secondary" type="button">Précédents</button>
+          <div class="form-actions" role="navigation" aria-label="Pagination des signalements">
+            <button id="signal-prev" class="btn secondary" type="button" aria-controls="signalements-body">Précédents</button>
             <span id="signal-page" aria-live="polite">0 dossier</span>
-            <button id="signal-next" class="btn secondary" type="button">Suivants</button>
+            <button id="signal-next" class="btn secondary" type="button" aria-controls="signalements-body">Suivants</button>
           </div>
         </div>
       </section>
