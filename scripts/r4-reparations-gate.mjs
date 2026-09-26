@@ -11,8 +11,8 @@ const { ReparationDomain } = require('../src/reparation-domain.cjs');
 const read = (file) => fs.readFileSync(file, 'utf8');
 const contract = JSON.parse(read('quality/r4-reparations-contract.json'));
 const html = read('renderer/index.html');
-const app = read('renderer/app.js');
 const detail = read('renderer/detail.js');
+const repairRenderer = read('renderer/reparations.js');
 const preload = read('preload.cjs');
 const main = read('main.cjs');
 const mainEntry = read('main-entry.cjs');
@@ -68,6 +68,8 @@ const repairDialog = repairDialogBlock();
 check(Boolean(repairDialog), 'le dialogue Réparations existe');
 check(/<button(?=[^>]*class="close")(?=[^>]*type="button")[^>]*>/i.test(repairDialog), 'le bouton × de Réparations est explicitement non-submit');
 check(/<button(?=[^>]*class="btn secondary")(?=[^>]*type="button")[^>]*>\s*Annuler\s*<\/button>/i.test(repairDialog), 'le bouton Annuler de Réparations est explicitement non-submit');
+check(html.includes('id="repair-search"') && html.includes('id="repair-prev"') && html.includes('id="repair-next"'), 'la vue Réparations possède recherche et pagination explicites');
+check(html.includes('src="./reparations.js"'), 'le renderer Réparations dédié est chargé explicitement');
 
 for (const api of ['queryReparations', 'getReparation', 'createReparation', 'updateReparation', 'setReparationStatus']) {
   check(new RegExp(`${api}\\s*:`).test(preload), `le preload expose ${api}`);
@@ -87,13 +89,14 @@ check(/REPARATION_FIELD_LIMITS/.test(domainSource), 'les limites de champs Répa
 
 check(!/observeRepairRenders|decorateRepairRows/.test(detail), 'les contrôles métier Réparations ne sont pas injectés après rendu par décoration');
 check(!/MutationObserver[\s\S]{0,400}(?:repair|reparation)/i.test(detail), 'Réparations ne dépend pas d’un MutationObserver pour rendre ses contrôles fonctionnels');
-const openRepairSource = block(detail, 'async function openRepairEditor', 'function bindRepairEditing');
-if (openRepairSource) {
-  check(!openRepairSource.includes('listReparations('), 'ouvrir une réparation ne recharge pas toute la liste');
-  check(openRepairSource.includes('getReparation('), 'ouvrir une réparation utilise une lecture ciblée getReparation');
-}
-const repairSubmitBlock = block(app, "$('#repair-form').addEventListener", "$('#signalements-body').addEventListener");
+const openRepairSource = block(repairRenderer, 'async function openEditor', 'function openCreate');
+check(Boolean(openRepairSource), 'le renderer dédié possède un éditeur ciblé Réparations');
+check(!openRepairSource.includes('listReparations('), 'ouvrir une réparation ne recharge pas toute la liste');
+check(openRepairSource.includes('getReparation('), 'ouvrir une réparation utilise une lecture ciblée getReparation');
+const repairSubmitBlock = block(repairRenderer, "form.addEventListener('submit'", 'function bindActions');
 check(/withBusy/.test(repairSubmitBlock), 'la soumission Réparations possède un état busy contre les doubles écritures');
+check(/queryReparations/.test(repairRenderer) && /repair-prev/.test(repairRenderer) && /repair-next/.test(repairRenderer), 'recherche et pagination Réparations utilisent queryReparations');
+check(/data-repair-status/.test(repairRenderer) && /setReparationStatus/.test(repairRenderer), 'les transitions de statut sont rendues directement et utilisent l’IPC dédié');
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rdl-r4-gate-'));
