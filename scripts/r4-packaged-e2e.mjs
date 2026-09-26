@@ -12,7 +12,7 @@ const outDir = path.resolve(arg('--out', 'artifacts/r4-packaged-e2e'));
 const fixture = JSON.parse(fs.readFileSync(path.resolve(arg('--fixture', path.join(outDir, 'fixture.json'))), 'utf8'));
 fs.mkdirSync(outDir, { recursive: true });
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const evidence = { format: 1, startedAt: new Date().toISOString(), fixture, steps: [], screenshots: [] };
+const evidence = { format: 2, startedAt: new Date().toISOString(), fixture, steps: [], screenshots: [] };
 const record = (name, detail = {}) => {
   evidence.steps.push({ name, at: new Date().toISOString(), ...detail });
   console.log(`R4_E2E_STEP ${name} ${JSON.stringify(detail)}`);
@@ -96,7 +96,8 @@ async function pressKey(cdp, key) {
   const keys = {
     Escape: { code: 'Escape', vk: 27 },
     Enter: { code: 'Enter', vk: 13, text: '\r' },
-    Tab: { code: 'Tab', vk: 9 }
+    Tab: { code: 'Tab', vk: 9 },
+    ArrowRight: { code: 'ArrowRight', vk: 39 }
   };
   const meta = keys[key];
   if (!meta) throw new Error(`Touche R4 non configurée: ${key}`);
@@ -145,6 +146,14 @@ try {
   await pressKey(cdp, 'Enter');
   await waitFor(cdp, `document.querySelector('#repair-dialog')?.open===true`, 'dialogue Réparations ouvert au clavier');
   await waitFor(cdp, `document.activeElement?.getAttribute('name')==='mesure'`, 'focus initial mesure');
+  const createTrap = [];
+  for (let i = 0; i < 8; i += 1) {
+    await pressKey(cdp, 'Tab');
+    const item = await evaluate(cdp, `(() => { const d=document.querySelector('#repair-dialog'); const a=document.activeElement; return {inside:!!d?.contains(a), tag:a?.tagName||'', name:a?.getAttribute?.('name')||'', text:(a?.textContent||'').trim().slice(0,40)}; })()`);
+    if (!item.inside) throw new Error(`Le focus est sorti du dialogue Réparations: ${JSON.stringify(item)}`);
+    createTrap.push(item.name || `${item.tag}:${item.text}`);
+  }
+  record('keyboard-create-focus-trap', { samples: createTrap });
   await pressKey(cdp, 'Escape');
   await waitFor(cdp, `document.querySelector('#repair-dialog')?.open===false`, 'annulation Échap');
   await waitFor(cdp, `document.activeElement===document.querySelector(${JSON.stringify(trigger)})`, 'focus rendu au déclencheur');
@@ -175,9 +184,35 @@ try {
   await waitFor(cdp, `document.querySelector('#app-shell')?.dataset.activeView==='reparations'`, 'vue Réparations');
   await fill(cdp, '#repair-search', fixture.createMeasure);
   await waitFor(cdp, `document.querySelector('#reparations-body')?.innerText.includes(${JSON.stringify(fixture.createMeasure)})`, 'réparation créée dans registre');
+
+  const desktopGeometry = await evaluate(cdp, `(() => {
+    const wrap=document.querySelector('#view-reparations .table-wrap');
+    const actions=document.querySelector('#reparations-body tr .actions');
+    const wr=wrap?.getBoundingClientRect();
+    const ar=actions?.getBoundingClientRect();
+    return {
+      bodyOverflow:Math.max(0,document.documentElement.scrollWidth-document.documentElement.clientWidth),
+      tableOverflow:wrap?Math.max(0,wrap.scrollWidth-wrap.clientWidth):9999,
+      actionsInside:!!(wr&&ar&&ar.right<=wr.right+1&&ar.left>=wr.left-1),
+      viewport:[innerWidth,innerHeight]
+    };
+  })()`);
+  if (desktopGeometry.bodyOverflow > 1 || desktopGeometry.tableOverflow > 1 || !desktopGeometry.actionsInside) {
+    throw new Error(`Géométrie desktop Réparations invalide: ${JSON.stringify(desktopGeometry)}`);
+  }
+  record('desktop-geometry', desktopGeometry);
   record('registry-visible', await screenshot(cdp, 'r4-reparations-registry.png', 'created-repair-registry'));
 
   const editSelector = `#reparations-body [data-edit-repair="${created.id}"]`;
+  await evaluate(cdp, `document.querySelector(${JSON.stringify(editSelector)}).focus()`);
+  await pressKey(cdp, 'Enter');
+  await waitFor(cdp, `document.querySelector('#repair-dialog')?.open===true && document.querySelector('#repair-dialog')?.dataset.mode==='edit'`, 'éditeur ciblé ouvert au clavier');
+  await waitFor(cdp, `document.activeElement?.getAttribute('name')==='mesure'`, 'focus éditeur sur mesure');
+  await pressKey(cdp, 'Escape');
+  await waitFor(cdp, `document.querySelector('#repair-dialog')?.open===false`, 'éditeur fermé avec Échap');
+  await waitFor(cdp, `document.activeElement===document.querySelector(${JSON.stringify(editSelector)})`, 'focus rendu au bouton Modifier');
+  record('keyboard-edit-focus-return', { returnedTo: 'edit-repair' });
+
   await click(cdp, editSelector);
   await waitFor(cdp, `document.querySelector('#repair-dialog')?.open===true && document.querySelector('#repair-dialog')?.dataset.mode==='edit'`, 'éditeur ciblé ouvert');
   const editorState = await evaluate(cdp, `(() => ({ id:document.querySelector('#repair-form [name="reparation_id"]')?.value, measure:document.querySelector('#repair-form [name="mesure"]')?.value, referentDisabled:document.querySelector('#repair-form [name="referent"]')?.disabled }))()`);
@@ -199,6 +234,7 @@ try {
   await click(cdp, `#reparations-body [data-repair-status="${created.id}"][data-repair-status-target="Terminée"]`);
   await waitFor(cdp, `window.rdl.getReparation(${created.id}).then(r=>r?.statut==='Terminée' && /^\\d{4}-\\d{2}-\\d{2}$/.test(r?.cloture||''))`, 'réparation terminée datée');
   record('complete-with-closure-date');
+  record('terminal-row-screenshot', await screenshot(cdp, 'r4-reparations-terminal.png', 'completed-repair'));
   await waitFor(cdp, `document.querySelector('#reparations-body [data-repair-status="${created.id}"][data-repair-status-target="En cours"]')!=null`, 'action Rouvrir');
   await click(cdp, `#reparations-body [data-repair-status="${created.id}"][data-repair-status-target="En cours"]`);
   await waitFor(cdp, `window.rdl.getReparation(${created.id}).then(r=>r?.statut==='En cours' && !r?.cloture)`, 'réparation rouverte sans clôture');
@@ -241,6 +277,46 @@ try {
   if (closedMutation.ok || !/clos|rouvr/i.test(closedMutation.message || '')) throw new Error(`Mutation parent clos non refusée: ${JSON.stringify(closedMutation)}`);
   record('closed-parent-lock', { ui: closedUi, message: closedMutation.message });
   record('closed-parent-screenshot', await screenshot(cdp, 'r4-reparations-closed-parent.png', 'closed-parent-lock'));
+
+  await fill(cdp, '#repair-search', fixture.editedMeasure);
+  await waitFor(cdp, `document.querySelector('#reparations-body [data-edit-repair="${created.id}"]')!=null`, 'réparation éditable avant responsive');
+  await cdp.send('Emulation.setDeviceMetricsOverride', { width: 760, height: 760, deviceScaleFactor: 1, mobile: false, screenWidth: 760, screenHeight: 760 });
+  await wait(250);
+  const responsiveGeometry = await evaluate(cdp, `(() => {
+    const wrap=document.querySelector('#view-reparations .table-wrap');
+    const panel=document.querySelector('#view-reparations>.panel');
+    return {
+      bodyOverflow:Math.max(0,document.documentElement.scrollWidth-document.documentElement.clientWidth),
+      tableScrollable:!!wrap && wrap.scrollWidth>wrap.clientWidth+10,
+      panelInside:!!panel && panel.getBoundingClientRect().right<=innerWidth+1,
+      viewport:[innerWidth,innerHeight]
+    };
+  })()`);
+  if (responsiveGeometry.bodyOverflow > 1 || !responsiveGeometry.tableScrollable || !responsiveGeometry.panelInside) {
+    throw new Error(`Géométrie responsive Réparations invalide: ${JSON.stringify(responsiveGeometry)}`);
+  }
+  record('responsive-geometry', responsiveGeometry);
+  record('responsive-registry-screenshot', await screenshot(cdp, 'r4-reparations-responsive-760.png', 'registry-responsive-760'));
+
+  const scrollState = await evaluate(cdp, `(() => { const w=document.querySelector('#view-reparations .table-wrap'); w.focus(); return {before:w.scrollLeft}; })()`);
+  for (let i = 0; i < 4; i += 1) await pressKey(cdp, 'ArrowRight');
+  const scrollAfter = await evaluate(cdp, `document.querySelector('#view-reparations .table-wrap')?.scrollLeft||0`);
+  if (!(scrollAfter > scrollState.before)) throw new Error(`Le tableau Réparations ne défile pas au clavier: ${scrollState.before} → ${scrollAfter}`);
+  record('keyboard-responsive-table-scroll', { before: scrollState.before, after: scrollAfter });
+
+  const responsiveEdit = `#reparations-body [data-edit-repair="${created.id}"]`;
+  await click(cdp, responsiveEdit);
+  await waitFor(cdp, `document.querySelector('#repair-dialog')?.open===true`, 'dialogue responsive ouvert');
+  const dialogGeometry = await evaluate(cdp, `(() => {
+    const d=document.querySelector('#repair-dialog'); const r=d?.getBoundingClientRect();
+    return { inside:!!r&&r.left>=-1&&r.top>=-1&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1, width:r?.width||0, height:r?.height||0, viewport:[innerWidth,innerHeight] };
+  })()`);
+  if (!dialogGeometry.inside) throw new Error(`Dialogue Réparations hors viewport responsive: ${JSON.stringify(dialogGeometry)}`);
+  record('responsive-dialog-geometry', dialogGeometry);
+  record('responsive-dialog-screenshot', await screenshot(cdp, 'r4-reparations-responsive-dialog-760.png', 'edit-dialog-responsive-760'));
+  await pressKey(cdp, 'Escape');
+  await waitFor(cdp, `document.querySelector('#repair-dialog')?.open===false`, 'dialogue responsive fermé');
+  await waitFor(cdp, `document.activeElement===document.querySelector(${JSON.stringify(responsiveEdit)})`, 'focus rendu après dialogue responsive');
 
   evidence.ok = true;
   evidence.finishedAt = new Date().toISOString();
