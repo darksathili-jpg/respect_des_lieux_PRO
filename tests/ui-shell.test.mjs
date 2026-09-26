@@ -91,10 +91,10 @@ test('R4-P3a : les replis responsive couvrent shell et Accueil sans dépendre d�
   assert.match(home, /@media \(max-width:560px\)/);
 });
 
-test('R4-P3b : le document ne peut plus dériver horizontalement et la sidebar reste bornée', () => {
-  assert.match(layout, /html,body\{[^}]*overflow-x:clip/);
-  assert.match(layout, /\.shell\{[^}]*overflow-x:clip/);
-  assert.match(layout, /\.main\{[^}]*overflow-x:clip/);
+test('R4-P3b : le root est verrouillé et la shell devient l’unique scroller vertical', () => {
+  assert.match(layout, /html,body\{[^}]*width:100%;[^}]*height:100%;[^}]*overflow:hidden/);
+  assert.match(layout, /\.shell\{[^}]*height:100vh;[^}]*overflow-x:hidden;[^}]*overflow-y:auto/);
+  assert.match(layout, /\.main\{[^}]*overflow-x:hidden/);
   assert.match(layout, /\.sidebar\{[^}]*overflow-x:hidden/);
   assert.match(layout, /\.sidebar\{[^}]*width:100%;[^}]*max-width:100%;[^}]*min-width:0/);
   assert.match(layout, /\.nav-label\{[^}]*min-width:0;[^}]*overflow-wrap:anywhere/);
