@@ -1,6 +1,6 @@
-/* R4-P1 — Réparations visual layer.
+/* R4-P1/P2 — Réparations visual layer.
    Strictly scoped to the Repairs registry and its create/edit dialog.
-   Business behaviour remains in the already-qualified R4-P0 stack. */
+   Business behaviour remains in the qualified R4 stack. */
 
 #view-reparations{
   --r4-accent:#2d6f83;
@@ -62,9 +62,13 @@
   width:min(420px,42vw);
   min-width:280px;
   height:46px;
+  padding-left:42px;
   border-color:#c9d8de;
   border-radius:14px;
-  background:#fff;
+  background-color:#fff;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23667b8e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:14px center;
   box-shadow:0 1px 2px rgba(12,31,48,.025),inset 0 1px 0 rgba(255,255,255,.7);
 }
 
@@ -152,7 +156,7 @@
   white-space:nowrap;
 }
 
-#view-reparations td:first-child small{
+#view-reparations td:first-child>small{
   display:block;
   margin-top:4px;
   color:var(--rdl-text-faint);
@@ -170,14 +174,44 @@
   box-shadow:inset 3px 0 0 #5c99aa;
 }
 
-#view-reparations tbody tr:has([data-edit-repair]:disabled){
+#view-reparations tbody tr[data-parent-status="Clos"]{
   background:#fafbfc;
-  color:#778995;
+  color:#667a87;
 }
 
-#view-reparations tbody tr:has([data-edit-repair]:disabled):hover{
+#view-reparations tbody tr[data-parent-status="Clos"]:hover{
   background:#f7f9fa;
-  box-shadow:inset 3px 0 0 #9aaab4;
+  box-shadow:inset 3px 0 0 #c18a3f;
+}
+
+#view-reparations .repair-parent-lock{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  margin-top:8px;
+}
+
+#view-reparations .repair-parent-lock span{
+  display:inline-flex;
+  width:max-content;
+  max-width:100%;
+  min-height:23px;
+  align-items:center;
+  padding:3px 7px;
+  border:1px solid #e9cf9e;
+  border-radius:999px;
+  background:#fff7e8;
+  color:#7b531a;
+  font-size:8px;
+  font-weight:850;
+  line-height:1.2;
+  letter-spacing:.02em;
+}
+
+#view-reparations .repair-parent-lock small{
+  color:#7b8790;
+  font-size:8px;
+  line-height:1.35;
 }
 
 #view-reparations .badge{
@@ -269,11 +303,36 @@
   color:#3e6a82;
 }
 
+#view-reparations .mini.repair-parent-reopen{
+  grid-column:1/-1;
+  min-height:36px;
+  border-color:#d4b66f;
+  background:#fff8e8;
+  color:#765014;
+}
+
+#view-reparations .mini.repair-parent-reopen:hover{
+  border-color:#b99136;
+  background:#fff2d2;
+}
+
+#view-reparations .repair-actions-locked{
+  align-content:center;
+}
+
+#view-reparations .repair-lock-hint{
+  grid-column:1/-1;
+  color:#7b8790;
+  font-size:8px;
+  line-height:1.35;
+  text-align:center;
+}
+
 #view-reparations .mini:disabled{
-  border-color:#e1e7ea;
-  background:#f4f6f7;
-  color:#91a0a8;
-  opacity:.7;
+  border-color:#d7e0e5;
+  background:#f1f4f6;
+  color:#788994;
+  opacity:.82;
 }
 
 #view-reparations>.panel>.form-actions{
