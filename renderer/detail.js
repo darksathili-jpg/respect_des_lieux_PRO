@@ -184,8 +184,14 @@
     dialog.addEventListener('close', () => {
       activeSignalementId = null;
       const target = detailInvoker;
+      const reason = dialog.dataset.closedBy || 'unknown';
       detailInvoker = null;
-      if (target && typeof target.focus === 'function' && target.isConnected) target.focus();
+      delete dialog.dataset.closedBy;
+
+      if (reason === 'edit' || !target || typeof target.focus !== 'function') return;
+      requestAnimationFrame(() => {
+        if (!dialog.open && target.isConnected) target.focus();
+      });
     });
 
     return dialog;
