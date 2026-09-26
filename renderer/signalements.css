@@ -82,7 +82,7 @@
 }
 
 #view-signalements table{
-  min-width:1040px;
+  min-width:1036px;
   table-layout:fixed;
   font-size:12px;
 }
@@ -110,7 +110,7 @@
 #view-signalements th:nth-child(5){width:82px}
 #view-signalements th:nth-child(6){width:132px}
 #view-signalements th:nth-child(7){width:78px}
-#view-signalements th:nth-child(8){width:284px}
+#view-signalements th:nth-child(8){width:280px}
 
 #view-signalements td{
   height:82px;
@@ -456,7 +456,7 @@
 
 @media (max-width:1180px){
   #view-signalements #signal-search{width:min(360px,38vw)}
-  #view-signalements table{min-width:1020px}
+  #view-signalements table{min-width:1016px}
   #view-signalements .actions{max-width:250px}
 }
 
