@@ -182,15 +182,23 @@
     });
 
     dialog.addEventListener('close', () => {
-      activeSignalementId = null;
+      const signalementId = activeSignalementId;
       const target = detailInvoker;
       const reason = dialog.dataset.closedBy || 'unknown';
+      activeSignalementId = null;
       detailInvoker = null;
       delete dialog.dataset.closedBy;
 
-      if (reason === 'edit' || !target || typeof target.focus !== 'function') return;
+      if (reason === 'edit') return;
       requestAnimationFrame(() => {
-        if (!dialog.open && target.isConnected) target.focus();
+        if (dialog.open) return;
+        const fallback = Number.isSafeInteger(Number(signalementId)) && Number(signalementId) > 0
+          ? $(`#signalements-body tr[data-fiche-id="${Number(signalementId)}"]`)
+          : null;
+        const destination = target && typeof target.focus === 'function' && target.isConnected
+          ? target
+          : fallback;
+        if (destination && typeof destination.focus === 'function') destination.focus();
       });
     });
 
