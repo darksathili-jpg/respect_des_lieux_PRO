@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "phase": "R4",
+  "feature": "reparations",
+  "baseCommit": "a3a9210b54967ed67bd79319d088d6a7bbc37f1d",
+  "signalementsQualificationCommit": "158f81e83fb6eba479c7070a05bdc8064900f663",
+  "stage": "functional-audit",
+  "releaseFrozen": true,
+  "cssSpecificWorkAllowed": false,
+  "allowedStatuses": ["En cours", "Terminée", "Annulée"],
+  "requiredDomainOperations": [
+    "queryReparations",
+    "getReparation",
+    "createReparation",
+    "updateReparation",
+    "setReparationStatus"
+  ],
+  "requiredUserJourneys": [
+    "create-cancel-without-write",
+    "create-save-once",
+    "open-targeted-repair",
+    "edit-existing-repair-without-duplicate",
+    "complete-repair-with-closure-date",
+    "reopen-repair-clears-closure-date",
+    "cancel-repair-with-terminal-date",
+    "search-beyond-first-1000",
+    "closed-parent-forbids-child-mutation",
+    "referent-search-requires-explicit-identities"
+  ],
+  "dataContract": {
+    "mesureRequired": true,
+    "strictIsoDateOrEmpty": true,
+    "terminalStatusesSetClosureDate": true,
+    "enCoursClearsClosureDate": true,
+    "closedSignalementChildMutationForbidden": true,
+    "silentTruncationForbidden": true,
+    "fieldLimits": {
+      "mesure": 2000,
+      "referent": 200,
+      "debut": 10,
+      "duree": 100,
+      "notes": 5000,
+      "cloture": 10,
+      "statut": 80
+    }
+  },
+  "queryContract": {
+    "databaseSideSearchRequired": true,
+    "paginationRequired": true,
+    "mustFindRecordsBeyond1000": true,
+    "identitySearchMustBeExplicit": true,
+    "identityValuesMustBeMaskedWhenNotRequested": true
+  },
+  "architectureContract": {
+    "dedicatedCreateUpdateStatusIpcRequired": true,
+    "hiddenRepairIdMultiplexingForbidden": true,
+    "reparationEditExtensionForbidden": true,
+    "functionalControlsInjectedByMutationObserverForbidden": true,
+    "listAllToOpenSingleRepairForbidden": true,
+    "asyncMutationBusyStateRequired": true,
+    "minimalEventHistoryRequired": true
+  },
+  "dialogContract": {
+    "cancelControlsMustNotSubmit": true,
+    "visibleCloseControlRequired": true,
+    "escapeRequired": true,
+    "focusMustReturnToInvoker": true
+  },
+  "exitGateBeforeReparationsCss": [
+    "domain-contract-green",
+    "dedicated-ipc-green",
+    "renderer-functional-contract-green",
+    "inherited-r3-regression-green",
+    "packaged-windows-repair-journey-green",
+    "search-beyond-1000-green",
+    "dialog-keyboard-mouse-green",
+    "privacy-invariants-green"
+  ]
+}
