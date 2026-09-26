@@ -48,7 +48,7 @@ test('R1 : la navigation agit directement sur les vues de la shell unique', () =
   assert.match(app, /view\.hidden = !active/);
   assert.match(app, /button\.setAttribute\('aria-current', 'page'\)/);
   assert.match(app, /\$\$\('#app-shell \.nav\[data-view\]'\)/);
-  assert.match(layout, /\.shell\{min-height:100vh;display:grid/);
+  assert.match(layout, /\.shell\{[^}]*min-height:100vh;[^}]*display:grid/);
 });
 
 test('R1 : les actions structurelles des vues réelles sont branchées', () => {
@@ -89,4 +89,13 @@ test('R4-P3a : les replis responsive couvrent shell et Accueil sans dépendre d�
   assert.match(home, /@media \(max-width:980px\)/);
   assert.match(home, /@media \(max-width:700px\)/);
   assert.match(home, /@media \(max-width:560px\)/);
+});
+
+test('R4-P3b : le document ne peut plus dériver horizontalement et la sidebar reste bornée', () => {
+  assert.match(layout, /html,body\{[^}]*overflow-x:clip/);
+  assert.match(layout, /\.shell\{[^}]*overflow-x:clip/);
+  assert.match(layout, /\.main\{[^}]*overflow-x:clip/);
+  assert.match(layout, /\.sidebar\{[^}]*overflow-x:hidden/);
+  assert.match(layout, /\.sidebar\{[^}]*width:100%;[^}]*max-width:100%;[^}]*min-width:0/);
+  assert.match(layout, /\.nav-label\{[^}]*min-width:0;[^}]*overflow-wrap:anywhere/);
 });
