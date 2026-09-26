@@ -111,7 +111,6 @@ try {
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false, screenWidth: 1440, screenHeight: 900 });
   await waitFor(cdp, `document.querySelector('#app-shell')?.dataset.shellReady==='true'`, 'shell R4-P2 prêt', 15000);
 
-  // 1. Le parent ne peut pas être clos tant que sa réparation est active.
   await click(cdp, '#app-shell .nav[data-view="signalements"]');
   await waitFor(cdp, `document.querySelector('#app-shell')?.dataset.activeView==='signalements'`, 'vue Signalements');
   await fill(cdp, '#signal-search', fixture.closableSignalementNum);
@@ -121,10 +120,11 @@ try {
   await waitFor(cdp, `document.querySelector('#toast')?.classList.contains('show') && /Impossible de clore|réparation.*en cours/i.test(document.querySelector('#toast')?.textContent||'')`, 'message de refus de clôture');
   const refused = await evaluate(cdp, `window.rdl.getSignalementDetail(${fixture.closableSignalementId}).then(d=>({status:d.signalement.statut, repair:d.reparations.find(r=>r.id===${fixture.closableRepairId})?.statut, toast:document.querySelector('#toast')?.textContent||''}))`);
   if (refused.status !== 'Ouvert' || refused.repair !== 'En cours') throw new Error(`Clôture active non bloquée: ${JSON.stringify(refused)}`);
+  if (/Error invoking remote method|rdl:signalements:set-status/i.test(refused.toast)) throw new Error(`Jargon IPC exposé à l’utilisateur: ${refused.toast}`);
+  if (!/^Impossible de clore le dossier\s*:/i.test(refused.toast.trim())) throw new Error(`Message métier de clôture inattendu: ${refused.toast}`);
   record('close-refused-with-active-repair', refused);
   record('close-refused-screenshot', await screenshot(cdp, 'r4-p2-close-refused.png', 'close-refused-active-repair'));
 
-  // 2. Une fois la réparation terminale, la clôture du parent devient légitime.
   await click(cdp, '#app-shell .nav[data-view="reparations"]');
   await waitFor(cdp, `document.querySelector('#app-shell')?.dataset.activeView==='reparations'`, 'vue Réparations');
   await fill(cdp, '#repair-search', fixture.closableRepairMeasure);
@@ -141,7 +141,6 @@ try {
   await waitFor(cdp, `window.rdl.getSignalementDetail(${fixture.closableSignalementId}).then(d=>d.signalement.statut==='Clos')`, 'clôture parent après réparations terminales');
   record('close-allowed-after-terminal-repairs');
 
-  // 3. Dans Réparations, le verrou parent est explicite et possède une sortie.
   await click(cdp, '#app-shell .nav[data-view="reparations"]');
   await waitFor(cdp, `document.querySelector('#app-shell')?.dataset.activeView==='reparations'`, 'retour Réparations');
   await fill(cdp, '#repair-search', fixture.closableRepairMeasure);
@@ -154,7 +153,6 @@ try {
   record('closed-parent-explicit-lock', locked);
   record('closed-parent-explicit-screenshot', await screenshot(cdp, 'r4-p2-parent-closed-explicit.png', 'closed-parent-explicit-lock'));
 
-  // 4. Rouvrir le parent restaure le suivi sans mutation silencieuse de la réparation.
   const reopenParentSelector = `${rowSelector} [data-reopen-parent="${fixture.closableSignalementId}"]`;
   await click(cdp, reopenParentSelector);
   await waitFor(cdp, `window.rdl.getSignalementDetail(${fixture.closableSignalementId}).then(d=>d.signalement.statut==='Ouvert')`, 'parent rouvert');
@@ -165,7 +163,6 @@ try {
   await waitFor(cdp, `window.rdl.getReparation(${fixture.closableRepairId}).then(r=>r?.statut==='En cours' && !r?.cloture)`, 'réparation reprise après réouverture parent');
   record('parent-reopen-restores-repair-work');
 
-  // 5. Une base legacy déjà incohérente dispose elle aussi d'un chemin de récupération.
   await fill(cdp, '#repair-search', fixture.closedRepairMeasure);
   const legacyRow = `#reparations-body tr[data-reparation-id="${fixture.closedRepairId}"]`;
   await waitFor(cdp, `document.querySelector(${JSON.stringify(legacyRow)})?.dataset.parentStatus==='Clos'`, 'cas legacy parent clos');
