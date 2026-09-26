@@ -67,21 +67,30 @@
     body.innerHTML = state.rows.length ? state.rows.map((repair) => {
       const parentClosed = repair.signalement_statut === 'Clos';
       const terminal = repair.statut === 'Terminée' || repair.statut === 'Annulée';
+      const parentContext = parentClosed
+        ? `<div class="repair-parent-lock" role="status"><span>Dossier parent clos</span><small>Rouvrez-le pour reprendre le suivi.</small></div>`
+        : '';
+      const actions = parentClosed
+        ? `<div class="actions repair-actions-locked">
+             <button class="mini repair-parent-reopen" type="button" data-reopen-parent="${Number(repair.signalement_id)}">Rouvrir le dossier</button>
+             <span class="repair-lock-hint">Modification suspendue</span>
+           </div>`
+        : `<div class="actions">
+             <button class="mini" type="button" data-edit-repair="${Number(repair.id)}">Modifier</button>
+             ${terminal
+               ? `<button class="mini" type="button" data-repair-status="${Number(repair.id)}" data-repair-status-target="En cours">Rouvrir</button>`
+               : `<button class="mini" type="button" data-repair-status="${Number(repair.id)}" data-repair-status-target="Terminée">Terminer</button>
+                  <button class="mini" type="button" data-repair-status="${Number(repair.id)}" data-repair-status-target="Annulée">Annuler</button>`}
+           </div>`;
       return `
-        <tr data-reparation-id="${Number(repair.id)}">
-          <td><strong>${esc(repair.signalement_num)}</strong><br><small>${esc(repair.signalement_lieu)}</small></td>
+        <tr data-reparation-id="${Number(repair.id)}" data-parent-status="${esc(repair.signalement_statut || '')}">
+          <td><strong>${esc(repair.signalement_num)}</strong><br><small>${esc(repair.signalement_lieu)}</small>${parentContext}</td>
           <td>${esc(repair.mesure || '—')}</td>
           <td>${referent(repair.referent)}</td>
           <td>${esc(repair.debut || '—')}</td>
           <td>${esc(repair.duree || '—')}</td>
           <td>${badge(repair.statut)}${repair.cloture ? `<br><small>${esc(repair.cloture)}</small>` : ''}</td>
-          <td><div class="actions">
-            <button class="mini" type="button" data-edit-repair="${Number(repair.id)}" ${parentClosed ? 'disabled title="Rouvrez le dossier pour modifier cette réparation"' : ''}>Modifier</button>
-            ${terminal
-              ? `<button class="mini" type="button" data-repair-status="${Number(repair.id)}" data-repair-status-target="En cours" ${parentClosed ? 'disabled' : ''}>Rouvrir</button>`
-              : `<button class="mini" type="button" data-repair-status="${Number(repair.id)}" data-repair-status-target="Terminée" ${parentClosed ? 'disabled' : ''}>Terminer</button>
-                 <button class="mini" type="button" data-repair-status="${Number(repair.id)}" data-repair-status-target="Annulée" ${parentClosed ? 'disabled' : ''}>Annuler</button>`}
-          </div></td>
+          <td>${actions}</td>
         </tr>`;
     }).join('') : '<tr><td colspan="7">Aucune réparation.</td></tr>';
 
@@ -236,11 +245,27 @@
       const create = event.target.closest('[data-repair]');
       const edit = event.target.closest('[data-edit-repair]');
       const status = event.target.closest('[data-repair-status]');
+      const reopenParent = event.target.closest('[data-reopen-parent]');
 
       if (create) {
         event.preventDefault();
         event.stopImmediatePropagation();
         openCreate(Number(create.dataset.repair), create);
+        return;
+      }
+      if (reopenParent) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        await withBusy(reopenParent, async () => {
+          try {
+            await window.rdl.setSignalementStatus(Number(reopenParent.dataset.reopenParent), 'Ouvert');
+            await refresh();
+            document.dispatchEvent(new CustomEvent('rdl:signalements-changed'));
+            notify('Dossier parent rouvert : le suivi des réparations peut reprendre.');
+          } catch (error) {
+            notify(error.message, true);
+          }
+        });
         return;
       }
       if (edit) {
