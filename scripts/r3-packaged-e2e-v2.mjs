@@ -87,7 +87,7 @@ async function fill(cdp, selector, value) {
 async function pressKey(cdp, key, { shift = false } = {}) {
   const keys = {
     Tab: { code: 'Tab', vk: 9 },
-    Enter: { code: 'Enter', vk: 13 },
+    Enter: { code: 'Enter', vk: 13, text: '\r' },
     Escape: { code: 'Escape', vk: 27 },
     ArrowRight: { code: 'ArrowRight', vk: 39 }
   };
@@ -95,7 +95,10 @@ async function pressKey(cdp, key, { shift = false } = {}) {
   if (!meta) throw new Error(`Touche E2E non configurée: ${key}`);
   const modifiers = shift ? 8 : 0;
   const payload = { key, code: meta.code, windowsVirtualKeyCode: meta.vk, nativeVirtualKeyCode: meta.vk, modifiers };
-  await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', ...payload });
+  const down = meta.text
+    ? { type: 'keyDown', ...payload, text: meta.text, unmodifiedText: meta.text }
+    : { type: 'rawKeyDown', ...payload };
+  await cdp.send('Input.dispatchKeyEvent', down);
   await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', ...payload });
   await wait(70);
 }
