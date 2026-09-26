@@ -1,11 +1,12 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "phase": "R4",
   "feature": "reparations",
   "baseCommit": "746aad43ce5fc34e597fea790e03139c49a1c89c",
   "r3MergeCommit": "a3a9210b54967ed67bd79319d088d6a7bbc37f1d",
   "signalementsQualificationCommit": "158f81e83fb6eba479c7070a05bdc8064900f663",
   "stage": "visual-reconstruction",
+  "visualSubphase": "watteau-home",
   "releaseFrozen": true,
   "cssSpecificWorkAllowed": true,
   "functionalQualificationCommit": "bc628489891c0e42bcf04c4391cdd00a8bf7fa1e",
@@ -106,6 +107,14 @@
     "functionalGateMustStayGreenDuringCssWork": true,
     "cssMustRemainScopedToRepairsAfterCurrentVisualBaseline": true,
     "visualBaselineCommit": "746aad43ce5fc34e597fea790e03139c49a1c89c",
+    "watteauHomeBaselineCommit": "a20bff033452207b5b93f3af4296981bca2a308e",
+    "watteauHomeAllowedSharedCss": [
+      "renderer/tokens.css",
+      "renderer/layout.css",
+      "renderer/home.css",
+      "renderer/styles.css"
+    ],
+    "watteauHomeRepairCssMustRemainFrozen": true,
     "packagedExeEvidenceRequiredBeforeVisualAcceptance": true,
     "desktopViewport": "1440x900",
     "reducedViewport": "760x760",
