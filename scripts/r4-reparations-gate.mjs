@@ -16,6 +16,7 @@ const repairRenderer = read('renderer/reparations.js');
 const preload = read('preload.cjs');
 const main = read('main.cjs');
 const mainEntry = read('main-entry.cjs');
+const databaseSource = read('src/database.cjs');
 const domainSource = read('src/reparation-domain.cjs');
 const stylesEntry = read('renderer/styles.css');
 const repairCss = fs.existsSync('renderer/reparations.css') ? read('renderer/reparations.css') : '';
@@ -76,7 +77,7 @@ if (visualPhase) {
   const unscopedRoot = /(^|\n)\s*(?:html|body|\*|\.panel|\.table-wrap|table|thead|tbody|tr|th|td|\.actions|\.mini|\.btn|dialog)\s*(?:,|\{)/m.test(repairCss);
   check(!unscopedRoot, 'la couche Réparations ne redéfinit pas de composant global hors scope');
   const allowedCss = new Set(['renderer/reparations.css', 'renderer/styles.css']);
-  check(cssChanged.every((file) => allowedCss.has(file)), 'les changements CSS R4-P1 restent limités à la couche Réparations et à son import', cssChanged.join(', ') || 'aucun CSS');
+  check(cssChanged.every((file) => allowedCss.has(file)), 'les changements CSS R4 restent limités à la couche Réparations et à son import', cssChanged.join(', ') || 'aucun CSS');
 } else {
   check(contract.stage === 'functional-audit', 'R4 reste en phase audit fonctionnel tant que P0 est rouge');
   check(contract.cssSpecificWorkAllowed === false, 'le CSS spécifique Réparations reste interdit pendant P0');
@@ -105,6 +106,8 @@ for (const method of ['queryReparations', 'getReparation', 'createReparation', '
 }
 check(/REPARATION_STATUSES/.test(domainSource), 'les statuts Réparations sont centralisés dans une whitelist domaine');
 check(/REPARATION_FIELD_LIMITS/.test(domainSource), 'les limites de champs Réparations sont centralisées dans le domaine');
+check(/WHERE signalement_id = \? AND statut = 'En cours'/.test(databaseSource), 'la clôture d’un signalement contrôle les réparations encore en cours dans SQLite');
+check(/Impossible de clore le dossier/.test(databaseSource), 'le refus de clôture fournit un message métier explicite');
 
 check(!/observeRepairRenders|decorateRepairRows/.test(detail), 'les contrôles métier Réparations ne sont pas injectés après rendu par décoration');
 check(!/MutationObserver[\s\S]{0,400}(?:repair|reparation)/i.test(detail), 'Réparations ne dépend pas d’un MutationObserver pour rendre ses contrôles fonctionnels');
@@ -116,6 +119,7 @@ const repairSubmitBlock = block(repairRenderer, "form.addEventListener('submit'"
 check(/withBusy/.test(repairSubmitBlock), 'la soumission Réparations possède un état busy contre les doubles écritures');
 check(/queryReparations/.test(repairRenderer) && /repair-prev/.test(repairRenderer) && /repair-next/.test(repairRenderer), 'recherche et pagination Réparations utilisent queryReparations');
 check(/data-repair-status/.test(repairRenderer) && /setReparationStatus/.test(repairRenderer), 'les transitions de statut sont rendues directement et utilisent l’IPC dédié');
+check(/data-reopen-parent/.test(repairRenderer) && /Dossier parent clos/.test(repairRenderer), 'un dossier parent clos est expliqué et propose une réouverture explicite dans Réparations');
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rdl-r4-gate-'));
@@ -173,12 +177,28 @@ try {
   check(canceled?.statut === 'Annulée' && /^\d{4}-\d{2}-\d{2}$/.test(canceled?.cloture || ''), 'Annulée est un état terminal daté');
   check(ctx.db.listSignalementEvents(signalement.id, 50).some((event) => event.event_type === 'repair_status_changed'), 'les transitions de statut Réparations sont historisées');
 
-  const closedParent = ctx.db.createSignalement({ date: '2026-09-26', lieu: 'Parent clos' });
-  const child = ctx.repairs.createReparation({ signalement_id: closedParent.id, mesure: 'Avant clôture' });
-  ctx.db.setSignalementStatus(closedParent.id, 'Clos');
-  expectThrow(() => ctx.repairs.createReparation({ signalement_id: closedParent.id, mesure: 'Interdit' }), 'un dossier Signalements clos refuse toute nouvelle réparation', /clos|rouvr/i);
+  const lifecycleParent = ctx.db.createSignalement({ date: '2026-09-26', lieu: 'Cycle parent R4' });
+  const child = ctx.repairs.createReparation({ signalement_id: lifecycleParent.id, mesure: 'Réparation active avant clôture' });
+  expectThrow(
+    () => ctx.db.setSignalementStatus(lifecycleParent.id, 'Clos'),
+    'un dossier ne peut pas être clos tant qu’une réparation est En cours',
+    /Impossible de clore|réparation.*en cours/i
+  );
+  check(ctx.db.getSignalement(lifecycleParent.id)?.statut === 'Ouvert', 'un refus de clôture laisse le dossier parent Ouvert');
+
+  ctx.repairs.setReparationStatus(child.id, 'Terminée');
+  const closedParent = ctx.db.setSignalementStatus(lifecycleParent.id, 'Clos');
+  check(closedParent?.statut === 'Clos', 'le dossier devient clos lorsque toutes les réparations sont terminales');
+  expectThrow(() => ctx.repairs.createReparation({ signalement_id: lifecycleParent.id, mesure: 'Interdit' }), 'un dossier Signalements clos refuse toute nouvelle réparation', /clos|rouvr/i);
   expectThrow(() => ctx.repairs.updateReparation(child.id, { mesure: 'Interdit après clôture' }), 'un dossier Signalements clos refuse la modification de ses réparations', /clos|rouvr/i);
-  expectThrow(() => ctx.repairs.setReparationStatus(child.id, 'Terminée'), 'un dossier Signalements clos refuse la transition de statut de ses réparations', /clos|rouvr/i);
+  expectThrow(() => ctx.repairs.setReparationStatus(child.id, 'En cours'), 'un dossier Signalements clos refuse la transition de statut de ses réparations', /clos|rouvr/i);
+
+  const reopenedParent = ctx.db.setSignalementStatus(lifecycleParent.id, 'Ouvert');
+  check(reopenedParent?.statut === 'Ouvert', 'le dossier parent peut être rouvert explicitement');
+  const resumedEdit = ctx.repairs.updateReparation(child.id, { mesure: 'Suivi repris après réouverture' });
+  check(/repris/.test(resumedEdit?.mesure || ''), 'la modification d’une réparation redevient possible après réouverture du parent');
+  const resumedStatus = ctx.repairs.setReparationStatus(child.id, 'En cours');
+  check(resumedStatus?.statut === 'En cours' && !resumedStatus?.cloture, 'le suivi de statut redevient possible après réouverture du parent');
 
   const volumeParent = ctx.db.createSignalement({ date: '2026-09-26', lieu: 'Volume R4' });
   ctx.db.transaction(() => {
@@ -201,7 +221,7 @@ try {
 for (const message of passes) console.log(`PASS [R4-REPARATIONS] ${message}`);
 for (const message of failures) console.error(`FAIL [R4-REPARATIONS] ${message}`);
 if (failures.length) {
-  console.error(`\nR4_REPARATIONS_GATE_RED: ${failures.length} exigence(s) non satisfaite(s). Aucun travail visuel Réparations n’est accepté tant que le socle R4-P0 ou le contrat R4-P1 est violé.`);
+  console.error(`\nR4_REPARATIONS_GATE_RED: ${failures.length} exigence(s) non satisfaite(s). Aucun travail visuel Réparations n’est accepté tant que le socle R4-P0/P2 ou le contrat R4-P1 est violé.`);
   process.exit(1);
 }
-console.log(`\nR4_REPARATIONS_GATE_GREEN: ${passes.length} exigence(s) satisfaites. Socle fonctionnel et frontière visuelle R4 conformes.`);
+console.log(`\nR4_REPARATIONS_GATE_GREEN: ${passes.length} exigence(s) satisfaites. Socle fonctionnel, cycle parent/enfant et frontière visuelle R4 conformes.`);
