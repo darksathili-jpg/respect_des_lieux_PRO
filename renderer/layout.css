@@ -2,7 +2,7 @@
 .shell{min-height:100vh;display:grid;grid-template-columns:var(--rdl-sidebar-width) minmax(0,1fr);background:var(--rdl-canvas)}
 .sidebar{position:sticky;top:0;height:100vh;min-height:0;display:flex;flex-direction:column;gap:var(--rdl-space-6);overflow:auto;padding:22px 18px;background:linear-gradient(180deg,var(--rdl-navy-950) 0%,var(--rdl-navy-900) 56%,#122d45 100%);color:#f8fbfd;border-right:1px solid rgba(255,255,255,.06)}
 .brand{display:flex;align-items:center;gap:12px;min-height:72px;padding:2px 4px 18px;border-bottom:1px solid rgba(255,255,255,.10)}
-.brand-mark{width:58px;height:46px;flex:0 0 58px;border-radius:10px;background-image:url('./assets/sidebar-logo-production.svg');background-repeat:no-repeat;background-position:center;background-size:contain;font-size:0;color:transparent}
+.brand-mark{width:58px;height:46px;flex:0 0 58px;border-radius:10px;background-image:url('./assets/watteau-sidebar-mark.webp');background-repeat:no-repeat;background-position:center;background-size:contain;font-size:0;color:transparent}
 .brand strong,.brand span{display:block}
 .brand strong{font-size:14px;line-height:1.25;letter-spacing:.01em}
 .brand span{margin-top:4px;color:#aebdca;font-size:10px;font-weight:700;letter-spacing:.10em;text-transform:uppercase}
