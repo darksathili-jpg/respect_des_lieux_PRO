@@ -390,8 +390,7 @@
     const repairId = Number(id);
     if (!Number.isSafeInteger(repairId) || repairId <= 0) return;
     try {
-      const rows = await window.rdl.listReparations(1000);
-      const repair = rows.find((row) => Number(row.id) === repairId);
+      const repair = await window.rdl.getReparation(repairId);
       if (!repair) throw new Error('Réparation introuvable.');
       setRepairDialogMode(repair);
       const repairDialog = $('#repair-dialog');

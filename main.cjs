@@ -415,7 +415,10 @@ function registerIpc() {
   secureHandle('rdl:signalements:set-status', (id, status) => db.setSignalementStatus(id, status));
 
   secureHandle('rdl:reparations:list', (limit = 1000) => db.listReparations(limit));
+  secureHandle('rdl:reparations:query', (options = {}) => db.queryReparations(options));
+  secureHandle('rdl:reparations:get', (id) => db.getReparation(id));
   secureHandle('rdl:reparations:create', (payload) => db.createReparation(payload));
+  secureHandle('rdl:reparations:update', (id, patch) => db.updateReparation(id, patch));
 
   secureHandle('rdl:photos:attach', async (signalementId) => {
     const result = await dialog.showOpenDialog(mainWindow, {
