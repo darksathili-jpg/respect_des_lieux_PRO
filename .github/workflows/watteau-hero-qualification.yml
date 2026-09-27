@@ -50,23 +50,25 @@ jobs:
       - name: Adapt legacy assertions inside CI workspace only
         shell: pwsh
         run: |
-          $files = @(
+          @'
+          const fs = require('node:fs');
+          const files = [
             'scripts/quality-contract.mjs',
             'scripts/ux-guardrails.mjs',
             'main-bootstrap.cjs',
             'scripts/capture-packaged-ui.mjs'
-          )
-          foreach ($file in $files) {
-            $text = Get-Content $file -Raw
-            $text = $text.Replace('dashboard-hero-production.svg','watteau-home-hero.webp')
-            if ($file -eq 'scripts/quality-contract.mjs') {
-              $text = $text.Replace('les deux vrais SVG de production sont intégrés à la composition','le hero Watteau qualifié et le SVG sidebar historique sont intégrés à la composition')
+          ];
+          for (const file of files) {
+            const original = fs.readFileSync(file, 'utf8');
+            if (!original.includes('dashboard-hero-production.svg')) {
+              console.error(`LEGACY_ASSERTION_NOT_FOUND ${file}`);
+              process.exit(72);
             }
-            if ($file -eq 'scripts/ux-guardrails.mjs') {
-              $text = $text.Replace('les vrais SVG de production sont utilisés par la shell et l’Accueil','le hero Watteau qualifié et le SVG sidebar historique sont utilisés')
-            }
-            Set-Content -Path $file -Value $text -Encoding utf8
+            const patched = original.replaceAll('dashboard-hero-production.svg', 'watteau-home-hero.webp');
+            fs.writeFileSync(file, patched, 'utf8');
+            console.log(`CI_WORKSPACE_PATCHED ${file}`);
           }
+          '@ | node
 
       - name: Verify full contracts with hero milestone assertions
         shell: pwsh
