@@ -56,7 +56,8 @@ jobs:
             'scripts/quality-contract.mjs',
             'scripts/ux-guardrails.mjs',
             'main-bootstrap.cjs',
-            'scripts/capture-packaged-ui.mjs'
+            'scripts/capture-packaged-ui.mjs',
+            'tests/ui-shell.test.mjs'
           ];
           for (const file of files) {
             const original = fs.readFileSync(file, 'utf8');
