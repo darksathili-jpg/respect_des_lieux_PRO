@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { assetName } from './production-assets.mjs';
 
 function readArg(name, fallback = null) {
   const index = process.argv.indexOf(name);
@@ -10,6 +11,8 @@ function readArg(name, fallback = null) {
 const port = Number(readArg('--port', '9333'));
 const outDir = path.resolve(readArg('--out', 'artifacts/rdl-visual-evidence'));
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const heroAssetName = assetName('hero');
+const sidebarAssetName = assetName('sidebar');
 
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
   throw new Error(`Port CDP invalide: ${port}`);
@@ -139,8 +142,8 @@ function assertProfile(profile, metrics, screenshotBytes) {
   if (metrics.shellCount !== 1) failures.push(`shellCount=${metrics.shellCount}`);
   if (metrics.activeView !== 'dashboard') failures.push(`activeView=${metrics.activeView}`);
   if (metrics.kpiCount !== 4 || metrics.visibleKpiCount !== 4) failures.push(`kpis=${metrics.visibleKpiCount}/${metrics.kpiCount}`);
-  if (!String(metrics.brandAsset || '').includes('sidebar-logo-production.svg')) failures.push('sidebar SVG historique absente');
-  if (!String(metrics.heroAsset || '').includes('watteau-home-hero.webp')) failures.push('hero Watteau WebP absent');
+  if (!String(metrics.brandAsset || '').includes(sidebarAssetName)) failures.push(`sidebar absente: ${sidebarAssetName}`);
+  if (!String(metrics.heroAsset || '').includes(heroAssetName)) failures.push(`hero absent: ${heroAssetName}`);
   if (maxScrollWidth > layoutWidth + 2) failures.push(`overflow horizontal ${maxScrollWidth}>${layoutWidth}`);
   if (Math.abs(Number(metrics.sidebar?.right || 0) - Number(metrics.main?.x || 0)) > 2) failures.push('jointure sidebar/main incorrecte');
   if (Number(metrics.hero?.width || 0) < 300 || Number(metrics.hero?.height || 0) < 180) failures.push('hero non exploitable');
@@ -228,11 +231,12 @@ try {
     format: 1,
     capturedAt: new Date().toISOString(),
     target: { title: target.title || '', url: target.url || '', type: target.type || '' },
+    assetRoles: { hero: heroAssetName, sidebar: sidebarAssetName },
     profiles,
     keyboardFocus: focus
   };
   fs.writeFileSync(path.join(outDir, 'visual-evidence.json'), JSON.stringify(evidence, null, 2), 'utf8');
-  console.log(`RDL_VISUAL_EVIDENCE_PASS ${JSON.stringify({ outDir, profiles: profiles.map((p) => ({ name: p.name, width: p.width, height: p.height, screenshotBytes: p.screenshotBytes })), keyboardFocus: focus })}`);
+  console.log(`RDL_VISUAL_EVIDENCE_PASS ${JSON.stringify({ outDir, assetRoles: evidence.assetRoles, profiles: profiles.map((p) => ({ name: p.name, width: p.width, height: p.height, screenshotBytes: p.screenshotBytes })), keyboardFocus: focus })}`);
 } finally {
   cdp.close();
 }

@@ -1,4 +1,5 @@
 const { app, dialog } = require('electron');
+const assetManifest = require('./renderer/assets/manifest.json');
 
 // Interface administrative 2D : la désactivation de l'accélération matérielle
 // réduit les surfaces Chromium blanches sur certains postes Windows anciens.
@@ -133,8 +134,8 @@ function shellContractOk(dom) {
   const noGlobalHorizontalOverflow = Math.max(Number(dom.documentScrollWidth || 0), Number(dom.bodyScrollWidth || 0)) <= layoutWidth + 2;
   const designSystemOk = dom.designSystem?.ready === 'r2'
     && Boolean(dom.designSystem?.focusRing)
-    && String(dom.designSystem?.brandAsset || '').includes('sidebar-logo-production.svg')
-    && String(dom.designSystem?.heroAsset || '').includes('watteau-home-hero.webp');
+    && String(dom.designSystem?.brandAsset || '').includes(assetManifest.roles.sidebar)
+    && String(dom.designSystem?.heroAsset || '').includes(assetManifest.roles.hero);
   return dom.readyState === 'complete'
     && dom.shellCount === 1
     && dom.mainRegionCount === 1

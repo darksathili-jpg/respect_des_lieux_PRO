@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { assetName } from './production-assets.mjs';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
 const exists = (path) => fs.existsSync(path);
@@ -19,6 +20,8 @@ const detailJs = read('renderer/detail.js');
 const detailCss = read('renderer/detail.css');
 const pkg = JSON.parse(read('package.json'));
 const releaseState = JSON.parse(read('quality/release-state.json'));
+const heroAssetName = assetName('hero');
+const sidebarAssetName = assetName('sidebar');
 
 const runtime = [html, app, preload, styles, tokens, components, layout, home, read('renderer/v51.css'), detailJs, detailCss].join('\n');
 const expectedViews = ['dashboard', 'signalements', 'reparations', 'sauvegardes', 'confidentialite', 'systeme'];
@@ -45,7 +48,7 @@ check(exists('renderer/tokens.css') && exists('renderer/components.css') && exis
 check(styles.includes("@import url('./tokens.css');") && styles.includes("@import url('./components.css');") && styles.includes("@import url('./layout.css');") && styles.includes("@import url('./home.css');"), 'styles.css charge explicitement les quatre couches R2');
 check(tokens.includes('--rdl-ds-ready:r2') && tokens.includes('--rdl-focus:'), 'les tokens R2 publient un marqueur de version et un focus partagé');
 check(components.includes(':focus-visible') && components.includes('prefers-reduced-motion:reduce'), 'accessibilité clavier et réduction des mouvements sont garanties');
-check(layout.includes('sidebar-logo-production.svg') && home.includes('watteau-home-hero.webp'), 'le hero Watteau WebP qualifié et la sidebar SVG historique sont utilisés par la shell et l’Accueil');
+check(layout.includes(sidebarAssetName) && home.includes(heroAssetName), 'les rôles sidebar et hero du manifest sont utilisés par la shell et l’Accueil');
 check(!/data:image|master\.png|reference\//i.test(`${layout}\n${home}`), 'aucune capture ou data URI ne remplace un asset de production');
 check(/@media \(max-width:820px\)/.test(layout) && /@media \(max-width:640px\)/.test(home), 'la shell et l’Accueil possèdent des replis responsive explicites');
 

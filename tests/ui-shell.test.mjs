@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { assetName } from '../scripts/production-assets.mjs';
 
 const read = (file) => fs.readFileSync(file, 'utf8');
 const html = read('renderer/index.html');
@@ -12,6 +13,8 @@ const components = read('renderer/components.css');
 const layout = read('renderer/layout.css');
 const home = read('renderer/home.css');
 const bootstrap = read('main-bootstrap.cjs');
+const heroAssetName = assetName('hero');
+const sidebarAssetName = assetName('sidebar');
 
 const count = (source, rx) => [...source.matchAll(rx)].length;
 const expectedViews = ['dashboard', 'signalements', 'reparations', 'sauvegardes', 'confidentialite', 'systeme'];
@@ -65,15 +68,15 @@ test('R2 : le design system est découpé en couches ordonnées et sans rustine 
   assert.match(tokens, /--rdl-focus:/);
   assert.match(components, /:focus-visible/);
   assert.match(components, /prefers-reduced-motion:reduce/);
-  assert.match(layout, /sidebar-logo-production\.svg/);
-  assert.match(home, /watteau-home-hero\.webp/);
+  assert.ok(layout.includes(sidebarAssetName), `sidebar asset absent: ${sidebarAssetName}`);
+  assert.ok(home.includes(heroAssetName), `hero asset absent: ${heroAssetName}`);
   assert.doesNotMatch(`${styles}\n${tokens}\n${components}\n${layout}\n${home}`, /dashboard-master\.png|data:image|vf-dashboard/);
 });
 
-test('R2 : le vrai runtime empaqueté contrôle le design system et les assets de production', () => {
+test('R2 : le vrai runtime empaqueté contrôle les rôles du manifest', () => {
   assert.match(bootstrap, /designSystem\?\.ready === 'r2'/);
-  assert.match(bootstrap, /sidebar-logo-production\.svg/);
-  assert.match(bootstrap, /watteau-home-hero\.webp/);
+  assert.match(bootstrap, /assetManifest\.roles\.sidebar/);
+  assert.match(bootstrap, /assetManifest\.roles\.hero/);
   assert.match(bootstrap, /getComputedStyle\(hero, '::after'\)/);
 });
 

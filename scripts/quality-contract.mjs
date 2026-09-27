@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { assetName, assetPath } from './production-assets.mjs';
 
 const root = process.cwd();
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
@@ -21,6 +22,8 @@ const preload = read('preload.cjs');
 const main = read('main.cjs');
 const bootstrap = read('main-bootstrap.cjs');
 const pkg = JSON.parse(read('package.json'));
+const heroAssetName = assetName('hero');
+const sidebarAssetName = assetName('sidebar');
 
 const runtimeText = [html, styles, tokens, components, layout, home, v51, detailCss, app, detailJs, preload].join('\n');
 const requested = process.argv.includes('--role')
@@ -72,13 +75,15 @@ function importedInOrder() {
 
 const roles = {
   architecture() {
-    check('architecture', contract.schemaVersion >= 5, 'le contrat R2 Watteau du design system est actif');
+    check('architecture', contract.schemaVersion >= 6, 'le contrat R2 Watteau piloté par rôles est actif');
     check('architecture', count(html, /id="app-shell"/g) === 1, 'une seule shell de production existe dans le DOM');
     check('architecture', count(html, /id="main-region"/g) === 1, 'une seule région principale existe');
     check('architecture', !html.includes('vf-dashboard'), 'l’ancienne surface de fidélité est absente du DOM');
     check('architecture', contract.forbiddenRuntimeFiles.every((file) => !exists(file)), 'les anciens fichiers runtime interdits sont supprimés');
     check('architecture', contract.designSystem.layers.every((file) => exists(file)), 'les quatre couches du design system R2 existent');
+    check('architecture', exists(contract.designSystem.assetManifest), 'le manifest des assets de production existe');
     check('architecture', contract.designSystem.requiredAssets.every((file) => exists(file)), 'les assets de production R2 existent comme fichiers autonomes');
+    check('architecture', contract.designSystem.heroAsset === assetPath('hero') && contract.designSystem.sidebarAsset === assetPath('sidebar'), 'le contrat UI et le manifest partagent les mêmes rôles hero/sidebar');
     check('architecture', importedInOrder(), 'la cascade suit tokens → composants → layout → Accueil');
     check('architecture', releaseState.releaseFrozen === true, 'la publication reste gelée pendant la reconstruction');
     check('architecture', pkg.main === 'main-entry.cjs', 'le point d’entrée Electron déclaré correspond au package réel');
@@ -102,7 +107,7 @@ const roles = {
     check('ui', /:focus-visible/.test(components), 'les composants possèdent un focus clavier explicite');
     check('ui', /prefers-reduced-motion:reduce/.test(components), 'le mouvement réduit est respecté');
     check('ui', /@media \(max-width:820px\)/.test(layout) && /@media \(max-width:640px\)/.test(home), 'la shell et l’Accueil possèdent des replis responsive distincts');
-    check('ui', home.includes('watteau-home-hero.webp') && layout.includes('sidebar-logo-production.svg'), 'le hero Watteau WebP qualifié et la sidebar SVG historique sont intégrés à la composition');
+    check('ui', home.includes(heroAssetName) && layout.includes(sidebarAssetName), 'les rôles hero et sidebar du manifest sont intégrés à la composition');
     check('ui', !/data:image|dashboard-master\.png/.test(`${layout}\n${home}`), 'aucune image embarquée ou capture maître ne sert de rustine visuelle');
     check('ui', !runtimeText.includes('min-width:1448px'), 'aucune largeur maître 1448 px n’est imposée');
   },
@@ -117,7 +122,7 @@ const roles = {
     check('functional', app.includes("$('#backup-view-action').addEventListener('click', createLocalBackup)"), 'le bouton de sauvegarde de la vue est réellement branché');
     check('functional', app.includes("const container = $('#privacy-events')"), 'la traçabilité confidentialité cible le conteneur réellement présent');
     check('functional', !app.includes('visualTestMode') && !app.includes('renderVisualDashboard'), 'aucune branche UI alternative ne court-circuite la production');
-    check('functional', bootstrap.includes("designSystem?.ready === 'r2'") && bootstrap.includes('watteau-home-hero.webp') && bootstrap.includes('sidebar-logo-production.svg'), 'le vrai EXE vérifie le design system et les assets Watteau du jalon hero');
+    check('functional', bootstrap.includes("designSystem?.ready === 'r2'") && bootstrap.includes('assetManifest.roles.hero') && bootstrap.includes('assetManifest.roles.sidebar'), 'le vrai EXE vérifie les rôles du manifest des assets');
     check('functional', detailJs.includes('closeDetailDialog') && detailJs.includes('event.target === dialog'), 'la fiche détail dispose de sorties explicites');
   },
 
