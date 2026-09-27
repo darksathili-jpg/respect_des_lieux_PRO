@@ -1,0 +1,44 @@
+{
+  "contract": "R3-WATTEAU-VISUAL-RECOVERY-1",
+  "source": "user-saved visual references supplied 2026-09-27",
+  "policy": "Canonical Watteau assets. Any replacement requires visual qualification against the saved references and a packaged-runtime screenshot.",
+  "palette": {
+    "watteauDeepBlue": "#0A3B63",
+    "watteauBrickRed": "#B6292E",
+    "watteauLightCream": "#F6E7D8",
+    "white": "#FFFFFF",
+    "blueGray": "#8CA3B8"
+  },
+  "assets": [
+    {
+      "path": "renderer/assets/watteau-home-hero.webp",
+      "role": "dashboard hero",
+      "sourceSize": "1916x821",
+      "sha256": "c9d1dc15bb6d6c20859f50ff1540691704ef553eccacedaf1075376cba549d4d"
+    },
+    {
+      "path": "renderer/assets/watteau-sidebar-mark.webp",
+      "role": "sidebar brand mark",
+      "sourceSize": "466x370",
+      "sha256": "bc65e2bbab5b2ebe5ae10ab9e2727366c94c8367c71077529b8d1763fd23be80"
+    },
+    {
+      "path": "renderer/assets/watteau-logo-primary.webp",
+      "role": "primary institutional logo",
+      "sourceSize": "471x513",
+      "sha256": "eb401bb91253c4014f5f7c23399a725ef6393105c9c4ea7a8b345384fef5bf09"
+    },
+    {
+      "path": "renderer/assets/watteau-logo-dark.webp",
+      "role": "dark-background institutional logo",
+      "sourceSize": "245x234",
+      "sha256": "9137206c18b4a3afec7ed11321b722a1bb7272349f3c149fc5c0f6837e0220f0"
+    },
+    {
+      "path": "renderer/assets/watteau-app-icon.webp",
+      "role": "application icon source",
+      "sourceSize": "233x243",
+      "sha256": "033a6969fc22c59d9714ad4a37003f1c079c7a68763ce97267f4569e4f46b4ed"
+    }
+  ]
+}
