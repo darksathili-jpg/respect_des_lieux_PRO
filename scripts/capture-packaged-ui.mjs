@@ -47,14 +47,8 @@ class CdpSession {
     this.socket = new WebSocket(this.url);
     await new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('Connexion CDP expirée.')), 8000);
-      this.socket.addEventListener('open', () => {
-        clearTimeout(timer);
-        resolve();
-      }, { once: true });
-      this.socket.addEventListener('error', () => {
-        clearTimeout(timer);
-        reject(new Error('Connexion CDP impossible.'));
-      }, { once: true });
+      this.socket.addEventListener('open', () => { clearTimeout(timer); resolve(); }, { once: true });
+      this.socket.addEventListener('error', () => { clearTimeout(timer); reject(new Error('Connexion CDP impossible.')); }, { once: true });
     });
 
     this.socket.addEventListener('message', async (event) => {
@@ -63,7 +57,6 @@ class CdpSession {
       else if (event.data instanceof ArrayBuffer) text = Buffer.from(event.data).toString('utf8');
       else if (typeof event.data?.arrayBuffer === 'function') text = Buffer.from(await event.data.arrayBuffer()).toString('utf8');
       else text = String(event.data || '');
-
       let payload;
       try { payload = JSON.parse(text); } catch { return; }
       if (!payload.id || !this.pending.has(payload.id)) return;
@@ -98,9 +91,7 @@ class CdpSession {
     });
   }
 
-  close() {
-    try { this.socket?.close(); } catch {}
-  }
+  close() { try { this.socket?.close(); } catch {} }
 }
 
 const metricsExpression = `(() => {
@@ -110,27 +101,38 @@ const metricsExpression = `(() => {
   const main = shell?.querySelector(':scope > .main');
   const topbar = document.querySelector('.topbar');
   const hero = document.querySelector('#view-dashboard .hero');
+  const heroHeadline = document.querySelector('#view-dashboard .hero h2');
+  const heroLead = document.querySelector('#view-dashboard .hero .hero-lead');
   const brandMark = document.querySelector('.brand-mark');
   const heroAfter = hero ? getComputedStyle(hero, '::after') : null;
+  const recent = document.querySelector('#view-dashboard .home-recent');
+  const engagement = document.querySelector('#view-dashboard .engagement-panel');
+  const localState = document.querySelector('#view-dashboard .home-state');
   const rect = (node) => node ? ({ x: node.getBoundingClientRect().x, y: node.getBoundingClientRect().y, width: node.getBoundingClientRect().width, height: node.getBoundingClientRect().height, right: node.getBoundingClientRect().right, bottom: node.getBoundingClientRect().bottom }) : null;
   return {
     viewport: { width: innerWidth, height: innerHeight, clientWidth: document.documentElement.clientWidth, clientHeight: document.documentElement.clientHeight },
     scroll: { documentWidth: document.documentElement.scrollWidth, bodyWidth: document.body.scrollWidth, documentHeight: document.documentElement.scrollHeight },
     shellCount: document.querySelectorAll('#app-shell').length,
     activeView: shell?.dataset.activeView || '',
-    shell: rect(shell),
-    sidebar: rect(sidebar),
-    main: rect(main),
-    topbar: rect(topbar),
-    hero: rect(hero),
+    shell: rect(shell), sidebar: rect(sidebar), main: rect(main), topbar: rect(topbar), hero: rect(hero),
+    recent: rect(recent), engagement: rect(engagement), localState: rect(localState),
+    heroHeadline: heroHeadline?.textContent?.trim() || '',
+    heroLead: heroLead?.textContent?.trim() || '',
+    localMessage: document.querySelector('#view-dashboard .hero-local-note')?.textContent?.trim() || '',
+    localPathVisible: Boolean(document.querySelector('#view-dashboard #fact-db:not([hidden])')),
     kpiCount: document.querySelectorAll('#view-dashboard .kpi').length,
     visibleKpiCount: [...document.querySelectorAll('#view-dashboard .kpi')].filter((node) => { const r = node.getBoundingClientRect(); return r.width > 0 && r.height > 0; }).length,
     brandAsset: brandMark ? getComputedStyle(brandMark).backgroundImage : '',
     heroAsset: heroAfter?.backgroundImage || '',
     heroAssetOpacity: heroAfter?.opacity || '',
-    media: { max1220: matchMedia('(max-width:1220px)').matches, max980: matchMedia('(max-width:980px)').matches, max640: matchMedia('(max-width:640px)').matches }
+    fictitiousText: ['Mme Dupont','Personnel','Mardi 15 avril 2025','14 °C'].filter((text) => (document.body?.innerText || '').includes(text)),
+    media: { max1220: matchMedia('(max-width:1220px)').matches, max980: matchMedia('(max-width:980px)').matches, max820: matchMedia('(max-width:820px)').matches, max700: matchMedia('(max-width:700px)').matches }
   };
 })()`;
+
+function insideWidth(rect, width) {
+  return rect && rect.x >= -2 && rect.right <= width + 2 && rect.width > 0;
+}
 
 function assertProfile(profile, metrics, screenshotBytes) {
   const layoutWidth = Number(metrics.viewport?.clientWidth || 0);
@@ -139,14 +141,24 @@ function assertProfile(profile, metrics, screenshotBytes) {
   if (metrics.shellCount !== 1) failures.push(`shellCount=${metrics.shellCount}`);
   if (metrics.activeView !== 'dashboard') failures.push(`activeView=${metrics.activeView}`);
   if (metrics.kpiCount !== 4 || metrics.visibleKpiCount !== 4) failures.push(`kpis=${metrics.visibleKpiCount}/${metrics.kpiCount}`);
-  if (!String(metrics.brandAsset || '').includes('sidebar-logo-production.svg')) failures.push('logo SVG absent');
-  if (!String(metrics.heroAsset || '').includes('dashboard-hero-production.svg')) failures.push('hero SVG absent');
+  if (!String(metrics.brandAsset || '').includes('watteau-sidebar-mark.svg')) failures.push('logo Watteau SVG absent');
+  if (!String(metrics.heroAsset || '').includes('watteau-home-hero.svg')) failures.push('hero Watteau SVG absent');
+  if (metrics.heroHeadline !== 'Bonjour !') failures.push(`heroHeadline=${metrics.heroHeadline}`);
+  if (metrics.heroLead !== 'Ensemble, prenons soin de notre lycée.') failures.push(`heroLead=${metrics.heroLead}`);
+  if (metrics.localMessage !== 'Données stockées localement') failures.push(`localMessage=${metrics.localMessage}`);
+  if (metrics.localPathVisible) failures.push('chemin de base visible sur Accueil');
+  if ((metrics.fictitiousText || []).length) failures.push(`contenu fictif=${metrics.fictitiousText.join(',')}`);
   if (maxScrollWidth > layoutWidth + 2) failures.push(`overflow horizontal ${maxScrollWidth}>${layoutWidth}`);
-  if (Math.abs(Number(metrics.sidebar?.right || 0) - Number(metrics.main?.x || 0)) > 2) failures.push('jointure sidebar/main incorrecte');
+  if (profile.width > 820 && Math.abs(Number(metrics.sidebar?.right || 0) - Number(metrics.main?.x || 0)) > 2) failures.push('jointure sidebar/main incorrecte');
   if (Number(metrics.hero?.width || 0) < 300 || Number(metrics.hero?.height || 0) < 180) failures.push('hero non exploitable');
+  if (!insideWidth(metrics.hero, layoutWidth)) failures.push('hero hors largeur utile');
+  if (!insideWidth(metrics.recent, layoutWidth)) failures.push('panneau signalements récents hors largeur utile');
+  if (!insideWidth(metrics.engagement, layoutWidth)) failures.push('panneau engagement hors largeur utile');
+  if (!insideWidth(metrics.localState, layoutWidth)) failures.push('panneau état local hors largeur utile');
   if (screenshotBytes < 5000) failures.push(`capture PNG trop petite (${screenshotBytes} octets)`);
   if (profile.name === 'desktop' && metrics.media?.max1220) failures.push('profil desktop tombé sous 1220px');
   if (profile.name === 'reduced' && !metrics.media?.max1220) failures.push('profil réduit hors breakpoint <=1220px');
+  if (profile.name === 'compact' && !metrics.media?.max820) failures.push('profil compact hors breakpoint <=820px');
   if (failures.length) throw new Error(`${profile.name}: ${failures.join(' ; ')}`);
 }
 
@@ -162,21 +174,13 @@ async function captureProfile(cdp, profile) {
     positionY: 0,
     dontSetVisibleSize: false
   });
-  await wait(350);
+  await wait(380);
 
-  const evaluated = await cdp.send('Runtime.evaluate', {
-    expression: metricsExpression,
-    returnByValue: true,
-    awaitPromise: true
-  });
+  const evaluated = await cdp.send('Runtime.evaluate', { expression: metricsExpression, returnByValue: true, awaitPromise: true });
   const metrics = evaluated.result?.value;
   if (!metrics) throw new Error(`Mesures indisponibles pour ${profile.name}.`);
 
-  const shot = await cdp.send('Page.captureScreenshot', {
-    format: 'png',
-    fromSurface: true,
-    captureBeyondViewport: false
-  });
+  const shot = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false });
   const png = Buffer.from(shot.data || '', 'base64');
   const file = path.join(outDir, `home-${profile.name}-${profile.width}x${profile.height}.png`);
   fs.writeFileSync(file, png);
@@ -185,6 +189,7 @@ async function captureProfile(cdp, profile) {
 }
 
 async function captureKeyboardFocus(cdp) {
+  await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false, screenWidth: 1440, screenHeight: 900 });
   await cdp.send('Runtime.evaluate', {
     expression: `(() => { const active = document.activeElement; if (active && typeof active.blur === 'function') active.blur(); document.body.setAttribute('tabindex','-1'); document.body.focus(); return true; })()`,
     returnByValue: true
@@ -222,10 +227,12 @@ try {
   profiles.push(await captureProfile(cdp, { name: 'desktop', width: 1440, height: 900 }));
   const focus = await captureKeyboardFocus(cdp);
   profiles.push(await captureProfile(cdp, { name: 'reduced', width: 1024, height: 720 }));
+  profiles.push(await captureProfile(cdp, { name: 'compact', width: 760, height: 760 }));
   await cdp.send('Emulation.clearDeviceMetricsOverride');
 
   const evidence = {
-    format: 1,
+    format: 2,
+    visualIdentity: 'R4-P3a-Watteau',
     capturedAt: new Date().toISOString(),
     target: { title: target.title || '', url: target.url || '', type: target.type || '' },
     profiles,

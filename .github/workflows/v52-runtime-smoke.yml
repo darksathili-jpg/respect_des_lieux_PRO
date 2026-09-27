@@ -79,8 +79,9 @@ jobs:
             'renderer/app.js',
             'renderer/detail.js',
             'renderer/detail.css',
+            'renderer/reparations.js',
             'src/database.cjs',
-            'src/reparation-edit-extension.cjs',
+            'src/reparation-domain.cjs',
             'src/storage.cjs',
             'src/portable-backup.cjs'
           ];

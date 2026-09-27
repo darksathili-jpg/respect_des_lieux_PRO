@@ -39,13 +39,17 @@ function count(source, rx) {
   return [...source.matchAll(rx)].length;
 }
 
+function textOnly(fragment) {
+  return String(fragment || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+}
+
 function navFromSingleShell() {
   const shellMatch = html.match(/<div id="app-shell"[\s\S]*?<main id="main-region"/);
   if (!shellMatch) return [];
   const navMatch = shellMatch[0].match(/<nav[^>]*>[\s\S]*?<\/nav>/);
   if (!navMatch) return [];
-  const rx = /<button[^>]*data-view="([^"]+)"[^>]*>([^<]+)<\/button>/g;
-  return [...navMatch[0].matchAll(rx)].map((m) => ({ view: m[1], label: m[2].trim() }));
+  const rx = /<button[^>]*data-view="([^"]+)"[^>]*>([\s\S]*?)<\/button>/g;
+  return [...navMatch[0].matchAll(rx)].map((m) => ({ view: m[1], label: textOnly(m[2]).replace(/^[⌂⚑⚒⇩◇⚙]\s*/, '') }));
 }
 
 function viewHasHiddenByDefault(view) {
@@ -72,13 +76,13 @@ function importedInOrder() {
 
 const roles = {
   architecture() {
-    check('architecture', contract.schemaVersion >= 4, 'le contrat R2 du design system est actif');
+    check('architecture', contract.schemaVersion >= 5, 'le contrat R4-P3a du design system Watteau est actif');
     check('architecture', count(html, /id="app-shell"/g) === 1, 'une seule shell de production existe dans le DOM');
     check('architecture', count(html, /id="main-region"/g) === 1, 'une seule région principale existe');
     check('architecture', !html.includes('vf-dashboard'), 'l’ancienne surface de fidélité est absente du DOM');
     check('architecture', contract.forbiddenRuntimeFiles.every((file) => !exists(file)), 'les anciens fichiers runtime interdits sont supprimés');
-    check('architecture', contract.designSystem.layers.every((file) => exists(file)), 'les quatre couches du design system R2 existent');
-    check('architecture', contract.designSystem.requiredAssets.every((file) => exists(file)), 'les assets de production R2 existent comme fichiers autonomes');
+    check('architecture', contract.designSystem.layers.every((file) => exists(file)), 'les quatre couches du design system existent');
+    check('architecture', contract.designSystem.requiredAssets.every((file) => exists(file)), 'les assets Watteau de production existent comme fichiers autonomes');
     check('architecture', importedInOrder(), 'la cascade suit tokens → composants → layout → Accueil');
     check('architecture', releaseState.releaseFrozen === true, 'la publication reste gelée pendant la reconstruction');
     check('architecture', pkg.main === 'main-entry.cjs', 'le point d’entrée Electron déclaré correspond au package réel');
@@ -101,10 +105,14 @@ const roles = {
     }
     check('ui', /:focus-visible/.test(components), 'les composants possèdent un focus clavier explicite');
     check('ui', /prefers-reduced-motion:reduce/.test(components), 'le mouvement réduit est respecté');
-    check('ui', /@media \(max-width:820px\)/.test(layout) && /@media \(max-width:640px\)/.test(home), 'la shell et l’Accueil possèdent des replis responsive distincts');
-    check('ui', home.includes("dashboard-hero-production.svg") && layout.includes("sidebar-logo-production.svg"), 'les deux vrais SVG de production sont intégrés à la composition');
+    check('ui', /@media \(max-width:820px\)/.test(layout) && /@media \(max-width:(700|640)px\)/.test(home), 'la shell et l’Accueil possèdent des replis responsive distincts');
+    check('ui', home.includes("watteau-home-hero.svg") && layout.includes("watteau-sidebar-mark.svg"), 'les deux vrais SVG Watteau sont intégrés à la composition');
     check('ui', !/data:image|dashboard-master\.png/.test(`${layout}\n${home}`), 'aucune image embarquée ou capture maître ne sert de rustine visuelle');
     check('ui', !runtimeText.includes('min-width:1448px'), 'aucune largeur maître 1448 px n’est imposée');
+    check('ui', html.includes(`<h2>${contract.visualIdentity.homeHeadline}</h2>`) && html.includes(contract.visualIdentity.homeLead), 'le hero utilise le message Watteau réel prévu');
+    check('ui', html.includes(contract.visualIdentity.localStorageMessage), 'le stockage local reste visible comme information secondaire');
+    check('ui', !html.includes(`<h2>${contract.visualIdentity.forbiddenHomeHeadline}</h2>`), 'l’ancien message technique n’est plus le titre principal');
+    check('ui', /id="fact-db" hidden/.test(html), 'le chemin local de la base n’est plus exposé sur l’Accueil');
   },
 
   functional() {
@@ -117,7 +125,7 @@ const roles = {
     check('functional', app.includes("$('#backup-view-action').addEventListener('click', createLocalBackup)"), 'le bouton de sauvegarde de la vue est réellement branché');
     check('functional', app.includes("const container = $('#privacy-events')"), 'la traçabilité confidentialité cible le conteneur réellement présent');
     check('functional', !app.includes('visualTestMode') && !app.includes('renderVisualDashboard'), 'aucune branche UI alternative ne court-circuite la production');
-    check('functional', bootstrap.includes("designSystem?.ready === 'r2'") && bootstrap.includes('dashboard-hero-production.svg') && bootstrap.includes('sidebar-logo-production.svg'), 'le vrai EXE vérifie le design system et ses assets au smoke test');
+    check('functional', bootstrap.includes("designSystem?.ready === 'r2'") && bootstrap.includes('watteau-home-hero.svg') && bootstrap.includes('watteau-sidebar-mark.svg'), 'le vrai EXE vérifie le design system et les assets Watteau au smoke test');
     check('functional', detailJs.includes('closeDetailDialog') && detailJs.includes('event.target === dialog'), 'la fiche détail dispose de sorties explicites');
   },
 
@@ -137,7 +145,7 @@ const roles = {
     check('electron', pkg.build?.electronFuses?.onlyLoadAppFromAsar === true, 'le chargement est limité à l’ASAR empaqueté');
     check('electron', files.includes('!design/**'), 'les maquettes et preuves de conception sont exclues du binaire');
     check('electron', files.includes('!quality/**') && files.includes('!scripts/**'), 'les outils de qualification ne sont pas embarqués dans le runtime');
-    check('electron', contract.designSystem.layers.every((file) => exists(file)), 'les feuilles R2 destinées au runtime sont présentes avant packaging');
+    check('electron', contract.designSystem.layers.every((file) => exists(file)), 'les feuilles destinées au runtime sont présentes avant packaging');
   },
 
   redteam() {
