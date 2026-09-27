@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "roles": {
+    "hero": "watteau-home-hero.webp",
+    "sidebar": "watteau-sidebar-mark.webp"
+  },
+  "integrity": {
+    "heroSha256": "94b4c5b7b2d6709c9e76fba990416c977828473c86dbc80ffcb09eb72014a8fe",
+    "sidebarSha256": "28fd7a88f4918331c550ba06ebe1164cda9ac1fd0b7c422c7668477ff7b327e5"
+  }
+}
