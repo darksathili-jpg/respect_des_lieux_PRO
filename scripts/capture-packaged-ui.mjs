@@ -139,8 +139,8 @@ function assertProfile(profile, metrics, screenshotBytes) {
   if (metrics.shellCount !== 1) failures.push(`shellCount=${metrics.shellCount}`);
   if (metrics.activeView !== 'dashboard') failures.push(`activeView=${metrics.activeView}`);
   if (metrics.kpiCount !== 4 || metrics.visibleKpiCount !== 4) failures.push(`kpis=${metrics.visibleKpiCount}/${metrics.kpiCount}`);
-  if (!String(metrics.brandAsset || '').includes('sidebar-logo-production.svg')) failures.push('logo SVG absent');
-  if (!String(metrics.heroAsset || '').includes('dashboard-hero-production.svg')) failures.push('hero SVG absent');
+  if (!String(metrics.brandAsset || '').includes('sidebar-logo-production.svg')) failures.push('sidebar SVG historique absente');
+  if (!String(metrics.heroAsset || '').includes('watteau-home-hero.webp')) failures.push('hero Watteau WebP absent');
   if (maxScrollWidth > layoutWidth + 2) failures.push(`overflow horizontal ${maxScrollWidth}>${layoutWidth}`);
   if (Math.abs(Number(metrics.sidebar?.right || 0) - Number(metrics.main?.x || 0)) > 2) failures.push('jointure sidebar/main incorrecte');
   if (Number(metrics.hero?.width || 0) < 300 || Number(metrics.hero?.height || 0) < 180) failures.push('hero non exploitable');

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "application": "Respect des Lieux PRO",
   "shell": {
     "id": "app-shell",
@@ -48,7 +48,7 @@
     "open-data"
   ],
   "designSystem": {
-    "version": "r2",
+    "version": "r2-watteau-hero",
     "entrypoint": "renderer/styles.css",
     "layers": [
       "renderer/tokens.css",
@@ -58,8 +58,10 @@
     ],
     "requiredAssets": [
       "renderer/assets/sidebar-logo-production.svg",
-      "renderer/assets/dashboard-hero-production.svg"
+      "renderer/assets/watteau-home-hero.webp"
     ],
+    "heroAsset": "renderer/assets/watteau-home-hero.webp",
+    "sidebarAsset": "renderer/assets/sidebar-logo-production.svg",
     "requiredTokens": [
       "--rdl-ds-ready",
       "--rdl-font-sans",

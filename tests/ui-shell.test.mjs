@@ -66,14 +66,14 @@ test('R2 : le design system est découpé en couches ordonnées et sans rustine 
   assert.match(components, /:focus-visible/);
   assert.match(components, /prefers-reduced-motion:reduce/);
   assert.match(layout, /sidebar-logo-production\.svg/);
-  assert.match(home, /dashboard-hero-production\.svg/);
+  assert.match(home, /watteau-home-hero\.webp/);
   assert.doesNotMatch(`${styles}\n${tokens}\n${components}\n${layout}\n${home}`, /dashboard-master\.png|data:image|vf-dashboard/);
 });
 
 test('R2 : le vrai runtime empaqueté contrôle le design system et les assets de production', () => {
   assert.match(bootstrap, /designSystem\?\.ready === 'r2'/);
   assert.match(bootstrap, /sidebar-logo-production\.svg/);
-  assert.match(bootstrap, /dashboard-hero-production\.svg/);
+  assert.match(bootstrap, /watteau-home-hero\.webp/);
   assert.match(bootstrap, /getComputedStyle\(hero, '::after'\)/);
 });
 

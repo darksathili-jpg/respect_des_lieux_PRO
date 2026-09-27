@@ -45,7 +45,7 @@ check(exists('renderer/tokens.css') && exists('renderer/components.css') && exis
 check(styles.includes("@import url('./tokens.css');") && styles.includes("@import url('./components.css');") && styles.includes("@import url('./layout.css');") && styles.includes("@import url('./home.css');"), 'styles.css charge explicitement les quatre couches R2');
 check(tokens.includes('--rdl-ds-ready:r2') && tokens.includes('--rdl-focus:'), 'les tokens R2 publient un marqueur de version et un focus partagé');
 check(components.includes(':focus-visible') && components.includes('prefers-reduced-motion:reduce'), 'accessibilité clavier et réduction des mouvements sont garanties');
-check(layout.includes("sidebar-logo-production.svg") && home.includes("dashboard-hero-production.svg"), 'les vrais SVG de production sont utilisés par la shell et l’Accueil');
+check(layout.includes('sidebar-logo-production.svg') && home.includes('watteau-home-hero.webp'), 'le hero Watteau WebP qualifié et la sidebar SVG historique sont utilisés par la shell et l’Accueil');
 check(!/data:image|master\.png|reference\//i.test(`${layout}\n${home}`), 'aucune capture ou data URI ne remplace un asset de production');
 check(/@media \(max-width:820px\)/.test(layout) && /@media \(max-width:640px\)/.test(home), 'la shell et l’Accueil possèdent des replis responsive explicites');
 

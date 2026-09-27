@@ -47,35 +47,7 @@ jobs:
           console.log(`WATTEAU_HERO_SOURCE_PASS sha256=${digest} bytes=${hero.length}`);
           '@ | node
 
-      - name: Adapt legacy assertions inside CI workspace only
-        shell: pwsh
-        run: |
-          @'
-          const fs = require('node:fs');
-          const files = [
-            'scripts/quality-contract.mjs',
-            'scripts/ux-guardrails.mjs',
-            'main-bootstrap.cjs',
-            'scripts/capture-packaged-ui.mjs',
-            'tests/ui-shell.test.mjs'
-          ];
-          for (const file of files) {
-            const original = fs.readFileSync(file, 'utf8');
-            const hasLiteral = original.includes('dashboard-hero-production.svg');
-            const hasEscapedRegex = original.includes('dashboard-hero-production\\.svg');
-            if (!hasLiteral && !hasEscapedRegex) {
-              console.error(`LEGACY_ASSERTION_NOT_FOUND ${file}`);
-              process.exit(72);
-            }
-            let patched = original;
-            patched = patched.replaceAll('dashboard-hero-production.svg', 'watteau-home-hero.webp');
-            patched = patched.replaceAll('dashboard-hero-production\\.svg', 'watteau-home-hero\\.webp');
-            fs.writeFileSync(file, patched, 'utf8');
-            console.log(`CI_WORKSPACE_PATCHED ${file}`);
-          }
-          '@ | node
-
-      - name: Verify full contracts with hero milestone assertions
+      - name: Verify canonical contracts
         shell: pwsh
         run: npm run verify
 

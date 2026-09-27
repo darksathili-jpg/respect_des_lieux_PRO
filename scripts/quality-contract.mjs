@@ -72,7 +72,7 @@ function importedInOrder() {
 
 const roles = {
   architecture() {
-    check('architecture', contract.schemaVersion >= 4, 'le contrat R2 du design system est actif');
+    check('architecture', contract.schemaVersion >= 5, 'le contrat R2 Watteau du design system est actif');
     check('architecture', count(html, /id="app-shell"/g) === 1, 'une seule shell de production existe dans le DOM');
     check('architecture', count(html, /id="main-region"/g) === 1, 'une seule région principale existe');
     check('architecture', !html.includes('vf-dashboard'), 'l’ancienne surface de fidélité est absente du DOM');
@@ -102,7 +102,7 @@ const roles = {
     check('ui', /:focus-visible/.test(components), 'les composants possèdent un focus clavier explicite');
     check('ui', /prefers-reduced-motion:reduce/.test(components), 'le mouvement réduit est respecté');
     check('ui', /@media \(max-width:820px\)/.test(layout) && /@media \(max-width:640px\)/.test(home), 'la shell et l’Accueil possèdent des replis responsive distincts');
-    check('ui', home.includes("dashboard-hero-production.svg") && layout.includes("sidebar-logo-production.svg"), 'les deux vrais SVG de production sont intégrés à la composition');
+    check('ui', home.includes('watteau-home-hero.webp') && layout.includes('sidebar-logo-production.svg'), 'le hero Watteau WebP qualifié et la sidebar SVG historique sont intégrés à la composition');
     check('ui', !/data:image|dashboard-master\.png/.test(`${layout}\n${home}`), 'aucune image embarquée ou capture maître ne sert de rustine visuelle');
     check('ui', !runtimeText.includes('min-width:1448px'), 'aucune largeur maître 1448 px n’est imposée');
   },
@@ -117,7 +117,7 @@ const roles = {
     check('functional', app.includes("$('#backup-view-action').addEventListener('click', createLocalBackup)"), 'le bouton de sauvegarde de la vue est réellement branché');
     check('functional', app.includes("const container = $('#privacy-events')"), 'la traçabilité confidentialité cible le conteneur réellement présent');
     check('functional', !app.includes('visualTestMode') && !app.includes('renderVisualDashboard'), 'aucune branche UI alternative ne court-circuite la production');
-    check('functional', bootstrap.includes("designSystem?.ready === 'r2'") && bootstrap.includes('dashboard-hero-production.svg') && bootstrap.includes('sidebar-logo-production.svg'), 'le vrai EXE vérifie le design system et ses assets au smoke test');
+    check('functional', bootstrap.includes("designSystem?.ready === 'r2'") && bootstrap.includes('watteau-home-hero.webp') && bootstrap.includes('sidebar-logo-production.svg'), 'le vrai EXE vérifie le design system et les assets Watteau du jalon hero');
     check('functional', detailJs.includes('closeDetailDialog') && detailJs.includes('event.target === dialog'), 'la fiche détail dispose de sorties explicites');
   },
 

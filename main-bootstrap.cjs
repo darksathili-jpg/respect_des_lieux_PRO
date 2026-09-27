@@ -134,7 +134,7 @@ function shellContractOk(dom) {
   const designSystemOk = dom.designSystem?.ready === 'r2'
     && Boolean(dom.designSystem?.focusRing)
     && String(dom.designSystem?.brandAsset || '').includes('sidebar-logo-production.svg')
-    && String(dom.designSystem?.heroAsset || '').includes('dashboard-hero-production.svg');
+    && String(dom.designSystem?.heroAsset || '').includes('watteau-home-hero.webp');
   return dom.readyState === 'complete'
     && dom.shellCount === 1
     && dom.mainRegionCount === 1
