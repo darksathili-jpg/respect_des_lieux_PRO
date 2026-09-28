@@ -13,6 +13,7 @@ on:
       - "scripts/r3-signalements-gate.mjs"
       - "scripts/r3-seed-packaged-e2e.cjs"
       - "scripts/r3-packaged-e2e*.mjs"
+      - "scripts/r3-reparations-packaged-e2e.mjs"
       - "quality/r3-signalements-contract.json"
       - "docs/R3-SIGNALEMENTS-AUDIT.md"
       - ".github/workflows/r3-signalements-functional-gate.yml"
@@ -28,6 +29,7 @@ on:
       - "scripts/r3-signalements-gate.mjs"
       - "scripts/r3-seed-packaged-e2e.cjs"
       - "scripts/r3-packaged-e2e*.mjs"
+      - "scripts/r3-reparations-packaged-e2e.mjs"
       - "quality/r3-signalements-contract.json"
       - "docs/R3-SIGNALEMENTS-AUDIT.md"
       - ".github/workflows/r3-signalements-functional-gate.yml"
@@ -102,7 +104,11 @@ jobs:
           $p = Start-Process -FilePath $exe.FullName -ArgumentList "--remote-debugging-port=$port" -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
           try {
             node scripts/r3-packaged-e2e-v2.mjs --port $port --out $evidence --fixture (Join-Path $evidence "fixture.json")
-            if ($LASTEXITCODE -ne 0) { throw "Le parcours E2E R3 a échoué (code $LASTEXITCODE)." }
+            if ($LASTEXITCODE -ne 0) { throw "Le parcours E2E R3 Signalements a échoué (code $LASTEXITCODE)." }
+
+            node scripts/r3-reparations-packaged-e2e.mjs --port $port --out $evidence --fixture (Join-Path $evidence "fixture.json")
+            if ($LASTEXITCODE -ne 0) { throw "Le parcours E2E R3 Réparations a échoué (code $LASTEXITCODE)." }
+
             if (-not (Select-String -Path $stdout -SimpleMatch "RDL_R3_E2E_DIALOG_ADAPTER_ENABLED" -Quiet)) {
               throw "L’adaptateur E2E du dialogue photo n’a pas été activé dans le vrai binaire empaqueté."
             }
