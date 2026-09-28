@@ -5,6 +5,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell, session } = require('electro
 const { LocalDatabase } = require('./src/database.cjs');
 const { LocalPhotoStore } = require('./src/storage.cjs');
 const { createEncryptedBackup, extractEncryptedBackup, validatePassphrase } = require('./src/portable-backup.cjs');
+const { commitDirectoryAtomically, cleanupAbandonedStaging } = require('./src/atomic-snapshot.cjs');
 
 app.setName('Respect des Lieux PRO');
 
@@ -132,15 +133,7 @@ async function createBackup(reason = 'manual') {
   const integrityBefore = db.integrityCheck();
   if (!integrityBefore.ok) throw new Error('Sauvegarde refusée : l’intégrité SQLite doit être contrôlée.');
 
-  const folder = path.join(paths.backups, `backup-${safeTimestamp()}`);
-  const photosTarget = path.join(folder, 'photos');
-  ensureDir(folder);
-  ensureDir(photosTarget);
-
-  const targetDb = path.join(folder, 'respect-des-lieux.sqlite3');
-  await db.backupTo(targetDb);
-  copyPhotos(photosTarget);
-
+  const finalName = `backup-${safeTimestamp()}`;
   const manifest = {
     format: 2,
     appVersion: app.getVersion(),
@@ -151,9 +144,22 @@ async function createBackup(reason = 'manual') {
     integrity: integrityBefore,
     privacyLedgerPreservedOutsideBackups: true
   };
-  fs.writeFileSync(path.join(folder, 'manifest.json'), JSON.stringify(manifest, null, 2), { encoding: 'utf8', mode: 0o600 });
+
+  const committed = await commitDirectoryAtomically({
+    parentDir: paths.backups,
+    finalName,
+    build: async (stagingDir) => {
+      const photosTarget = path.join(stagingDir, 'photos');
+      ensureDir(photosTarget);
+      await db.backupTo(path.join(stagingDir, 'respect-des-lieux.sqlite3'));
+      copyPhotos(photosTarget);
+      fs.writeFileSync(path.join(stagingDir, 'manifest.json'), JSON.stringify(manifest, null, 2), { encoding: 'utf8', mode: 0o600 });
+    },
+    validate: (stagingDir) => validateSnapshotFolder(stagingDir)
+  });
+
   pruneBackups(14);
-  return { folder, manifest };
+  return { folder: committed.folder, manifest: committed.validation.manifest };
 }
 
 async function ensureDailyBackup() {
@@ -479,6 +485,7 @@ app.on('second-instance', () => {
 app.whenReady().then(async () => {
   configureLocalOnlySession();
   paths = appPaths();
+  cleanupAbandonedStaging(paths.backups);
   const restoreResult = applyPendingRestoreBeforeOpen();
   db = new LocalDatabase(paths.database);
   db.init();
