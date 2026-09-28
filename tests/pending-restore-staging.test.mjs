@@ -8,6 +8,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const {
   cleanupAbandonedPendingRestoreStaging,
+  cleanupOrphanedPendingRestore,
   publishPendingRestoreAtomically
 } = require('../src/pending-restore-staging.cjs');
 
@@ -131,6 +132,37 @@ test('pending restore : les staging abandonnés sont nettoyables au démarrage',
     assert.equal(fs.existsSync(path.join(root, '.pending-restore.staging-123-abcdef')), false);
     assert.equal(fs.existsSync(path.join(root, 'pending-restore')), true);
     assert.equal(fs.existsSync(path.join(root, 'autre-dossier')), true);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('pending restore : un final sans marqueur est supprimé comme orphelin', () => {
+  const root = tmpRoot();
+  const pendingDir = path.join(root, 'pending-restore');
+  const markerPath = path.join(root, 'restore-pending.json');
+  fs.mkdirSync(pendingDir);
+  fs.writeFileSync(path.join(pendingDir, 'manifest.json'), '{}');
+  fs.writeFileSync(`${markerPath}.tmp`, '{"partial":true}', 'utf8');
+  try {
+    assert.equal(cleanupOrphanedPendingRestore({ pendingDir, markerPath }), true);
+    assert.equal(fs.existsSync(pendingDir), false);
+    assert.equal(fs.existsSync(`${markerPath}.tmp`), false);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('pending restore : un final avec marqueur reste intact', () => {
+  const root = tmpRoot();
+  const pendingDir = path.join(root, 'pending-restore');
+  const markerPath = path.join(root, 'restore-pending.json');
+  fs.mkdirSync(pendingDir);
+  fs.writeFileSync(markerPath, '{"format":1}', 'utf8');
+  try {
+    assert.equal(cleanupOrphanedPendingRestore({ pendingDir, markerPath }), false);
+    assert.equal(fs.existsSync(pendingDir), true);
+    assert.equal(fs.existsSync(markerPath), true);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
