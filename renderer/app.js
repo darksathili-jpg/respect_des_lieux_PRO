@@ -228,13 +228,16 @@ async function refreshSignalements({ resetOffset = false } = {}) {
 
 function renderReparations() {
   $('#reparations-body').innerHTML = state.reparations.length ? state.reparations.map((r) => `
-    <tr>
+    <tr data-repair-id="${Number(r.id)}">
       <td><strong>${esc(r.signalement_num)}</strong><br><small>${esc(r.signalement_lieu)}</small></td>
       <td>${esc(r.mesure || '—')}</td>
       <td>${protectedIdentity(r.referent)}</td>
       <td>${esc(r.debut || '—')}</td>
       <td>${esc(r.duree || '—')}</td>
-      <td>${statusBadge(r.statut)}</td>
+      <td><div class="repair-status-actions">
+        ${statusBadge(r.statut)}
+        <button class="mini edit-repair" type="button" data-edit-repair="${Number(r.id)}" aria-label="Modifier la réparation ${Number(r.id)}">Modifier</button>
+      </div></td>
     </tr>`).join('') : '<tr><td colspan="6">Aucune réparation.</td></tr>';
 }
 
@@ -612,18 +615,6 @@ function bindStaticEvents() {
     }
   });
 
-  $('#repair-form').addEventListener('submit', async (event) => {
-    event.preventDefault();
-    try {
-      await window.rdl.createReparation(formPayload(event.currentTarget));
-      $('#repair-dialog').close();
-      await reload();
-      toast('Réparation enregistrée localement.');
-    } catch (error) {
-      toast(error.message, true);
-    }
-  });
-
   $('#signalements-body').addEventListener('click', async (event) => {
     const edit = event.target.closest('[data-edit-signalement]');
     const photo = event.target.closest('[data-photo]');
@@ -642,11 +633,9 @@ function bindStaticEvents() {
           }
         });
       } else if (repair) {
-        const form = $('#repair-form');
-        form.reset();
-        form.elements.signalement_id.value = repair.dataset.repair;
-        form.elements.debut.value = new Date().toISOString().slice(0, 10);
-        $('#repair-dialog').showModal();
+        document.dispatchEvent(new CustomEvent('rdl:create-repair', {
+          detail: { signalementId: Number(repair.dataset.repair), invoker: repair }
+        }));
       } else if (status) {
         await withBusy(status, async () => {
           const target = status.dataset.statusTarget;
@@ -666,6 +655,9 @@ function bindStaticEvents() {
   });
   document.addEventListener('rdl:signalements-changed', async () => {
     try { await refreshSignalements(); } catch (error) { console.error(error); }
+  });
+  document.addEventListener('rdl:repairs-changed', async () => {
+    try { await reload(); } catch (error) { console.error(error); }
   });
 
   $('#lifecycle-body').addEventListener('click', async (event) => {

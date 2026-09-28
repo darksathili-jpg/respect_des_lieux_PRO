@@ -13,7 +13,7 @@
   let activeSignalementId = null;
   let dialog = null;
   let detailInvoker = null;
-  let decoratingRepairs = false;
+  let repairDialogInvoker = null;
 
   function identitiesVisible() {
     return $('#privacy-toggle')?.getAttribute('aria-pressed') === 'true';
@@ -386,16 +386,52 @@
     repairDialog.dataset.mode = 'edit';
   }
 
-  async function openRepairEditor(id) {
+  function repairFocusableElements() {
+    const repairDialog = $('#repair-dialog');
+    if (!repairDialog) return [];
+    return $$('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])', repairDialog)
+      .filter((element) => !element.hidden && element.getAttribute('aria-hidden') !== 'true' && element.getClientRects().length > 0);
+  }
+
+  function keepRepairFocusInside(event) {
+    const repairDialog = $('#repair-dialog');
+    if (event.key !== 'Tab' || !repairDialog?.open) return;
+    const focusable = repairFocusableElements();
+    if (!focusable.length) { event.preventDefault(); repairDialog.focus(); return; }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const current = document.activeElement;
+    const outside = !current || !repairDialog.contains(current);
+    if (event.shiftKey && (outside || current === first)) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && (outside || current === last)) { event.preventDefault(); first.focus(); }
+  }
+
+  function showRepairDialog(invoker = null) {
+    const repairDialog = $('#repair-dialog');
+    repairDialogInvoker = invoker || document.activeElement;
+    if (!repairDialog.open) repairDialog.showModal();
+    requestAnimationFrame(() => $('#repair-form [name="mesure"]')?.focus());
+  }
+
+  function openRepairCreator(signalementId, invoker = null) {
+    const id = Number(signalementId);
+    if (!Number.isSafeInteger(id) || id <= 0) return;
+    const form = $('#repair-form');
+    form.reset();
+    setRepairDialogMode(null);
+    form.elements.signalement_id.value = String(id);
+    form.elements.debut.value = new Date().toISOString().slice(0, 10);
+    showRepairDialog(invoker);
+  }
+
+  async function openRepairEditor(id, invoker = null) {
     const repairId = Number(id);
     if (!Number.isSafeInteger(repairId) || repairId <= 0) return;
     try {
       const repair = await window.rdl.getReparation(repairId);
       if (!repair) throw new Error('Réparation introuvable.');
       setRepairDialogMode(repair);
-      const repairDialog = $('#repair-dialog');
-      if (!repairDialog.open) repairDialog.showModal();
-      setTimeout(() => $('#repair-form [name="mesure"]')?.focus(), 40);
+      showRepairDialog(invoker);
     } catch (error) {
       notify(`Modification impossible : ${error.message}`, true);
     }
@@ -407,59 +443,39 @@
     if (!form || !repairDialog) return;
     ensureRepairEditField();
 
+    $$('[data-repair-cancel]', repairDialog).forEach((button) => button.addEventListener('click', () => repairDialog.close('cancel')));
+    repairDialog.addEventListener('cancel', (event) => { event.preventDefault(); repairDialog.close('escape'); });
+    repairDialog.addEventListener('keydown', keepRepairFocusInside);
+
     form.addEventListener('submit', async (event) => {
-      const repairId = Number(form.elements.reparation_id?.value || 0);
-      if (!repairId) return;
       event.preventDefault();
-      event.stopImmediatePropagation();
-      const payload = Object.fromEntries(new FormData(form).entries());
-      delete payload.reparation_id;
-      try {
-        await window.rdl.updateReparation(repairId, payload);
-        repairDialog.close('updated');
-        setRepairDialogMode(null);
-        document.dispatchEvent(new CustomEvent('rdl:signalements-changed'));
-        await refreshActiveDetail();
-        notify('Réparation modifiée et enregistrée localement.');
-      } catch (error) {
-        notify(`Modification impossible : ${error.message}`, true);
-      }
-    }, true);
-
-    repairDialog.addEventListener('close', () => setRepairDialogMode(null));
-  }
-
-  async function decorateRepairRows() {
-    if (decoratingRepairs) return;
-    const body = $('#reparations-body');
-    if (!body) return;
-    decoratingRepairs = true;
-    try {
-      const repairs = await window.rdl.listReparations(1000);
-      const rows = $$('tr', body).filter((row) => $('td', row));
-      rows.forEach((row, index) => {
-        const repair = repairs[index];
-        if (!repair) return;
-        row.dataset.repairId = String(repair.id);
-        const statusCell = $('td:last-child', row);
-        if (!statusCell || statusCell.querySelector('[data-edit-repair]')) return;
-        const wrapper = document.createElement('div');
-        wrapper.className = 'repair-status-actions';
-        while (statusCell.firstChild) wrapper.appendChild(statusCell.firstChild);
-        const edit = document.createElement('button');
-        edit.className = 'mini edit-repair';
-        edit.type = 'button';
-        edit.dataset.editRepair = String(repair.id);
-        edit.textContent = 'Modifier';
-        edit.setAttribute('aria-label', `Modifier la réparation ${repair.id}`);
-        wrapper.appendChild(edit);
-        statusCell.appendChild(wrapper);
+      const submit = $('footer .btn.primary', repairDialog);
+      await withBusy(submit, async () => {
+        const repairId = Number(form.elements.reparation_id?.value || 0);
+        const payload = Object.fromEntries(new FormData(form).entries());
+        delete payload.reparation_id;
+        try {
+          if (repairId) await window.rdl.updateReparation(repairId, payload);
+          else await window.rdl.createReparation(payload);
+          repairDialog.close(repairId ? 'updated' : 'created');
+          document.dispatchEvent(new CustomEvent('rdl:repairs-changed'));
+          await refreshActiveDetail();
+          notify(repairId ? 'Réparation modifiée et enregistrée localement.' : 'Réparation enregistrée localement.');
+        } catch (error) {
+          notify(`Enregistrement impossible : ${error.message}`, true);
+        }
       });
-    } catch (error) {
-      console.error('Décoration des réparations impossible:', error);
-    } finally {
-      decoratingRepairs = false;
-    }
+    });
+
+    repairDialog.addEventListener('close', () => {
+      const target = repairDialogInvoker;
+      repairDialogInvoker = null;
+      form.reset();
+      setRepairDialogMode(null);
+      requestAnimationFrame(() => {
+        if (target && typeof target.focus === 'function' && target.isConnected) target.focus();
+      });
+    });
   }
 
   function bindNavigation() {
@@ -476,12 +492,10 @@
       if (editRepair && !dialog?.open) {
         event.preventDefault();
         event.stopPropagation();
-        openRepairEditor(editRepair.dataset.editRepair);
+        openRepairEditor(editRepair.dataset.editRepair, editRepair);
         return;
       }
 
-      const createRepair = event.target.closest('[data-repair]');
-      if (createRepair) setTimeout(() => setRepairDialogMode(null), 0);
     });
 
     document.addEventListener('keydown', (event) => {
@@ -490,6 +504,10 @@
       if (!row || event.target.closest('button, a, input, select, textarea')) return;
       event.preventDefault();
       openSignalementById(row.dataset.ficheId, row);
+    });
+
+    document.addEventListener('rdl:create-repair', (event) => {
+      openRepairCreator(event.detail?.signalementId, event.detail?.invoker || null);
     });
 
     document.addEventListener('rdl:privacy-visibility-changed', () => {
@@ -504,19 +522,11 @@
     });
   }
 
-  function observeRepairRenders() {
-    const repairBody = $('#reparations-body');
-    if (!repairBody) return;
-    decorateRepairRows();
-    new MutationObserver(() => decorateRepairRows()).observe(repairBody, { childList: true });
-  }
-
   function init() {
     if (!window.rdl) return;
     ensureDialog();
     bindRepairEditing();
     bindNavigation();
-    observeRepairRenders();
   }
 
   if (document.readyState === 'loading') {

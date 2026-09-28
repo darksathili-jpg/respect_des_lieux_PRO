@@ -45,6 +45,16 @@ test('R3-P2 expose create/get/update distincts sans duplication', () => {
   } finally { cleanup(ctx); }
 });
 
+test('R3-P2 refuse la modification d’une réparation inexistante', () => {
+  const ctx = fixture();
+  try {
+    assert.throws(
+      () => ctx.db.updateReparation(999, { mesure: 'X' }),
+      /Réparation introuvable/
+    );
+  } finally { cleanup(ctx); }
+});
+
 test('R3-P2 refuse statuts et dates invalides', () => {
   const ctx = fixture();
   try {
