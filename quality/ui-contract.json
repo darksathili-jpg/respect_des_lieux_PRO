@@ -59,7 +59,8 @@
     ],
     "requiredAssets": [
       "renderer/assets/watteau-sidebar-mark.webp",
-      "renderer/assets/watteau-home-hero.webp"
+      "renderer/assets/watteau-home-hero.webp",
+      "renderer/assets/watteau-logo-primary.webp"
     ],
     "heroAsset": "renderer/assets/watteau-home-hero.webp",
     "sidebarAsset": "renderer/assets/watteau-sidebar-mark.webp",
