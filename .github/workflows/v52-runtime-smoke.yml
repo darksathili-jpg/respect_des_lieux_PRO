@@ -80,11 +80,11 @@ jobs:
             'renderer/detail.js',
             'renderer/detail.css',
             'src/database.cjs',
-            'src/reparation-edit-extension.cjs',
             'src/storage.cjs',
             'src/portable-backup.cjs'
           ];
           const forbidden = [
+            'src/reparation-edit-extension.cjs',
             'renderer/dashboard-vf.css',
             'renderer/assets/dashboard-hero-master.webp',
             'renderer/assets/sidebar-logo-master.webp',
