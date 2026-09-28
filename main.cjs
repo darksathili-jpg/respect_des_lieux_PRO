@@ -6,6 +6,7 @@ const { LocalDatabase } = require('./src/database.cjs');
 const { LocalPhotoStore } = require('./src/storage.cjs');
 const { createEncryptedBackup, extractEncryptedBackup, validatePassphrase } = require('./src/portable-backup.cjs');
 const { commitDirectoryAtomically, cleanupAbandonedStaging } = require('./src/atomic-snapshot.cjs');
+const { applySnapshotTransaction, recoverInterruptedRestore } = require('./src/restore-transaction.cjs');
 
 app.setName('Respect des Lieux PRO');
 
@@ -208,19 +209,17 @@ function validateSnapshotFolder(folder) {
 function replaceActiveDataFromSnapshot(snapshotFolder) {
   const snapshot = validateSnapshotFolder(snapshotFolder);
   ensureDir(paths.data);
-  const incomingDb = `${paths.database}.incoming`;
-  const incomingPhotos = path.join(paths.root, '.photos-incoming');
-  fs.rmSync(incomingDb, { force: true });
-  fs.rmSync(incomingPhotos, { recursive: true, force: true });
-  fs.copyFileSync(snapshot.databasePath, incomingDb);
-  fs.cpSync(snapshot.photosDir, incomingPhotos, { recursive: true, force: true });
-
-  fs.rmSync(paths.database, { force: true });
-  fs.rmSync(`${paths.database}-wal`, { force: true });
-  fs.rmSync(`${paths.database}-shm`, { force: true });
-  fs.rmSync(paths.photos, { recursive: true, force: true });
-  fs.renameSync(incomingDb, paths.database);
-  fs.renameSync(incomingPhotos, paths.photos);
+  applySnapshotTransaction({
+    rootDir: paths.root,
+    databasePath: paths.database,
+    photosPath: paths.photos,
+    snapshotDatabasePath: snapshot.databasePath,
+    snapshotPhotosPath: snapshot.photosDir,
+    validateActive: (databasePath) => {
+      const integrity = quickCheckDatabaseFile(databasePath);
+      if (!integrity.ok) throw new Error(`Base restaurée invalide : ${integrity.messages.join(', ')}`);
+    }
+  });
   return snapshot;
 }
 
@@ -486,6 +485,14 @@ app.whenReady().then(async () => {
   configureLocalOnlySession();
   paths = appPaths();
   cleanupAbandonedStaging(paths.backups);
+  const interruptedRestore = recoverInterruptedRestore({
+    rootDir: paths.root,
+    databasePath: paths.database,
+    photosPath: paths.photos
+  });
+  if (interruptedRestore.recovered) {
+    console.warn('Restauration interrompue récupérée:', interruptedRestore.action);
+  }
   const restoreResult = applyPendingRestoreBeforeOpen();
   db = new LocalDatabase(paths.database);
   db.init();
