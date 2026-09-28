@@ -18,6 +18,15 @@ function cleanupAbandonedPendingRestoreStaging(rootDir) {
   return removed;
 }
 
+function cleanupOrphanedPendingRestore({ pendingDir, markerPath }) {
+  if (!pendingDir || !markerPath) throw new Error('Chemins pending/marker requis.');
+  if (fs.existsSync(markerPath)) return false;
+  fs.rmSync(`${markerPath}.tmp`, { force: true });
+  if (!fs.existsSync(pendingDir)) return false;
+  fs.rmSync(pendingDir, { recursive: true, force: true });
+  return true;
+}
+
 async function publishPendingRestoreAtomically({ rootDir, pendingDir, sourceFile, extract, validate }) {
   if (!rootDir || !pendingDir || !sourceFile) throw new Error('Paramètres de restauration incomplets.');
   if (typeof extract !== 'function' || typeof validate !== 'function') {
@@ -48,5 +57,6 @@ async function publishPendingRestoreAtomically({ rootDir, pendingDir, sourceFile
 
 module.exports = {
   cleanupAbandonedPendingRestoreStaging,
+  cleanupOrphanedPendingRestore,
   publishPendingRestoreAtomically
 };
