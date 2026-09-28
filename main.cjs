@@ -7,6 +7,11 @@ const { LocalPhotoStore } = require('./src/storage.cjs');
 const { createEncryptedBackup, extractEncryptedBackup, validatePassphrase } = require('./src/portable-backup.cjs');
 const { commitDirectoryAtomically, cleanupAbandonedStaging } = require('./src/atomic-snapshot.cjs');
 const { applySnapshotTransaction, recoverInterruptedRestore } = require('./src/restore-transaction.cjs');
+const {
+  cleanupAbandonedPendingRestoreStaging,
+  cleanupOrphanedPendingRestore,
+  publishPendingRestoreAtomically
+} = require('./src/pending-restore-staging.cjs');
 
 app.setName('Respect des Lieux PRO');
 
@@ -272,27 +277,46 @@ async function prepareEncryptedRestore(passphrase) {
     filters: [{ name: 'Sauvegarde Respect des Lieux', extensions: ['rdlbackup'] }]
   });
   if (result.canceled || !result.filePaths[0]) return { canceled: true };
+  if (fs.existsSync(paths.restoreMarker)) {
+    throw new Error('Une restauration est déjà préparée. Redémarrez l’application avant d’en préparer une autre.');
+  }
 
-  fs.rmSync(paths.pendingRestore, { recursive: true, force: true });
-  await extractEncryptedBackup(result.filePaths[0], paths.pendingRestore, passphrase);
-  const validation = validateSnapshotFolder(paths.pendingRestore);
-  const safeguard = await createBackup('pre-encrypted-restore');
-  const marker = {
-    format: 1,
-    preparedAt: new Date().toISOString(),
-    pendingDir: paths.pendingRestore,
-    safeguardFolder: safeguard.folder
-  };
-  const tmp = `${paths.restoreMarker}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(marker, null, 2), { encoding: 'utf8', mode: 0o600 });
-  fs.renameSync(tmp, paths.restoreMarker);
-  return {
-    canceled: false,
-    ready: true,
-    source: result.filePaths[0],
-    snapshotCreatedAt: validation.manifest.createdAt || '',
-    restartRequired: true
-  };
+  cleanupAbandonedPendingRestoreStaging(paths.root);
+  cleanupOrphanedPendingRestore({ pendingDir: paths.pendingRestore, markerPath: paths.restoreMarker });
+  const markerTmp = `${paths.restoreMarker}.tmp`;
+
+  try {
+    const published = await publishPendingRestoreAtomically({
+      rootDir: paths.root,
+      pendingDir: paths.pendingRestore,
+      sourceFile: result.filePaths[0],
+      extract: (sourceFile, stagingDir) => extractEncryptedBackup(sourceFile, stagingDir, passphrase),
+      validate: (stagingDir) => validateSnapshotFolder(stagingDir)
+    });
+    const validation = published.validation;
+    const safeguard = await createBackup('pre-encrypted-restore');
+    const marker = {
+      format: 1,
+      preparedAt: new Date().toISOString(),
+      pendingDir: paths.pendingRestore,
+      safeguardFolder: safeguard.folder
+    };
+    fs.writeFileSync(markerTmp, JSON.stringify(marker, null, 2), { encoding: 'utf8', mode: 0o600 });
+    fs.renameSync(markerTmp, paths.restoreMarker);
+    return {
+      canceled: false,
+      ready: true,
+      source: result.filePaths[0],
+      snapshotCreatedAt: validation.manifest.createdAt || '',
+      restartRequired: true
+    };
+  } catch (error) {
+    fs.rmSync(markerTmp, { force: true });
+    if (!fs.existsSync(paths.restoreMarker)) {
+      fs.rmSync(paths.pendingRestore, { recursive: true, force: true });
+    }
+    throw error;
+  }
 }
 
 function readPurgeLedger() {
@@ -485,6 +509,8 @@ app.whenReady().then(async () => {
   configureLocalOnlySession();
   paths = appPaths();
   cleanupAbandonedStaging(paths.backups);
+  cleanupAbandonedPendingRestoreStaging(paths.root);
+  cleanupOrphanedPendingRestore({ pendingDir: paths.pendingRestore, markerPath: paths.restoreMarker });
   const interruptedRestore = recoverInterruptedRestore({
     rootDir: paths.root,
     databasePath: paths.database,
