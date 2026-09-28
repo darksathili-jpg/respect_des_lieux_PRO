@@ -47,6 +47,7 @@
       "!README.md"
     ],
     "win": {
+      "icon": "renderer/assets/watteau-app-icon.ico",
       "target": ["nsis"]
     },
     "nsis": {
