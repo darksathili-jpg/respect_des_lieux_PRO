@@ -14,6 +14,7 @@ on:
       - "scripts/r3-seed-packaged-e2e.cjs"
       - "scripts/r3-packaged-e2e*.mjs"
       - "scripts/r3-reparations-packaged-e2e.mjs"
+      - "scripts/r4-admin-packaged-e2e.mjs"
       - "quality/r3-signalements-contract.json"
       - "docs/R3-SIGNALEMENTS-AUDIT.md"
       - ".github/workflows/r3-signalements-functional-gate.yml"
@@ -30,6 +31,7 @@ on:
       - "scripts/r3-seed-packaged-e2e.cjs"
       - "scripts/r3-packaged-e2e*.mjs"
       - "scripts/r3-reparations-packaged-e2e.mjs"
+      - "scripts/r4-admin-packaged-e2e.mjs"
       - "quality/r3-signalements-contract.json"
       - "docs/R3-SIGNALEMENTS-AUDIT.md"
       - ".github/workflows/r3-signalements-functional-gate.yml"
@@ -60,7 +62,7 @@ jobs:
   packaged-e2e:
     needs: functional-contract
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -78,7 +80,7 @@ jobs:
         shell: pwsh
         run: npm run dist:win:dir
 
-      - name: Seed isolated R3 profile and execute full packaged journey
+      - name: Seed isolated profile and execute packaged journeys R3 + R4
         shell: pwsh
         run: |
           $local = Join-Path $env:RUNNER_TEMP "rdl-r3-e2e-localappdata"
@@ -95,8 +97,12 @@ jobs:
           $exe = Get-ChildItem -Path dist -Recurse -Filter "Respect des Lieux PRO.exe" -File | Select-Object -First 1
           if (-not $exe) { throw "Exécutable unpacked introuvable." }
 
+          $r4Backup = Join-Path $local "r4-e2e-backup.rdlbackup"
+          $r4Review = Join-Path $local "r4-e2e-review.json"
           $env:LOCALAPPDATA = $local
           $env:RDL_R3_E2E_PHOTO_PATH = [string]$fixture.fixturePhoto
+          $env:RDL_R4_E2E_BACKUP_PATH = $r4Backup
+          $env:RDL_R4_E2E_REVIEW_PATH = $r4Review
           Remove-Item Env:RDL_PACKAGED_SMOKE -ErrorAction SilentlyContinue
           $stdout = Join-Path $evidence "electron-stdout.txt"
           $stderr = Join-Path $evidence "electron-stderr.txt"
@@ -109,8 +115,14 @@ jobs:
             node scripts/r3-reparations-packaged-e2e.mjs --port $port --out $evidence --fixture (Join-Path $evidence "fixture.json")
             if ($LASTEXITCODE -ne 0) { throw "Le parcours E2E R3 Réparations a échoué (code $LASTEXITCODE)." }
 
+            node scripts/r4-admin-packaged-e2e.mjs --port $port --out $evidence --local $local --backup $r4Backup --review $r4Review
+            if ($LASTEXITCODE -ne 0) { throw "Le parcours E2E R4 administratif a échoué (code $LASTEXITCODE)." }
+
             if (-not (Select-String -Path $stdout -SimpleMatch "RDL_R3_E2E_DIALOG_ADAPTER_ENABLED" -Quiet)) {
               throw "L’adaptateur E2E du dialogue photo n’a pas été activé dans le vrai binaire empaqueté."
+            }
+            if (-not (Select-String -Path $stdout -SimpleMatch "RDL_R4_E2E_DIALOG_ADAPTER_ENABLED" -Quiet)) {
+              throw "L’adaptateur E2E R4 des dialogues natifs n’a pas été activé dans le vrai binaire empaqueté."
             }
           }
           finally {
@@ -118,13 +130,15 @@ jobs:
               try { Stop-Process -Id $p.Id -Force } catch {}
             }
             Remove-Item Env:RDL_R3_E2E_PHOTO_PATH -ErrorAction SilentlyContinue
+            Remove-Item Env:RDL_R4_E2E_BACKUP_PATH -ErrorAction SilentlyContinue
+            Remove-Item Env:RDL_R4_E2E_REVIEW_PATH -ErrorAction SilentlyContinue
           }
 
-      - name: Upload R3 packaged E2E evidence
+      - name: Upload packaged E2E evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: r3-signalements-packaged-e2e
+          name: r3-r4-packaged-e2e
           path: ${{ runner.temp }}/rdl-r3-e2e-evidence/**
           if-no-files-found: warn
           retention-days: 14
