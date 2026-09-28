@@ -61,7 +61,7 @@
       "renderer/assets/watteau-sidebar-mark.webp",
       "renderer/assets/watteau-home-hero.webp",
       "renderer/assets/watteau-logo-primary.webp",
-      "renderer/assets/watteau-app-icon.ico"
+      "renderer/assets/watteau-app-icon-256.png"
     ],
     "heroAsset": "renderer/assets/watteau-home-hero.webp",
     "sidebarAsset": "renderer/assets/watteau-sidebar-mark.webp",
