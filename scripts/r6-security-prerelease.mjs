@@ -57,6 +57,8 @@ function sourceContract() {
   }
   assert(Array.isArray(build.win?.target) && build.win.target.includes('nsis'), 'nsis-target-missing');
   assert(build.nsis?.oneClick === false, 'nsis-oneclick-must-be-false');
+  assert(Array.isArray(build.files) && build.files.includes('!artifacts/**'), 'build-artifacts-exclusion-missing');
+  assert(build.files.includes('!package-lock.json'), 'build-lockfile-exclusion-missing');
 
   const mainRequirements = [
     'contextIsolation: true',
@@ -64,11 +66,11 @@ function sourceContract() {
     'sandbox: true',
     'webSecurity: true',
     "setWindowOpenHandler(() => ({ action: 'deny' }))",
-    "will-attach-webview",
-    "will-navigate",
-    "session.defaultSession",
-    "setPermissionRequestHandler",
-    "setPermissionCheckHandler",
+    'will-attach-webview',
+    'will-navigate',
+    'session.defaultSession',
+    'setPermissionRequestHandler',
+    'setPermissionCheckHandler',
     "urls: ['http://*/*', 'https://*/*']",
     'assertTrustedIpc(event)',
     'event.senderFrame !== mainWindow.webContents.mainFrame',
@@ -136,7 +138,8 @@ function sourceContract() {
     ipcChannelCount: preloadChannels.length,
     fuses: expectedFuses,
     trackedFiles: tracked.length,
-    secretHits: 0
+    secretHits: 0,
+    runtimeExclusions: ['artifacts/**', 'package-lock.json']
   };
   fs.mkdirSync('artifacts/r6', { recursive: true });
   fs.writeFileSync('artifacts/r6/source-security.json', JSON.stringify(evidence, null, 2));
@@ -147,8 +150,8 @@ async function packageContract(asarPath) {
   assert(asarPath && fs.existsSync(asarPath), 'asar-missing', { asarPath });
   const asar = await import('@electron/asar');
   const entries = asar.listPackage(asarPath).map((entry) => String(entry).replace(/^[/\\]+/, '').replace(/\\/g, '/'));
-  const forbiddenPrefixes = ['tests/', 'docs/', '.github/', 'design/', 'quality/', 'scripts/'];
-  const forbiddenExact = ['README.md'];
+  const forbiddenPrefixes = ['tests/', 'docs/', '.github/', 'design/', 'quality/', 'scripts/', 'artifacts/'];
+  const forbiddenExact = ['README.md', 'package-lock.json'];
   const forbiddenExtensions = /\.(?:pem|p12|pfx|key)$/i;
   const leaks = entries.filter((entry) => forbiddenPrefixes.some((prefix) => entry.startsWith(prefix)) || forbiddenExact.includes(entry) || forbiddenExtensions.test(entry) || /(^|\/)\.env($|\.)/i.test(entry));
   assert(leaks.length === 0, 'asar-forbidden-content', { leaks: leaks.slice(0, 30) });
