@@ -121,9 +121,10 @@ const roles = {
     check('functional', app.includes("button.setAttribute('aria-current', 'page')"), 'la destination active est exposée à l’accessibilité');
     check(
       'functional',
-      app.includes("$('#backup-view-action').addEventListener('click', async (event) =>")
-        && app.includes('await withBusy(event.currentTarget, createLocalBackup)'),
-      'le bouton de sauvegarde de la vue est réellement branché avec protection busy'
+      app.includes("async function createLocalBackup(control)")
+        && app.includes("await withBusy(control, async () =>")
+        && app.includes("$('#backup-view-action').addEventListener('click', (event) => createLocalBackup(event.currentTarget))"),
+      'le bouton de sauvegarde de la vue transmet son contrôle à la protection busy'
     );
     check('functional', !app.includes("$('#backup-view-action').addEventListener('click', createLocalBackup)"), 'le branchement de sauvegarde non protégé est interdit');
     check('functional', app.includes("const container = $('#privacy-events')"), 'la traçabilité confidentialité cible le conteneur réellement présent');
