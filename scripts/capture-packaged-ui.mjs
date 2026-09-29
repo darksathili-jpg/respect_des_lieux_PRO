@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { assetName } from './production-assets.mjs';
+import { verifyFinalPackage } from './r4-final-package-contract.mjs';
 
 function readArg(name, fallback = null) {
   const index = process.argv.indexOf(name);
@@ -18,6 +19,7 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) {
   throw new Error(`Port CDP invalide: ${port}`);
 }
 fs.mkdirSync(outDir, { recursive: true });
+const packageContract = verifyFinalPackage();
 
 async function discoverPageTarget() {
   const endpoint = `http://127.0.0.1:${port}/json/list`;
@@ -231,12 +233,13 @@ try {
     format: 1,
     capturedAt: new Date().toISOString(),
     target: { title: target.title || '', url: target.url || '', type: target.type || '' },
+    packageContract,
     assetRoles: { hero: heroAssetName, sidebar: sidebarAssetName },
     profiles,
     keyboardFocus: focus
   };
   fs.writeFileSync(path.join(outDir, 'visual-evidence.json'), JSON.stringify(evidence, null, 2), 'utf8');
-  console.log(`RDL_VISUAL_EVIDENCE_PASS ${JSON.stringify({ outDir, assetRoles: evidence.assetRoles, profiles: profiles.map((p) => ({ name: p.name, width: p.width, height: p.height, screenshotBytes: p.screenshotBytes })), keyboardFocus: focus })}`);
+  console.log(`RDL_VISUAL_EVIDENCE_PASS ${JSON.stringify({ outDir, packageContract: { requiredFiles: packageContract.requiredFiles, adminCssBytes: packageContract.adminCssBytes, forbiddenLeaks: packageContract.forbiddenLeaks }, assetRoles: evidence.assetRoles, profiles: profiles.map((p) => ({ name: p.name, width: p.width, height: p.height, screenshotBytes: p.screenshotBytes })), keyboardFocus: focus })}`);
 } finally {
   cdp.close();
 }
