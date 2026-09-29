@@ -1,0 +1,229 @@
+name: R6 Security & Prerelease Qualification
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "package.json"
+      - "package-lock.json"
+      - "main-entry.cjs"
+      - "main-bootstrap.cjs"
+      - "main.cjs"
+      - "preload.cjs"
+      - "src/**"
+      - "renderer/**"
+      - "scripts/**"
+      - "quality/**"
+      - ".github/workflows/r6-security-prerelease.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "package.json"
+      - "package-lock.json"
+      - "main-entry.cjs"
+      - "main-bootstrap.cjs"
+      - "main.cjs"
+      - "preload.cjs"
+      - "src/**"
+      - "renderer/**"
+      - "scripts/**"
+      - "quality/**"
+      - ".github/workflows/r6-security-prerelease.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  security-prerelease:
+    runs-on: windows-latest
+    timeout-minutes: 50
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Node 24.21
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24.21.0"
+          package-manager-cache: false
+
+      - name: Prepare R6 evidence folder
+        shell: pwsh
+        run: New-Item -ItemType Directory -Path artifacts/r6 -Force | Out-Null
+
+      - name: Generate and compare npm dependency lock
+        id: dependency-lock
+        shell: pwsh
+        run: |
+          $tracked = $true
+          git ls-files --error-unmatch package-lock.json *> $null
+          if ($LASTEXITCODE -ne 0) { $tracked = $false }
+
+          if ($tracked) {
+            Copy-Item package-lock.json artifacts/r6/package-lock-repository.json
+          }
+
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw "Impossible de générer le lock npm de référence." }
+          Copy-Item package-lock.json artifacts/r6/package-lock-generated.json
+
+          if ($tracked) {
+            git diff --exit-code -- package-lock.json
+            if ($LASTEXITCODE -ne 0) {
+              throw "Le package-lock.json versionné n'est pas reproductible avec Node/npm épinglés."
+            }
+          }
+
+          $hash = (Get-FileHash package-lock.json -Algorithm SHA256).Hash.ToLowerInvariant()
+          @{ tracked = $tracked; sha256 = $hash } | ConvertTo-Json | Set-Content artifacts/r6/dependency-lock.json -Encoding utf8
+          "tracked=$($tracked.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          "sha256=$hash" >> $env:GITHUB_OUTPUT
+          Write-Host "R6_DEPENDENCY_LOCK_CANDIDATE tracked=$tracked sha256=$hash"
+
+      - name: Install exact dependency graph
+        shell: pwsh
+        run: npm ci --no-audit --no-fund
+
+      - name: Source security contract
+        shell: pwsh
+        run: node scripts/r6-security-prerelease.mjs source
+
+      - name: Dependency vulnerability audit
+        shell: pwsh
+        run: npm audit --audit-level=high
+
+      - name: Existing verification suite
+        shell: pwsh
+        run: npm run verify
+
+      - name: Build unpacked Windows runtime — pass 1
+        shell: pwsh
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npm run dist:win:dir
+
+      - name: Inspect packaged ASAR — pass 1
+        id: package-one
+        shell: pwsh
+        run: |
+          $asar = Get-ChildItem -Path dist -Recurse -Filter app.asar -File | Select-Object -First 1
+          if (-not $asar) { throw "app.asar introuvable après le premier build." }
+          node scripts/r6-security-prerelease.mjs package $asar.FullName
+          if ($LASTEXITCODE -ne 0) { throw "Contrat ASAR R6 refusé au premier build." }
+          Copy-Item artifacts/r6/package-security.json artifacts/r6/package-security-pass1.json
+          $hash = (Get-FileHash $asar.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "hash=$hash" >> $env:GITHUB_OUTPUT
+          Write-Host "R6_ASAR_PASS1_SHA256 $hash"
+
+      - name: Real packaged smoke with E2E adapter inert
+        shell: pwsh
+        run: |
+          Remove-Item Env:RDL_R3_E2E_PHOTO_PATH -ErrorAction SilentlyContinue
+          Remove-Item Env:RDL_R4_E2E_BACKUP_PATH -ErrorAction SilentlyContinue
+          Remove-Item Env:RDL_R4_E2E_REVIEW_PATH -ErrorAction SilentlyContinue
+          $exe = Get-ChildItem -Path dist -Recurse -Filter "Respect des Lieux PRO.exe" -File | Select-Object -First 1
+          if (-not $exe) { throw "Exécutable unpacked introuvable." }
+          $stdout = Join-Path $env:RUNNER_TEMP "r6-normal-stdout.txt"
+          $stderr = Join-Path $env:RUNNER_TEMP "r6-normal-stderr.txt"
+          $env:RDL_PACKAGED_SMOKE = "1"
+          $p = Start-Process -FilePath $exe.FullName -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          $finished = $p.WaitForExit(25000)
+          if (-not $finished) {
+            try { Stop-Process -Id $p.Id -Force } catch {}
+            throw "Le smoke R6 du vrai EXE n'a pas terminé."
+          }
+          $p.Refresh()
+          $out = if (Test-Path $stdout) { Get-Content $stdout -Raw } else { "" }
+          $err = if (Test-Path $stderr) { Get-Content $stderr -Raw } else { "" }
+          $out | Set-Content artifacts/r6/normal-runtime-stdout.txt -Encoding utf8
+          $err | Set-Content artifacts/r6/normal-runtime-stderr.txt -Encoding utf8
+          if ($p.ExitCode -ne 0 -or $out -notmatch 'RDL_SMOKE_PASS') {
+            throw "Le vrai EXE n'a pas passé son smoke normal R6."
+          }
+          if ($out -match 'RDL_R3_E2E_DIALOG_ADAPTER_ENABLED|RDL_R4_E2E_DIALOG_ADAPTER_ENABLED') {
+            throw "L'adaptateur E2E s'est activé dans un démarrage normal : prerelease refusée."
+          }
+          Write-Host "R6_E2E_ADAPTER_INERT_PASS"
+
+      - name: Build unpacked Windows runtime — pass 2
+        shell: pwsh
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: |
+          Remove-Item dist -Recurse -Force -ErrorAction SilentlyContinue
+          npm run dist:win:dir
+
+      - name: Inspect packaged ASAR and assert reproducibility — pass 2
+        shell: pwsh
+        run: |
+          $asar = Get-ChildItem -Path dist -Recurse -Filter app.asar -File | Select-Object -First 1
+          if (-not $asar) { throw "app.asar introuvable après le second build." }
+          node scripts/r6-security-prerelease.mjs package $asar.FullName
+          if ($LASTEXITCODE -ne 0) { throw "Contrat ASAR R6 refusé au second build." }
+          Copy-Item artifacts/r6/package-security.json artifacts/r6/package-security-pass2.json
+          $hash2 = (Get-FileHash $asar.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          $hash1 = '${{ steps.package-one.outputs.hash }}'
+          @{ pass1 = $hash1; pass2 = $hash2; identical = ($hash1 -eq $hash2) } | ConvertTo-Json | Set-Content artifacts/r6/reproducibility.json -Encoding utf8
+          if ($hash1 -ne $hash2) {
+            throw "Build non reproductible : les deux app.asar n'ont pas le même SHA-256."
+          }
+          Write-Host "R6_REPRODUCIBLE_ASAR_PASS sha256=$hash2"
+
+      - name: Build x64 NSIS prerelease qualification installer
+        shell: pwsh
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npm run dist:win
+
+      - name: Validate NSIS installer and Authenticode state
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path dist -Filter "Respect-des-Lieux-PRO-*-x64.exe" -File | Select-Object -First 1
+          if (-not $installer) { throw "Installateur NSIS R6 introuvable." }
+          node scripts/r6-security-prerelease.mjs installer $installer.FullName
+          if ($LASTEXITCODE -ne 0) { throw "Contrat installateur R6 refusé." }
+          $sig = Get-AuthenticodeSignature $installer.FullName
+          $status = [string]$sig.Status
+          @{ status = $status; signer = if ($sig.SignerCertificate) { $sig.SignerCertificate.Subject } else { $null }; unsignedQualificationOnly = $true } | ConvertTo-Json | Set-Content artifacts/r6/authenticode.json -Encoding utf8
+          if ($status -ne 'NotSigned') {
+            throw "Etat Authenticode inattendu pour l'installateur de qualification non signé : $status"
+          }
+          Write-Host "R6_UNSIGNED_QUALIFICATION_INSTALLER_PASS"
+
+      - name: Confirm prerelease remains frozen during R6 qualification
+        shell: pwsh
+        run: |
+          $state = Get-Content quality/release-state.json -Raw | ConvertFrom-Json
+          if ($state.releaseFrozen -ne $true) {
+            throw "Le gel de publication a été levé avant la fin de R6."
+          }
+          Write-Host "R6_RELEASE_FREEZE_PASS"
+
+      - name: Assert dependency lock is versioned
+        shell: pwsh
+        run: |
+          if ('${{ steps.dependency-lock.outputs.tracked }}' -ne 'true') {
+            throw "R6 bloqué : package-lock.json absent du dépôt. Le lock généré est disponible dans les preuves R6."
+          }
+          Write-Host "R6_DEPENDENCY_LOCK_PASS sha256=${{ steps.dependency-lock.outputs.sha256 }}"
+
+      - name: Upload R6 security evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r6-security-prerelease-evidence
+          path: artifacts/r6/**
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload R6 unsigned NSIS installer
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: respect-des-lieux-pro-r6-windows-unsigned
+          path: dist/Respect-des-Lieux-PRO-*-x64.exe
+          if-no-files-found: warn
+          retention-days: 30
