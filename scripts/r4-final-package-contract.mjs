@@ -9,14 +9,10 @@ const require = createRequire(import.meta.url);
 const asar = require('@electron/asar');
 
 const EXPECTED = Object.freeze({
-  hero: { file: 'watteau-home-hero.webp', sourceSha256: '94b4c5b7b2d6709c9e76fba990416c977828473c86dbc80ffcb09eb72014a8fe' },
-  sidebar: { file: 'watteau-sidebar-mark.webp', sourceSha256: '28fd7a88f4918331c550ba06ebe1164cda9ac1fd0b7c422c7668477ff7b327e5' },
-  primaryLogo: { file: 'watteau-logo-primary.webp', sourceSha256: '55c952af9ac0e60afc7a6511520dfcf47eda54d4d84a88aed0f39d89c0ecb2e2' },
-  appIcon: {
-    file: 'watteau-app-icon-256.png',
-    sourceSha256: '9cc1a92aea0c7cd192ec5995e44c68831eb5f0c48a31709c1b56dac7d600fba7',
-    packagedSha256: '74b3271f5ce9da867cd10c363de34903336d9f2251af41d46aaa95a05a6f68ba'
-  }
+  hero: { file: 'watteau-home-hero.webp', sha256: '94b4c5b7b2d6709c9e76fba990416c977828473c86dbc80ffcb09eb72014a8fe' },
+  sidebar: { file: 'watteau-sidebar-mark.webp', sha256: '28fd7a88f4918331c550ba06ebe1164cda9ac1fd0b7c422c7668477ff7b327e5' },
+  primaryLogo: { file: 'watteau-logo-primary.webp', sha256: '55c952af9ac0e60afc7a6511520dfcf47eda54d4d84a88aed0f39d89c0ecb2e2' },
+  appIcon: { file: 'watteau-app-icon-256.png', sha256: '74b3271f5ce9da867cd10c363de34903336d9f2251af41d46aaa95a05a6f68ba' }
 });
 
 function hash(buffer) {
@@ -98,36 +94,27 @@ export function verifyFinalPackage({ archivePath = path.resolve('dist/win-unpack
       if (manifest.roles?.[role] !== expected.file) {
         throw new Error(`Rôle asset ${role} divergent: ${manifest.roles?.[role]} != ${expected.file}`);
       }
-      if (manifest.integrity?.[integrityKeys[role]] !== expected.sourceSha256) {
+      if (manifest.integrity?.[integrityKeys[role]] !== expected.sha256) {
         throw new Error(`Hash déclaré divergent pour ${role}.`);
       }
 
-      const packagedBuffer = readExtracted(extractedRoot, `renderer/assets/${expected.file}`);
+      const relativePath = `renderer/assets/${expected.file}`;
+      const gitHash = hash(readCommittedFile(relativePath));
+      const packagedBuffer = readExtracted(extractedRoot, relativePath);
       const packagedHash = hash(packagedBuffer);
-      if (role === 'appIcon') {
-        const gitSourceBuffer = readCommittedFile(`renderer/assets/${expected.file}`);
-        const gitSourceHash = hash(gitSourceBuffer);
-        if (gitSourceHash !== expected.sourceSha256) {
-          throw new Error(`Icône source Git divergente: ${gitSourceHash}`);
-        }
 
-        const workspacePath = path.resolve('renderer/assets', expected.file);
-        const workspaceHash = fs.existsSync(workspacePath) ? hash(fs.readFileSync(workspacePath)) : null;
-        if (packagedHash !== expected.packagedSha256) {
-          throw new Error(`Transformation packager inattendue pour appIcon: ${packagedHash}`);
-        }
+      if (gitHash !== expected.sha256) {
+        throw new Error(`Hash Git divergent pour ${role}: ${gitHash}`);
+      }
+      if (packagedHash !== expected.sha256) {
+        throw new Error(`Hash ASAR divergent pour ${role}: ${packagedHash}`);
+      }
+
+      if (role === 'appIcon') {
         const dimensions = assertPng256(packagedBuffer);
-        verifiedAssets[role] = {
-          gitSource: gitSourceHash,
-          workspaceAfterBuild: workspaceHash,
-          packaged: packagedHash,
-          ...dimensions
-        };
+        verifiedAssets[role] = { git: gitHash, packaged: packagedHash, ...dimensions };
       } else {
-        if (packagedHash !== expected.sourceSha256) {
-          throw new Error(`Hash binaire ASAR divergent pour ${role}: ${packagedHash}`);
-        }
-        verifiedAssets[role] = packagedHash;
+        verifiedAssets[role] = { git: gitHash, packaged: packagedHash };
       }
     }
 
