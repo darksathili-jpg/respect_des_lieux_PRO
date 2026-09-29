@@ -8,10 +8,14 @@ const require = createRequire(import.meta.url);
 const asar = require('@electron/asar');
 
 const EXPECTED = Object.freeze({
-  hero: { file: 'watteau-home-hero.webp', sha256: '94b4c5b7b2d6709c9e76fba990416c977828473c86dbc80ffcb09eb72014a8fe' },
-  sidebar: { file: 'watteau-sidebar-mark.webp', sha256: '28fd7a88f4918331c550ba06ebe1164cda9ac1fd0b7c422c7668477ff7b327e5' },
-  primaryLogo: { file: 'watteau-logo-primary.webp', sha256: '55c952af9ac0e60afc7a6511520dfcf47eda54d4d84a88aed0f39d89c0ecb2e2' },
-  appIcon: { file: 'watteau-app-icon-256.png', sha256: '9cc1a92aea0c7cd192ec5995e44c68831eb5f0c48a31709c1b56dac7d600fba7' }
+  hero: { file: 'watteau-home-hero.webp', sourceSha256: '94b4c5b7b2d6709c9e76fba990416c977828473c86dbc80ffcb09eb72014a8fe' },
+  sidebar: { file: 'watteau-sidebar-mark.webp', sourceSha256: '28fd7a88f4918331c550ba06ebe1164cda9ac1fd0b7c422c7668477ff7b327e5' },
+  primaryLogo: { file: 'watteau-logo-primary.webp', sourceSha256: '55c952af9ac0e60afc7a6511520dfcf47eda54d4d84a88aed0f39d89c0ecb2e2' },
+  appIcon: {
+    file: 'watteau-app-icon-256.png',
+    sourceSha256: '9cc1a92aea0c7cd192ec5995e44c68831eb5f0c48a31709c1b56dac7d600fba7',
+    packagedSha256: '74b3271f5ce9da867cd10c363de34903336d9f2251af41d46aaa95a05a6f68ba'
+  }
 });
 
 function hash(buffer) {
@@ -25,6 +29,19 @@ function readExtracted(root, relativePath) {
   } catch (error) {
     throw new Error(`Fichier ASAR illisible ${relativePath}: ${error.message}`);
   }
+}
+
+function assertPng256(buffer) {
+  const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  if (buffer.length < 24 || !buffer.subarray(0, 8).equals(pngSignature)) {
+    throw new Error('Icône packagée invalide: signature PNG absente.');
+  }
+  const width = buffer.readUInt32BE(16);
+  const height = buffer.readUInt32BE(20);
+  if (width !== 256 || height !== 256) {
+    throw new Error(`Icône packagée invalide: ${width}x${height} au lieu de 256x256.`);
+  }
+  return { width, height };
 }
 
 export function verifyFinalPackage({ archivePath = path.resolve('dist/win-unpacked/resources/app.asar') } = {}) {
@@ -68,12 +85,29 @@ export function verifyFinalPackage({ archivePath = path.resolve('dist/win-unpack
       if (manifest.roles?.[role] !== expected.file) {
         throw new Error(`Rôle asset ${role} divergent: ${manifest.roles?.[role]} != ${expected.file}`);
       }
-      if (manifest.integrity?.[integrityKeys[role]] !== expected.sha256) {
+      if (manifest.integrity?.[integrityKeys[role]] !== expected.sourceSha256) {
         throw new Error(`Hash déclaré divergent pour ${role}.`);
       }
-      const actual = hash(readExtracted(extractedRoot, `renderer/assets/${expected.file}`));
-      if (actual !== expected.sha256) throw new Error(`Hash binaire ASAR divergent pour ${role}: ${actual}`);
-      verifiedAssets[role] = actual;
+
+      const packagedBuffer = readExtracted(extractedRoot, `renderer/assets/${expected.file}`);
+      const packagedHash = hash(packagedBuffer);
+      if (role === 'appIcon') {
+        const sourcePath = path.resolve('renderer/assets', expected.file);
+        const sourceHash = hash(fs.readFileSync(sourcePath));
+        if (sourceHash !== expected.sourceSha256) {
+          throw new Error(`Icône source dérivée avant packaging: ${sourceHash}`);
+        }
+        if (packagedHash !== expected.packagedSha256) {
+          throw new Error(`Transformation packager inattendue pour appIcon: ${packagedHash}`);
+        }
+        const dimensions = assertPng256(packagedBuffer);
+        verifiedAssets[role] = { source: sourceHash, packaged: packagedHash, ...dimensions };
+      } else {
+        if (packagedHash !== expected.sourceSha256) {
+          throw new Error(`Hash binaire ASAR divergent pour ${role}: ${packagedHash}`);
+        }
+        verifiedAssets[role] = packagedHash;
+      }
     }
 
     const styles = readExtracted(extractedRoot, 'renderer/styles.css').toString('utf8');
