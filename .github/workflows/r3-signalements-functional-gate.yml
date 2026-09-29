@@ -15,6 +15,7 @@ on:
       - "scripts/r3-packaged-e2e*.mjs"
       - "scripts/r3-reparations-packaged-e2e.mjs"
       - "scripts/r4-admin-packaged-e2e.mjs"
+      - "scripts/r4-restore-restart-verify.mjs"
       - "quality/r3-signalements-contract.json"
       - "docs/R3-SIGNALEMENTS-AUDIT.md"
       - ".github/workflows/r3-signalements-functional-gate.yml"
@@ -32,6 +33,7 @@ on:
       - "scripts/r3-packaged-e2e*.mjs"
       - "scripts/r3-reparations-packaged-e2e.mjs"
       - "scripts/r4-admin-packaged-e2e.mjs"
+      - "scripts/r4-restore-restart-verify.mjs"
       - "quality/r3-signalements-contract.json"
       - "docs/R3-SIGNALEMENTS-AUDIT.md"
       - ".github/workflows/r3-signalements-functional-gate.yml"
@@ -62,7 +64,7 @@ jobs:
   packaged-e2e:
     needs: functional-contract
     runs-on: windows-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -80,7 +82,7 @@ jobs:
         shell: pwsh
         run: npm run dist:win:dir
 
-      - name: Seed isolated profile and execute packaged journeys R3 + R4
+      - name: Seed isolated profile and execute packaged journeys R3 + R4 including restore restart
         shell: pwsh
         run: |
           $local = Join-Path $env:RUNNER_TEMP "rdl-r3-e2e-localappdata"
@@ -104,11 +106,19 @@ jobs:
           $env:RDL_R4_E2E_BACKUP_PATH = $r4Backup
           $env:RDL_R4_E2E_REVIEW_PATH = $r4Review
           Remove-Item Env:RDL_PACKAGED_SMOKE -ErrorAction SilentlyContinue
+
           $stdout = Join-Path $evidence "electron-stdout.txt"
           $stderr = Join-Path $evidence "electron-stderr.txt"
+          $restartStdout = Join-Path $evidence "electron-restart-stdout.txt"
+          $restartStderr = Join-Path $evidence "electron-restart-stderr.txt"
           $port = 9444
-          $p = Start-Process -FilePath $exe.FullName -ArgumentList "--remote-debugging-port=$port" -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          $restartPort = 9445
+          $p = $null
+          $p2 = $null
+
           try {
+            $p = Start-Process -FilePath $exe.FullName -ArgumentList "--remote-debugging-port=$port" -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+
             node scripts/r3-packaged-e2e-v2.mjs --port $port --out $evidence --fixture (Join-Path $evidence "fixture.json")
             if ($LASTEXITCODE -ne 0) { throw "Le parcours E2E R3 Signalements a échoué (code $LASTEXITCODE)." }
 
@@ -124,10 +134,23 @@ jobs:
             if (-not (Select-String -Path $stdout -SimpleMatch "RDL_R4_E2E_DIALOG_ADAPTER_ENABLED" -Quiet)) {
               throw "L’adaptateur E2E R4 des dialogues natifs n’a pas été activé dans le vrai binaire empaqueté."
             }
+
+            if ($p -and -not $p.HasExited) {
+              Stop-Process -Id $p.Id -Force
+              Wait-Process -Id $p.Id -ErrorAction SilentlyContinue
+            }
+            Start-Sleep -Milliseconds 750
+
+            $p2 = Start-Process -FilePath $exe.FullName -ArgumentList "--remote-debugging-port=$restartPort" -PassThru -RedirectStandardOutput $restartStdout -RedirectStandardError $restartStderr
+            node scripts/r4-restore-restart-verify.mjs --port $restartPort --out $evidence --local $local
+            if ($LASTEXITCODE -ne 0) { throw "La vérification R4 après redémarrage/restauration a échoué (code $LASTEXITCODE)." }
           }
           finally {
             if ($p -and -not $p.HasExited) {
               try { Stop-Process -Id $p.Id -Force } catch {}
+            }
+            if ($p2 -and -not $p2.HasExited) {
+              try { Stop-Process -Id $p2.Id -Force } catch {}
             }
             Remove-Item Env:RDL_R3_E2E_PHOTO_PATH -ErrorAction SilentlyContinue
             Remove-Item Env:RDL_R4_E2E_BACKUP_PATH -ErrorAction SilentlyContinue
