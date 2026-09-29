@@ -17,6 +17,7 @@ on:
       - "scripts/r4-admin-packaged-e2e.mjs"
       - "scripts/r4-admin-ux-packaged-e2e.mjs"
       - "scripts/r4-restore-restart-verify.mjs"
+      - "scripts/r5-global-packaged-e2e.mjs"
       - "quality/r3-signalements-contract.json"
       - "docs/R3-SIGNALEMENTS-AUDIT.md"
       - ".github/workflows/r3-signalements-functional-gate.yml"
@@ -36,6 +37,7 @@ on:
       - "scripts/r4-admin-packaged-e2e.mjs"
       - "scripts/r4-admin-ux-packaged-e2e.mjs"
       - "scripts/r4-restore-restart-verify.mjs"
+      - "scripts/r5-global-packaged-e2e.mjs"
       - "quality/r3-signalements-contract.json"
       - "docs/R3-SIGNALEMENTS-AUDIT.md"
       - ".github/workflows/r3-signalements-functional-gate.yml"
@@ -84,7 +86,7 @@ jobs:
         shell: pwsh
         run: npm run dist:win:dir
 
-      - name: Seed isolated profile and execute packaged journeys R3 + R4 including restore restart
+      - name: Seed isolated profile and execute packaged journeys R3 + R4 + R5 including restore restart
         shell: pwsh
         run: |
           $local = Join-Path $env:RUNNER_TEMP "rdl-r3-e2e-localappdata"
@@ -132,6 +134,9 @@ jobs:
 
             node scripts/r4-admin-ux-packaged-e2e.mjs --port $port --out $evidence
             if ($LASTEXITCODE -ne 0) { throw "Le parcours visuel/accessibilité R4 administratif a échoué (code $LASTEXITCODE)." }
+
+            node scripts/r5-global-packaged-e2e.mjs --port $port --out $evidence
+            if ($LASTEXITCODE -ne 0) { throw "Le gate global R5 multi-viewport a échoué (code $LASTEXITCODE)." }
 
             if (-not (Select-String -Path $stdout -SimpleMatch "RDL_R3_E2E_DIALOG_ADAPTER_ENABLED" -Quiet)) {
               throw "L’adaptateur E2E du dialogue photo n’a pas été activé dans le vrai binaire empaqueté."
