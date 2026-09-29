@@ -55,7 +55,13 @@ check(/@media \(max-width:820px\)/.test(layout) && /@media \(max-width:640px\)/.
 check(app.includes('function assertDomContract()'), 'le renderer possède un contrat DOM explicite');
 check(app.includes('view.hidden = !active'), 'le routeur UI pilote une seule collection de vues');
 check(app.includes("button.setAttribute('aria-current', 'page')"), 'la vue active est annoncée dans la navigation');
-check(app.includes("$('#backup-view-action').addEventListener('click', createLocalBackup)"), 'l’action Sauvegarde locale est reliée au service réel');
+check(
+  app.includes('async function createLocalBackup(control)')
+    && app.includes('await withBusy(control, async () =>')
+    && app.includes("$('#backup-view-action').addEventListener('click', (event) => createLocalBackup(event.currentTarget))"),
+  'l’action Sauvegarde locale est reliée au service réel avec protection busy'
+);
+check(!app.includes("$('#backup-view-action').addEventListener('click', createLocalBackup)"), 'l’ancien branchement Sauvegarde locale non protégé reste interdit');
 check(app.includes("const container = $('#privacy-events')"), 'la traçabilité confidentialité cible un conteneur existant');
 
 check(!/document\./.test(preload), 'le preload ne modifie plus le DOM ni le rendu');
