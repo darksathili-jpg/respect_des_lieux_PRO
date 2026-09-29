@@ -32,7 +32,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   security-prerelease:
@@ -82,29 +82,6 @@ jobs:
           "tracked=$($tracked.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
           "sha256=$hash" >> $env:GITHUB_OUTPUT
           Write-Host "R6_DEPENDENCY_LOCK_CANDIDATE tracked=$tracked sha256=$hash"
-
-      - name: Bootstrap versioned dependency lock on R6 branch
-        if: steps.dependency-lock.outputs.tracked != 'true' && github.event_name == 'pull_request'
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-          HEAD_REF: ${{ github.head_ref }}
-        run: |
-          if (-not $env:HEAD_REF) { throw "Branche PR introuvable pour le bootstrap du lock." }
-          $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path 'package-lock.json'))
-          $content = [Convert]::ToBase64String($bytes)
-          $payload = @{
-            message = 'R6: fige le graphe de dépendances npm'
-            content = $content
-            branch = $env:HEAD_REF
-          } | ConvertTo-Json -Compress
-          $headers = @{
-            Authorization = "Bearer $env:GH_TOKEN"
-            Accept = 'application/vnd.github+json'
-            'X-GitHub-Api-Version' = '2022-11-28'
-          }
-          Invoke-RestMethod -Method Put -Uri "https://api.github.com/repos/$env:GITHUB_REPOSITORY/contents/package-lock.json" -Headers $headers -Body $payload -ContentType 'application/json' | Out-Null
-          Write-Host "R6_DEPENDENCY_LOCK_BOOTSTRAPPED branch=$env:HEAD_REF"
 
       - name: Install exact dependency graph
         shell: pwsh
@@ -229,7 +206,7 @@ jobs:
         shell: pwsh
         run: |
           if ('${{ steps.dependency-lock.outputs.tracked }}' -ne 'true') {
-            throw "R6 bloqué : package-lock.json absent du dépôt. Le lock a été poussé sur la branche R6 ; ce run reste volontairement bloquant."
+            throw "R6 bloqué : package-lock.json absent du dépôt."
           }
           Write-Host "R6_DEPENDENCY_LOCK_PASS sha256=${{ steps.dependency-lock.outputs.sha256 }}"
 
