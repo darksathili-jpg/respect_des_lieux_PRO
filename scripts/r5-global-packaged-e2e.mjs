@@ -215,11 +215,14 @@ try {
           left: node.getBoundingClientRect().left,
           right: node.getBoundingClientRect().right
         }));
+        const pageTitle = document.querySelector('#page-title')?.textContent?.trim() || '';
+        const localTitle = active.querySelector('h2, h3')?.textContent?.trim() || '';
         return {
           activeView: shell?.dataset.activeView || null,
           navActive,
           panelsVisible,
-          title: document.querySelector('#topbar-title')?.textContent?.trim() || '',
+          pageTitle,
+          localTitle,
           documentOverflow: Math.max(0, doc.scrollWidth - doc.clientWidth),
           activeOverflow: Math.max(0, active.scrollWidth - active.clientWidth),
           controlsOutside: actionable.filter((item) => item.right > innerWidth + 1 || item.left < -1),
@@ -236,7 +239,8 @@ try {
       if (state.panelsVisible.length !== 1 || state.panelsVisible[0] !== view) {
         throw new Error(`${viewport.label}/${view}: panneaux visibles incohérents ${JSON.stringify(state.panelsVisible)}`);
       }
-      if (!state.title) throw new Error(`${viewport.label}/${view}: titre de vue vide`);
+      if (!state.pageTitle) throw new Error(`${viewport.label}/${view}: titre global de vue vide`);
+      if (!state.localTitle) throw new Error(`${viewport.label}/${view}: titre local de vue vide`);
       if (state.documentOverflow > 0) {
         throw new Error(`${viewport.label}/${view}: débordement document ${state.documentOverflow}px`);
       }
@@ -256,7 +260,7 @@ try {
       const file = `r5-global-${view}-${viewport.label}.png`;
       await shot(cdp, file);
       evidence.checks.push({ viewport: viewport.label, view, state });
-      console.log(`R5_GLOBAL_VIEWPORT_STEP ${viewport.label}/${view} ${JSON.stringify({ overflow: state.documentOverflow, title: state.title })}`);
+      console.log(`R5_GLOBAL_VIEWPORT_STEP ${viewport.label}/${view} ${JSON.stringify({ overflow: state.documentOverflow, pageTitle: state.pageTitle, localTitle: state.localTitle })}`);
     }
   }
 
