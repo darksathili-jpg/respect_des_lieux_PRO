@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 
@@ -17,9 +18,10 @@ function hash(buffer) {
   return crypto.createHash('sha256').update(buffer).digest('hex');
 }
 
-function extract(archivePath, relativePath) {
+function readExtracted(root, relativePath) {
+  const filePath = path.join(root, ...relativePath.split('/'));
   try {
-    return asar.extractFile(archivePath, relativePath);
+    return fs.readFileSync(filePath);
   } catch (error) {
     throw new Error(`Fichier ASAR illisible ${relativePath}: ${error.message}`);
   }
@@ -48,42 +50,49 @@ export function verifyFinalPackage({ archivePath = path.resolve('dist/win-unpack
   if (missing.length) throw new Error(`ASAR final incomplet: ${JSON.stringify(missing)}`);
   if (leaked.length) throw new Error(`ASAR final contient des éléments interdits: ${JSON.stringify(leaked)}`);
 
-  const manifest = JSON.parse(extract(archive, 'renderer/assets/manifest.json').toString('utf8'));
-  if (Number(manifest.schemaVersion) !== 3) throw new Error(`Manifest assets inattendu: schemaVersion=${manifest.schemaVersion}`);
+  const extractedRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'rdl-r4-final-asar-'));
+  try {
+    asar.extractAll(archive, extractedRoot);
 
-  const integrityKeys = {
-    hero: 'heroSha256',
-    sidebar: 'sidebarSha256',
-    primaryLogo: 'primaryLogoSha256',
-    appIcon: 'appIconSha256'
-  };
-  const verifiedAssets = {};
-  for (const [role, expected] of Object.entries(EXPECTED)) {
-    if (manifest.roles?.[role] !== expected.file) {
-      throw new Error(`Rôle asset ${role} divergent: ${manifest.roles?.[role]} != ${expected.file}`);
+    const manifest = JSON.parse(readExtracted(extractedRoot, 'renderer/assets/manifest.json').toString('utf8'));
+    if (Number(manifest.schemaVersion) !== 3) throw new Error(`Manifest assets inattendu: schemaVersion=${manifest.schemaVersion}`);
+
+    const integrityKeys = {
+      hero: 'heroSha256',
+      sidebar: 'sidebarSha256',
+      primaryLogo: 'primaryLogoSha256',
+      appIcon: 'appIconSha256'
+    };
+    const verifiedAssets = {};
+    for (const [role, expected] of Object.entries(EXPECTED)) {
+      if (manifest.roles?.[role] !== expected.file) {
+        throw new Error(`Rôle asset ${role} divergent: ${manifest.roles?.[role]} != ${expected.file}`);
+      }
+      if (manifest.integrity?.[integrityKeys[role]] !== expected.sha256) {
+        throw new Error(`Hash déclaré divergent pour ${role}.`);
+      }
+      const actual = hash(readExtracted(extractedRoot, `renderer/assets/${expected.file}`));
+      if (actual !== expected.sha256) throw new Error(`Hash binaire ASAR divergent pour ${role}: ${actual}`);
+      verifiedAssets[role] = actual;
     }
-    if (manifest.integrity?.[integrityKeys[role]] !== expected.sha256) {
-      throw new Error(`Hash déclaré divergent pour ${role}.`);
+
+    const styles = readExtracted(extractedRoot, 'renderer/styles.css').toString('utf8');
+    if (!styles.includes("@import url('./admin.css')")) {
+      throw new Error('La couche R4 admin.css n’est pas importée par renderer/styles.css dans le package.');
     }
-    const actual = hash(extract(archive, `renderer/assets/${expected.file}`));
-    if (actual !== expected.sha256) throw new Error(`Hash binaire ASAR divergent pour ${role}: ${actual}`);
-    verifiedAssets[role] = actual;
-  }
+    const adminCss = readExtracted(extractedRoot, 'renderer/admin.css');
+    if (adminCss.length < 500) throw new Error(`renderer/admin.css anormalement petit dans l’ASAR (${adminCss.length} octets).`);
 
-  const styles = extract(archive, 'renderer/styles.css').toString('utf8');
-  if (!styles.includes("@import url('./admin.css')")) {
-    throw new Error('La couche R4 admin.css n’est pas importée par renderer/styles.css dans le package.');
+    const result = {
+      archive,
+      requiredFiles: required.length,
+      adminCssBytes: adminCss.length,
+      assets: verifiedAssets,
+      forbiddenLeaks: leaked.length
+    };
+    console.log(`R4_FINAL_PACKAGE_CONTRACT_PASS ${JSON.stringify(result)}`);
+    return result;
+  } finally {
+    fs.rmSync(extractedRoot, { recursive: true, force: true });
   }
-  const adminCss = extract(archive, 'renderer/admin.css');
-  if (adminCss.length < 500) throw new Error(`renderer/admin.css anormalement petit dans l’ASAR (${adminCss.length} octets).`);
-
-  const result = {
-    archive,
-    requiredFiles: required.length,
-    adminCssBytes: adminCss.length,
-    assets: verifiedAssets,
-    forbiddenLeaks: leaked.length
-  };
-  console.log(`R4_FINAL_PACKAGE_CONTRACT_PASS ${JSON.stringify(result)}`);
-  return result;
 }
