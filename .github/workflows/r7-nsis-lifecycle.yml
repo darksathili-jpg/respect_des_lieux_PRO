@@ -1,0 +1,274 @@
+name: R7-P1 NSIS Lifecycle Qualification
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "package.json"
+      - "package-lock.json"
+      - "main-entry.cjs"
+      - "main-bootstrap.cjs"
+      - "main.cjs"
+      - "preload.cjs"
+      - "src/**"
+      - "renderer/**"
+      - "scripts/r7-nsis-lifecycle-e2e.mjs"
+      - ".github/workflows/r7-nsis-lifecycle.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "package.json"
+      - "package-lock.json"
+      - "main-entry.cjs"
+      - "main-bootstrap.cjs"
+      - "main.cjs"
+      - "preload.cjs"
+      - "src/**"
+      - "renderer/**"
+      - "scripts/r7-nsis-lifecycle-e2e.mjs"
+      - ".github/workflows/r7-nsis-lifecycle.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  nsis-lifecycle:
+    runs-on: windows-latest
+    timeout-minutes: 55
+    steps:
+      - name: Checkout full history and tags
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Node 24.21
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24.21.0"
+          package-manager-cache: false
+
+      - name: Install current exact dependency graph
+        shell: pwsh
+        run: npm ci --no-audit --no-fund
+
+      - name: Existing verification suite
+        shell: pwsh
+        run: npm run verify
+
+      - name: Prepare isolated lifecycle workspace
+        id: paths
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP "rdl-r7"
+          $install = Join-Path $env:RUNNER_TEMP "rdl-r7-install"
+          $local = Join-Path $env:RUNNER_TEMP "rdl-r7-localappdata"
+          $evidence = Join-Path $env:RUNNER_TEMP "rdl-r7-evidence"
+          $legacy = Join-Path $env:RUNNER_TEMP "rdl-r7-legacy"
+          Remove-Item $root,$install,$local,$evidence,$legacy -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $root,$local,$evidence -Force | Out-Null
+          "root=$root" >> $env:GITHUB_OUTPUT
+          "install=$install" >> $env:GITHUB_OUTPUT
+          "local=$local" >> $env:GITHUB_OUTPUT
+          "evidence=$evidence" >> $env:GITHUB_OUTPUT
+          "legacy=$legacy" >> $env:GITHUB_OUTPUT
+
+      - name: Build current NSIS candidate
+        shell: pwsh
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: |
+          npm run dist:win
+          $installer = Get-ChildItem -Path dist -Filter "Respect-des-Lieux-PRO-*-x64.exe" -File | Select-Object -First 1
+          if (-not $installer) { throw "Installateur courant introuvable." }
+          Copy-Item $installer.FullName (Join-Path '${{ steps.paths.outputs.root }}' 'current.exe') -Force
+          $hash = (Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          @{ file=$installer.Name; sha256=$hash; bytes=$installer.Length } | ConvertTo-Json | Set-Content (Join-Path '${{ steps.paths.outputs.evidence }}' 'current-installer.json') -Encoding utf8
+          Write-Host "R7_CURRENT_INSTALLER_READY sha256=$hash"
+
+      - name: Build last authorized prerelease installer
+        shell: pwsh
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: |
+          $legacy = '${{ steps.paths.outputs.legacy }}'
+          git worktree add --detach $legacy v5.2.1-alpha.6
+          Push-Location $legacy
+          try {
+            npm install --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) { throw "Installation toolchain legacy impossible." }
+            npm run dist:win
+            if ($LASTEXITCODE -ne 0) { throw "Build installateur legacy impossible." }
+            $installer = Get-ChildItem -Path dist -Filter "Respect-des-Lieux-PRO-*-x64.exe" -File | Select-Object -First 1
+            if (-not $installer) { throw "Installateur legacy introuvable." }
+            Copy-Item $installer.FullName (Join-Path '${{ steps.paths.outputs.root }}' 'legacy.exe') -Force
+            $hash = (Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            @{ tag='v5.2.1-alpha.6'; file=$installer.Name; sha256=$hash; bytes=$installer.Length } | ConvertTo-Json | Set-Content (Join-Path '${{ steps.paths.outputs.evidence }}' 'legacy-installer.json') -Encoding utf8
+            Write-Host "R7_LEGACY_INSTALLER_READY sha256=$hash"
+          }
+          finally { Pop-Location }
+
+      - name: Install legacy prerelease silently
+        shell: pwsh
+        run: |
+          $installer = Join-Path '${{ steps.paths.outputs.root }}' 'legacy.exe'
+          $installDir = '${{ steps.paths.outputs.install }}'
+          $p = Start-Process -FilePath $installer -ArgumentList '/S', "/D=$installDir" -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "Installation legacy échouée: $($p.ExitCode)" }
+          $exe = Join-Path $installDir 'Respect des Lieux PRO.exe'
+          if (-not (Test-Path $exe)) { throw "EXE legacy installé introuvable." }
+          Write-Host "R7_LEGACY_INSTALL_PASS"
+
+      - name: Create business data through installed legacy application
+        shell: pwsh
+        run: |
+          $installDir = '${{ steps.paths.outputs.install }}'
+          $local = '${{ steps.paths.outputs.local }}'
+          $evidence = '${{ steps.paths.outputs.evidence }}'
+          $env:LOCALAPPDATA = $local
+          $exe = Join-Path $installDir 'Respect des Lieux PRO.exe'
+          $stdout = Join-Path $evidence 'legacy-runtime-stdout.txt'
+          $stderr = Join-Path $evidence 'legacy-runtime-stderr.txt'
+          $port = 9551
+          $p = Start-Process -FilePath $exe -ArgumentList "--remote-debugging-port=$port" -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          try {
+            node scripts/r7-nsis-lifecycle-e2e.mjs --mode legacy-create --port $port --out $evidence --stage legacy-installed
+            if ($LASTEXITCODE -ne 0) { throw "Création des données dans l'ancienne application impossible." }
+            $p.WaitForExit(10000) | Out-Null
+          }
+          finally {
+            if ($p -and -not $p.HasExited) { try { Stop-Process -Id $p.Id -Force } catch {} }
+          }
+          $db = Join-Path $local 'Respect des Lieux PRO\data\respect-des-lieux.sqlite3'
+          if (-not (Test-Path $db)) { throw "Base legacy absente après création métier." }
+          Write-Host "R7_LEGACY_BUSINESS_DATA_PASS"
+
+      - name: Upgrade in place with current NSIS candidate
+        shell: pwsh
+        run: |
+          $installer = Join-Path '${{ steps.paths.outputs.root }}' 'current.exe'
+          $installDir = '${{ steps.paths.outputs.install }}'
+          $p = Start-Process -FilePath $installer -ArgumentList '/S', "/D=$installDir" -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "Mise à niveau NSIS échouée: $($p.ExitCode)" }
+          $exe = Join-Path $installDir 'Respect des Lieux PRO.exe'
+          if (-not (Test-Path $exe)) { throw "EXE courant absent après mise à niveau." }
+          Write-Host "R7_IN_PLACE_UPGRADE_INSTALL_PASS"
+
+      - name: Verify migrated business data in upgraded application
+        shell: pwsh
+        run: |
+          $installDir = '${{ steps.paths.outputs.install }}'
+          $local = '${{ steps.paths.outputs.local }}'
+          $evidence = '${{ steps.paths.outputs.evidence }}'
+          $env:LOCALAPPDATA = $local
+          $exe = Join-Path $installDir 'Respect des Lieux PRO.exe'
+          $stdout = Join-Path $evidence 'upgrade-runtime-stdout.txt'
+          $stderr = Join-Path $evidence 'upgrade-runtime-stderr.txt'
+          $port = 9552
+          $p = Start-Process -FilePath $exe -ArgumentList "--remote-debugging-port=$port" -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          try {
+            node scripts/r7-nsis-lifecycle-e2e.mjs --mode verify --port $port --out $evidence --expected (Join-Path $evidence 'legacy-created.json') --stage after-upgrade
+            if ($LASTEXITCODE -ne 0) { throw "Données legacy perdues ou altérées après mise à niveau." }
+            $p.WaitForExit(10000) | Out-Null
+          }
+          finally {
+            if ($p -and -not $p.HasExited) { try { Stop-Process -Id $p.Id -Force } catch {} }
+          }
+          Write-Host "R7_UPGRADE_DATA_PRESERVED_PASS"
+
+      - name: Snapshot user profile before uninstall
+        id: profile-before
+        shell: pwsh
+        run: |
+          $profile = Join-Path '${{ steps.paths.outputs.local }}' 'Respect des Lieux PRO'
+          if (-not (Test-Path $profile)) { throw "Profil utilisateur absent avant désinstallation." }
+          $rows = Get-ChildItem $profile -Recurse -File | Sort-Object FullName | ForEach-Object {
+            $relative = $_.FullName.Substring($profile.Length).TrimStart('\')
+            "$relative|$($_.Length)|$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())"
+          }
+          $text = $rows -join "`n"
+          $tmp = Join-Path '${{ steps.paths.outputs.evidence }}' 'profile-before-uninstall.txt'
+          $text | Set-Content $tmp -Encoding utf8
+          $hash = (Get-FileHash $tmp -Algorithm SHA256).Hash.ToLowerInvariant()
+          "hash=$hash" >> $env:GITHUB_OUTPUT
+          Write-Host "R7_PROFILE_BEFORE_UNINSTALL sha256=$hash files=$($rows.Count)"
+
+      - name: Uninstall current application silently and assert user data survives byte-for-byte
+        shell: pwsh
+        run: |
+          $installDir = '${{ steps.paths.outputs.install }}'
+          $profile = Join-Path '${{ steps.paths.outputs.local }}' 'Respect des Lieux PRO'
+          $uninstaller = Get-ChildItem $installDir -Filter 'Uninstall*.exe' -File | Select-Object -First 1
+          if (-not $uninstaller) { throw "Désinstallateur NSIS introuvable." }
+          $p = Start-Process -FilePath $uninstaller.FullName -ArgumentList '/S' -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "Désinstallation NSIS échouée: $($p.ExitCode)" }
+          Start-Sleep -Milliseconds 800
+          if (Test-Path (Join-Path $installDir 'Respect des Lieux PRO.exe')) { throw "EXE encore présent après désinstallation." }
+          if (-not (Test-Path $profile)) { throw "La désinstallation a supprimé le profil utilisateur." }
+          $rows = Get-ChildItem $profile -Recurse -File | Sort-Object FullName | ForEach-Object {
+            $relative = $_.FullName.Substring($profile.Length).TrimStart('\')
+            "$relative|$($_.Length)|$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())"
+          }
+          $text = $rows -join "`n"
+          $tmp = Join-Path '${{ steps.paths.outputs.evidence }}' 'profile-after-uninstall.txt'
+          $text | Set-Content $tmp -Encoding utf8
+          $hash = (Get-FileHash $tmp -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -ne '${{ steps.profile-before.outputs.hash }}') {
+            throw "Le profil utilisateur a été modifié par la désinstallation."
+          }
+          Write-Host "R7_UNINSTALL_PRESERVES_USER_DATA_PASS sha256=$hash"
+
+      - name: Reinstall current candidate silently
+        shell: pwsh
+        run: |
+          $installer = Join-Path '${{ steps.paths.outputs.root }}' 'current.exe'
+          $installDir = '${{ steps.paths.outputs.install }}'
+          $p = Start-Process -FilePath $installer -ArgumentList '/S', "/D=$installDir" -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "Réinstallation NSIS échouée: $($p.ExitCode)" }
+          if (-not (Test-Path (Join-Path $installDir 'Respect des Lieux PRO.exe')) { throw "EXE absent après réinstallation." }
+          Write-Host "R7_REINSTALL_PASS"
+
+      - name: Verify business data after reinstall
+        shell: pwsh
+        run: |
+          $installDir = '${{ steps.paths.outputs.install }}'
+          $local = '${{ steps.paths.outputs.local }}'
+          $evidence = '${{ steps.paths.outputs.evidence }}'
+          $env:LOCALAPPDATA = $local
+          $exe = Join-Path $installDir 'Respect des Lieux PRO.exe'
+          $stdout = Join-Path $evidence 'reinstall-runtime-stdout.txt'
+          $stderr = Join-Path $evidence 'reinstall-runtime-stderr.txt'
+          $port = 9553
+          $p = Start-Process -FilePath $exe -ArgumentList "--remote-debugging-port=$port" -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          try {
+            node scripts/r7-nsis-lifecycle-e2e.mjs --mode verify --port $port --out $evidence --expected (Join-Path $evidence 'legacy-created.json') --stage after-reinstall
+            if ($LASTEXITCODE -ne 0) { throw "Données absentes après réinstallation." }
+            $p.WaitForExit(10000) | Out-Null
+          }
+          finally {
+            if ($p -and -not $p.HasExited) { try { Stop-Process -Id $p.Id -Force } catch {} }
+          }
+          Write-Host "R7_REINSTALL_DATA_PRESERVED_PASS"
+
+      - name: Confirm release remains frozen
+        shell: pwsh
+        run: |
+          $state = Get-Content quality/release-state.json -Raw | ConvertFrom-Json
+          if ($state.releaseFrozen -ne $true) { throw "Le gel de release a été levé pendant R7-P1." }
+          Write-Host "R7_RELEASE_FREEZE_PASS"
+
+      - name: Final R7-P1 lifecycle marker
+        shell: pwsh
+        run: |
+          @{ legacyTag='v5.2.1-alpha.6'; upgrade=$true; uninstallPreserved=$true; reinstallPreserved=$true; completedAt=(Get-Date).ToUniversalTime().ToString('o') } | ConvertTo-Json | Set-Content (Join-Path '${{ steps.paths.outputs.evidence }}' 'r7-p1-summary.json') -Encoding utf8
+          Write-Host 'R7_NSIS_LIFECYCLE_PASS {"legacy":"v5.2.1-alpha.6","upgrade":true,"uninstallPreserved":true,"reinstallPreserved":true}'
+
+      - name: Upload R7 lifecycle evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r7-p1-nsis-lifecycle-evidence
+          path: ${{ steps.paths.outputs.evidence }}/**
+          if-no-files-found: warn
+          retention-days: 30
