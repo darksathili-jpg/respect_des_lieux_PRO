@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
@@ -28,6 +29,18 @@ function readExtracted(root, relativePath) {
     return fs.readFileSync(filePath);
   } catch (error) {
     throw new Error(`Fichier ASAR illisible ${relativePath}: ${error.message}`);
+  }
+}
+
+function readCommittedFile(relativePath) {
+  try {
+    return execFileSync('git', ['show', `HEAD:${relativePath}`], {
+      cwd: process.cwd(),
+      encoding: null,
+      maxBuffer: 16 * 1024 * 1024
+    });
+  } catch (error) {
+    throw new Error(`Impossible de lire le blob Git ${relativePath}: ${error.message}`);
   }
 }
 
@@ -92,16 +105,24 @@ export function verifyFinalPackage({ archivePath = path.resolve('dist/win-unpack
       const packagedBuffer = readExtracted(extractedRoot, `renderer/assets/${expected.file}`);
       const packagedHash = hash(packagedBuffer);
       if (role === 'appIcon') {
-        const sourcePath = path.resolve('renderer/assets', expected.file);
-        const sourceHash = hash(fs.readFileSync(sourcePath));
-        if (sourceHash !== expected.sourceSha256) {
-          throw new Error(`Icône source dérivée avant packaging: ${sourceHash}`);
+        const gitSourceBuffer = readCommittedFile(`renderer/assets/${expected.file}`);
+        const gitSourceHash = hash(gitSourceBuffer);
+        if (gitSourceHash !== expected.sourceSha256) {
+          throw new Error(`Icône source Git divergente: ${gitSourceHash}`);
         }
+
+        const workspacePath = path.resolve('renderer/assets', expected.file);
+        const workspaceHash = fs.existsSync(workspacePath) ? hash(fs.readFileSync(workspacePath)) : null;
         if (packagedHash !== expected.packagedSha256) {
           throw new Error(`Transformation packager inattendue pour appIcon: ${packagedHash}`);
         }
         const dimensions = assertPng256(packagedBuffer);
-        verifiedAssets[role] = { source: sourceHash, packaged: packagedHash, ...dimensions };
+        verifiedAssets[role] = {
+          gitSource: gitSourceHash,
+          workspaceAfterBuild: workspaceHash,
+          packaged: packagedHash,
+          ...dimensions
+        };
       } else {
         if (packagedHash !== expected.sourceSha256) {
           throw new Error(`Hash binaire ASAR divergent pour ${role}: ${packagedHash}`);
