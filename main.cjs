@@ -7,6 +7,7 @@ const { LocalPhotoStore } = require('./src/storage.cjs');
 const { createEncryptedBackup, extractEncryptedBackup, validatePassphrase } = require('./src/portable-backup.cjs');
 const { commitDirectoryAtomically, cleanupAbandonedStaging } = require('./src/atomic-snapshot.cjs');
 const { applySnapshotTransaction, recoverInterruptedRestore } = require('./src/restore-transaction.cjs');
+const { buildSystemHealth } = require('./src/system-health.cjs');
 const {
   cleanupAbandonedPendingRestoreStaging,
   cleanupOrphanedPendingRestore,
@@ -491,11 +492,12 @@ function registerIpc() {
     });
     return true;
   });
-  secureHandle('rdl:system:health', async () => ({
+  secureHandle('rdl:system:health', async () => buildSystemHealth({
+    paths,
     integrity: db.integrityCheck(),
     stats: db.getStats(),
     retention: db.getRetentionPolicy(),
-    paths: { root: paths.root, database: paths.database, backups: paths.backups, exports: paths.exports }
+    appVersion: app.getVersion()
   }));
 }
 

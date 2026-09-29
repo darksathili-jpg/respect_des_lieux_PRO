@@ -296,7 +296,8 @@ function eventLabel(type) {
     purge_reapplied_after_restore: 'Suppression réappliquée après restauration',
     access_review_exported: 'Dossier de revue exporté',
     encrypted_backup_exported: 'Sauvegarde chiffrée exportée',
-    encrypted_restore_prepared: 'Restauration chiffrée préparée'
+    encrypted_restore_prepared: 'Restauration chiffrée préparée',
+    encrypted_backup_restored: 'Sauvegarde chiffrée restaurée'
   };
   return labels[type] || type;
 }
@@ -503,14 +504,16 @@ function toggleRetentionFields() {
   $('#retention-confirmed').disabled = !enabled;
 }
 
-async function createLocalBackup() {
-  try {
-    await window.rdl.createBackup();
-    await reload();
-    toast('Sauvegarde locale créée.');
-  } catch (error) {
-    toast(`Sauvegarde impossible : ${error.message}`, true);
-  }
+async function createLocalBackup(control) {
+  await withBusy(control, async () => {
+    try {
+      await window.rdl.createBackup();
+      await reload();
+      toast('Sauvegarde locale créée.');
+    } catch (error) {
+      toast(`Sauvegarde impossible : ${error.message}`, true);
+    }
+  });
 }
 
 function bindStaticEvents() {
@@ -552,67 +555,76 @@ function bindStaticEvents() {
 
   $('#new-signalement').addEventListener('click', (event) => openCreateSignalement(event.currentTarget));
 
-  $('#backup-now').addEventListener('click', createLocalBackup);
-  $('#backup-view-action').addEventListener('click', createLocalBackup);
+  $('#backup-now').addEventListener('click', (event) => createLocalBackup(event.currentTarget));
+  $('#backup-view-action').addEventListener('click', (event) => createLocalBackup(event.currentTarget));
   $('#open-data').addEventListener('click', () => window.rdl.openDataFolder());
   $('#open-backups').addEventListener('click', () => window.rdl.openBackupsFolder());
   $('#open-exports').addEventListener('click', () => window.rdl.openExportsFolder());
 
-  $('#encrypted-backup').addEventListener('click', async () => {
-    const passphrase = await askSecret('export');
-    if (!passphrase) return;
-    try {
-      const result = await window.rdl.exportEncryptedBackup(passphrase);
-      if (result.canceled) return;
-      await reload();
-      toast('Sauvegarde chiffrée créée. Conservez le fichier et sa phrase secrète séparément.');
-    } catch (error) {
-      toast(`Export chiffré impossible : ${error.message}`, true);
-    }
+  $('#encrypted-backup').addEventListener('click', async (event) => {
+    await withBusy(event.currentTarget, async () => {
+      const passphrase = await askSecret('export');
+      if (!passphrase) return;
+      try {
+        const result = await window.rdl.exportEncryptedBackup(passphrase);
+        if (result.canceled) return;
+        await reload();
+        toast('Sauvegarde chiffrée créée. Conservez le fichier et sa phrase secrète séparément.');
+      } catch (error) {
+        toast(`Export chiffré impossible : ${error.message}`, true);
+      }
+    });
   });
 
-  $('#encrypted-restore').addEventListener('click', async () => {
-    const passphrase = await askSecret('restore');
-    if (!passphrase) return;
-    try {
-      const result = await window.rdl.prepareEncryptedRestore(passphrase);
-      if (result.canceled) return;
-      const restart = window.confirm('Sauvegarde vérifiée. Une copie de sécurité de l’état actuel a été créée. Redémarrer maintenant pour appliquer la restauration ?');
-      if (restart) await window.rdl.restartApp();
-      else toast('Restauration prête : elle sera appliquée au prochain redémarrage de l’application.');
-    } catch (error) {
-      toast(`Restauration refusée : ${error.message}`, true);
-    }
+  $('#encrypted-restore').addEventListener('click', async (event) => {
+    await withBusy(event.currentTarget, async () => {
+      const passphrase = await askSecret('restore');
+      if (!passphrase) return;
+      try {
+        const result = await window.rdl.prepareEncryptedRestore(passphrase);
+        if (result.canceled) return;
+        const restart = window.confirm('Sauvegarde vérifiée. Une copie de sécurité de l’état actuel a été créée. Redémarrer maintenant pour appliquer la restauration ?');
+        if (restart) await window.rdl.restartApp();
+        else toast('Restauration prête : elle sera appliquée au prochain redémarrage de l’application.');
+      } catch (error) {
+        toast(`Restauration refusée : ${error.message}`, true);
+      }
+    });
   });
 
   $('#retention-enabled').addEventListener('change', toggleRetentionFields);
   $('#retention-form').addEventListener('submit', async (event) => {
     event.preventDefault();
-    const enabled = $('#retention-enabled').checked;
-    try {
-      await window.rdl.configureRetentionPolicy({
-        enabled,
-        months: enabled ? Number($('#retention-months').value) : null,
-        note: enabled ? $('#retention-note').value : '',
-        confirmed: enabled ? $('#retention-confirmed').checked : false
-      });
-      await reload();
-      toast(enabled ? 'Politique de réexamen enregistrée.' : 'Politique de réexamen désactivée.');
-    } catch (error) {
-      toast(error.message, true);
-    }
+    const submit = event.submitter || event.currentTarget.querySelector('button[type="submit"]');
+    await withBusy(submit, async () => {
+      const enabled = $('#retention-enabled').checked;
+      try {
+        await window.rdl.configureRetentionPolicy({
+          enabled,
+          months: enabled ? Number($('#retention-months').value) : null,
+          note: enabled ? $('#retention-note').value : '',
+          confirmed: enabled ? $('#retention-confirmed').checked : false
+        });
+        await reload();
+        toast(enabled ? 'Politique de réexamen enregistrée.' : 'Politique de réexamen désactivée.');
+      } catch (error) {
+        toast(error.message, true);
+      }
+    });
   });
 
-  $('#rights-export').addEventListener('click', async () => {
-    const query = $('#rights-query').value.trim();
-    try {
-      const result = await window.rdl.exportAccessReview(query);
-      if (result.canceled) return;
-      await reload();
-      toast(`Revue préparée (${result.matches} dossier(s)). Vérifiez les données de tiers avant toute communication.`);
-    } catch (error) {
-      toast(error.message, true);
-    }
+  $('#rights-export').addEventListener('click', async (event) => {
+    await withBusy(event.currentTarget, async () => {
+      const query = $('#rights-query').value.trim();
+      try {
+        const result = await window.rdl.exportAccessReview(query);
+        if (result.canceled) return;
+        await reload();
+        toast(`Revue préparée (${result.matches} dossier(s)). Vérifiez les données de tiers avant toute communication.`);
+      } catch (error) {
+        toast(error.message, true);
+      }
+    });
   });
 
   $('#signalements-body').addEventListener('click', async (event) => {
@@ -667,16 +679,20 @@ function bindStaticEvents() {
       if (reduce) {
         const ok = window.confirm('Cette action efface les champs structurés « élève », « classe » et « signalé par » du dossier clos. Les textes libres et photos ne sont pas anonymisés. Continuer ?');
         if (!ok) return;
-        await window.rdl.reduceDirectIdentifiers(Number(reduce.dataset.reduce));
-        await reload();
-        toast('Identifiants structurés réduits. Vérifiez encore les textes libres et photographies.');
+        await withBusy(reduce, async () => {
+          await window.rdl.reduceDirectIdentifiers(Number(reduce.dataset.reduce));
+          await reload();
+          toast('Identifiants structurés réduits. Vérifiez encore les textes libres et photographies.');
+        });
       } else if (purge) {
         const num = purge.dataset.num;
         const typed = window.prompt(`Suppression définitive du dossier ${num}.\nTapez exactement ${num} pour confirmer.`);
         if (typed === null) return;
-        await window.rdl.purgeSignalement(Number(purge.dataset.purge), typed.trim());
-        await reload();
-        toast(`Dossier ${num} supprimé de la base active. Le registre de purge empêchera sa réapparition après restauration.`);
+        await withBusy(purge, async () => {
+          await window.rdl.purgeSignalement(Number(purge.dataset.purge), typed.trim());
+          await reload();
+          toast(`Dossier ${num} supprimé de la base active. Le registre de purge empêchera sa réapparition après restauration.`);
+        });
       }
     } catch (error) {
       toast(error.message, true);

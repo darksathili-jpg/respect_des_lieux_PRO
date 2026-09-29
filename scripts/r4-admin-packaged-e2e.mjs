@@ -148,11 +148,23 @@ try {
   record('visual-backups-view', await shot(cdp, 'r4-sauvegardes.png', 'backups-view'));
 
   const beforeBackups = backupCount();
-  await click(cdp, '#backup-view-action');
+  const busyProbe = await evaluate(cdp, `(() => {
+    const e=document.querySelector('#backup-view-action');
+    if(!e)return null;
+    e.click();
+    const first={disabled:e.disabled,busy:e.getAttribute('aria-busy'),dataset:e.dataset.busy||''};
+    e.click();
+    return first;
+  })()`);
+  if (!busyProbe || busyProbe.disabled !== true || busyProbe.busy !== 'true' || busyProbe.dataset !== 'true') {
+    throw new Error(`État busy absent après activation: ${JSON.stringify(busyProbe)}`);
+  }
   await waitFor(cdp, `document.querySelector('#toast')?.classList.contains('show') && document.querySelector('#toast')?.textContent.includes('Sauvegarde locale créée')`, 'toast sauvegarde locale');
   const afterBackups = backupCount();
-  if (afterBackups <= beforeBackups) throw new Error(`Aucune nouvelle sauvegarde locale détectée (${beforeBackups} -> ${afterBackups}).`);
-  record('local-backup-created', { before: beforeBackups, after: afterBackups });
+  if (afterBackups !== beforeBackups + 1) throw new Error(`Double activation non idempotente (${beforeBackups} -> ${afterBackups}).`);
+  const busyReleased = await evaluate(cdp, `(() => { const e=document.querySelector('#backup-view-action'); return {disabled:e?.disabled,busy:e?.getAttribute('aria-busy'),dataset:e?.dataset.busy||''}; })()`);
+  if (busyReleased.disabled || busyReleased.busy || busyReleased.dataset) throw new Error(`État busy non libéré: ${JSON.stringify(busyReleased)}`);
+  record('local-backup-created-once', { before: beforeBackups, after: afterBackups, busyProbe, busyReleased });
 
   fs.rmSync(backupFile, { force: true });
   await click(cdp, '#encrypted-backup');
@@ -204,11 +216,30 @@ try {
   }
   record('restore-prepared', { markerFormat: marker.format, pendingDir: marker.pendingDir });
 
-  // Système local : intégrité, chemins et géométrie.
+  // Système local : intégrité, diagnostic enrichi, chemins et géométrie.
   await click(cdp, '#app-shell .nav[data-view="systeme"]');
   await waitFor(cdp, `document.querySelector('#app-shell')?.dataset.activeView==='systeme'`, 'vue Système local');
   const health = await evaluate(cdp, `window.rdl.health()`);
   if (!health?.integrity?.ok) throw new Error(`Intégrité système invalide: ${JSON.stringify(health)}`);
+  if (Number(health?.formats?.databaseSchema) !== 3 || Number(health?.formats?.backup) !== 2 || Number(health?.formats?.restoreMarker) !== 1) {
+    throw new Error(`Versions de formats inattendues: ${JSON.stringify(health?.formats)}`);
+  }
+  if (!health?.lastBackup?.name || Number(health?.lastBackup?.format) !== 2) {
+    throw new Error(`Dernière sauvegarde absente/invalide: ${JSON.stringify(health?.lastBackup)}`);
+  }
+  if (health?.restore?.pending !== true || health?.restore?.markerExists !== true || health?.restore?.pendingDirectory !== true) {
+    throw new Error(`État de restauration en attente incohérent: ${JSON.stringify(health?.restore)}`);
+  }
+  if (!Number.isFinite(Number(health?.disk?.availableBytes)) || Number(health.disk.availableBytes) < 0) {
+    throw new Error(`Espace disque non diagnostiqué: ${JSON.stringify(health?.disk)}`);
+  }
+  for (const [name, status] of Object.entries(health?.directories || {})) {
+    if (!status?.exists || !status?.readable || !status?.writable) {
+      throw new Error(`Dossier ${name} non opérationnel: ${JSON.stringify(status)}`);
+    }
+  }
+  if (Object.keys(health?.directories || {}).length < 5) throw new Error('Diagnostic des dossiers incomplet.');
+
   const systemState = await evaluate(cdp, `(() => ({
     root: document.querySelector('#sys-root')?.textContent || '',
     db: document.querySelector('#sys-db')?.textContent || '',
@@ -218,13 +249,22 @@ try {
   }))()`);
   if (!systemState.root || !systemState.db || !systemState.backups || !systemState.exports) throw new Error(`Chemins système incomplets: ${JSON.stringify(systemState)}`);
   if (systemState.overflow > 0) throw new Error(`Débordement horizontal vue Système: ${systemState.overflow}px`);
-  record('system-health', { integrity: true, overflow: systemState.overflow });
+  record('system-health-enriched', {
+    integrity: true,
+    overflow: systemState.overflow,
+    databaseSchema: health.formats.databaseSchema,
+    backupFormat: health.formats.backup,
+    restorePending: health.restore.pending,
+    availableBytes: health.disk.availableBytes,
+    lastBackup: health.lastBackup.name,
+    directories: Object.keys(health.directories)
+  });
   record('visual-system-view', await shot(cdp, 'r4-systeme.png', 'system-view'));
 
   evidence.ok = true;
   evidence.finishedAt = new Date().toISOString();
   fs.writeFileSync(path.join(outDir, 'r4-admin-e2e-evidence.json'), JSON.stringify(evidence, null, 2));
-  console.log(`R4_ADMIN_PACKAGED_E2E_PASS ${JSON.stringify({ localBackupDelta: afterBackups - beforeBackups, encryptedBytes, reviewMatches, retentionMonths: policy.months, systemIntegrity: true, restorePrepared: true })}`);
+  console.log(`R4_ADMIN_PACKAGED_E2E_PASS ${JSON.stringify({ localBackupDelta: afterBackups - beforeBackups, encryptedBytes, reviewMatches, retentionMonths: policy.months, systemIntegrity: true, restorePrepared: true, databaseSchema: health.formats.databaseSchema, backupFormat: health.formats.backup, busyIdempotent: true })}`);
 } catch (error) {
   evidence.ok = false;
   evidence.finishedAt = new Date().toISOString();
