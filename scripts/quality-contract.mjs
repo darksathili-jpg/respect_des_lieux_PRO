@@ -119,7 +119,13 @@ const roles = {
     check('functional', app.includes('assertDomContract'), 'le renderer vérifie son contrat DOM au démarrage');
     check('functional', app.includes("view.hidden = !active"), 'la navigation pilote directement la visibilité des six vues');
     check('functional', app.includes("button.setAttribute('aria-current', 'page')"), 'la destination active est exposée à l’accessibilité');
-    check('functional', app.includes("$('#backup-view-action').addEventListener('click', createLocalBackup)"), 'le bouton de sauvegarde de la vue est réellement branché');
+    check(
+      'functional',
+      app.includes("$('#backup-view-action').addEventListener('click', async (event) =>")
+        && app.includes('await withBusy(event.currentTarget, createLocalBackup)'),
+      'le bouton de sauvegarde de la vue est réellement branché avec protection busy'
+    );
+    check('functional', !app.includes("$('#backup-view-action').addEventListener('click', createLocalBackup)"), 'le branchement de sauvegarde non protégé est interdit');
     check('functional', app.includes("const container = $('#privacy-events')"), 'la traçabilité confidentialité cible le conteneur réellement présent');
     check('functional', !app.includes('visualTestMode') && !app.includes('renderVisualDashboard'), 'aucune branche UI alternative ne court-circuite la production');
     check('functional', bootstrap.includes("designSystem?.ready === 'r2'") && bootstrap.includes('assetManifest.roles.hero') && bootstrap.includes('assetManifest.roles.sidebar'), 'le vrai EXE vérifie les rôles du manifest des assets');
