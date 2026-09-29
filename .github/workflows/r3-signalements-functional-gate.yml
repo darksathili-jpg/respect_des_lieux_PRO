@@ -15,6 +15,7 @@ on:
       - "scripts/r3-packaged-e2e*.mjs"
       - "scripts/r3-reparations-packaged-e2e.mjs"
       - "scripts/r4-admin-packaged-e2e.mjs"
+      - "scripts/r4-admin-ux-packaged-e2e.mjs"
       - "scripts/r4-restore-restart-verify.mjs"
       - "quality/r3-signalements-contract.json"
       - "docs/R3-SIGNALEMENTS-AUDIT.md"
@@ -33,6 +34,7 @@ on:
       - "scripts/r3-packaged-e2e*.mjs"
       - "scripts/r3-reparations-packaged-e2e.mjs"
       - "scripts/r4-admin-packaged-e2e.mjs"
+      - "scripts/r4-admin-ux-packaged-e2e.mjs"
       - "scripts/r4-restore-restart-verify.mjs"
       - "quality/r3-signalements-contract.json"
       - "docs/R3-SIGNALEMENTS-AUDIT.md"
@@ -127,6 +129,9 @@ jobs:
 
             node scripts/r4-admin-packaged-e2e.mjs --port $port --out $evidence --local $local --backup $r4Backup --review $r4Review
             if ($LASTEXITCODE -ne 0) { throw "Le parcours E2E R4 administratif a échoué (code $LASTEXITCODE)." }
+
+            node scripts/r4-admin-ux-packaged-e2e.mjs --port $port --out $evidence
+            if ($LASTEXITCODE -ne 0) { throw "Le parcours visuel/accessibilité R4 administratif a échoué (code $LASTEXITCODE)." }
 
             if (-not (Select-String -Path $stdout -SimpleMatch "RDL_R3_E2E_DIALOG_ADAPTER_ENABLED" -Quiet)) {
               throw "L’adaptateur E2E du dialogue photo n’a pas été activé dans le vrai binaire empaqueté."

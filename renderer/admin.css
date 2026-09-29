@@ -1,0 +1,75 @@
+/* R4-P2 — Administrative views: density, accessibility and responsive hardening.
+   Scoped to Sauvegardes / Protection des données / Système local only. */
+
+#view-sauvegardes,
+#view-confidentialite,
+#view-systeme{min-width:0}
+
+#view-sauvegardes .panel,
+#view-confidentialite .panel,
+#view-systeme .panel{min-width:0}
+
+#view-sauvegardes .large-action{display:flex;min-height:270px;flex-direction:column;align-items:center;justify-content:flex-start}
+#view-sauvegardes .large-action .btn{margin-top:auto;max-width:100%;white-space:normal;text-align:center}
+
+#view-confidentialite .facts dd,
+#view-systeme .facts dd{overflow-wrap:anywhere;word-break:normal}
+
+#view-confidentialite .table-wrap{max-width:100%;overscroll-behavior-inline:contain}
+#view-confidentialite .event-row{min-width:0}
+#view-confidentialite .event-row>div{min-width:0}
+#view-confidentialite .event-row strong,
+#view-confidentialite .event-row small{overflow-wrap:anywhere}
+
+#view-confidentialite .rights-tools>*{max-width:100%}
+#view-confidentialite .rights-tools .btn{white-space:normal;text-align:center}
+
+#view-systeme .facts{min-width:0}
+#view-systeme #open-data{margin-top:var(--rdl-space-3);max-width:100%;white-space:normal}
+
+#view-sauvegardes button[aria-busy="true"],
+#view-confidentialite button[aria-busy="true"]{cursor:progress;opacity:.76}
+#view-sauvegardes button[aria-busy="true"]::after,
+#view-confidentialite button[aria-busy="true"]::after{content:'…';font-weight:900;letter-spacing:.08em}
+
+@media (max-width:1240px), (max-height:760px){
+  #view-sauvegardes,
+  #view-confidentialite,
+  #view-systeme{padding-top:22px;padding-bottom:34px}
+
+  #view-sauvegardes .large-action{min-height:230px;padding:26px}
+  #view-sauvegardes .large-action p{margin-bottom:14px}
+  #view-confidentialite .lifecycle-panel{margin-top:14px}
+}
+
+@media (max-width:1060px){
+  #view-sauvegardes .large-action{min-height:0;text-align:left;align-items:flex-start}
+  #view-sauvegardes .large-action .icon{margin:0 0 12px}
+  #view-sauvegardes .large-action p{max-width:none;margin-left:0;margin-right:0}
+  #view-sauvegardes .large-action .btn{margin-top:4px}
+
+  #view-confidentialite .event-row{flex-direction:column;gap:4px}
+  #view-confidentialite .event-row time{white-space:normal}
+}
+
+@media (max-width:820px){
+  #view-sauvegardes .panel,
+  #view-confidentialite .panel,
+  #view-systeme .panel{padding:20px}
+
+  #view-confidentialite .panel-head{align-items:flex-start}
+  #view-confidentialite .facts div,
+  #view-systeme .facts div{grid-template-columns:minmax(92px,112px) minmax(0,1fr)}
+}
+
+@media (max-width:560px){
+  #view-sauvegardes .btn,
+  #view-confidentialite .rights-tools .btn,
+  #view-systeme #open-data{width:100%}
+
+  #view-confidentialite .panel-head{flex-wrap:wrap}
+  #view-confidentialite .facts div,
+  #view-systeme .facts div{grid-template-columns:1fr;gap:4px}
+  #view-confidentialite .facts dt,
+  #view-systeme .facts dt{font-size:9px}
+}
