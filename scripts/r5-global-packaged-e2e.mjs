@@ -200,6 +200,8 @@ try {
           })
           .map((node) => {
             const r = node.getBoundingClientRect();
+            const scrollHost = node.closest('.table-wrap');
+            const scrollableHost = Boolean(scrollHost && scrollHost.scrollWidth > scrollHost.clientWidth + 1);
             return {
               tag: node.tagName,
               id: node.id || '',
@@ -207,7 +209,8 @@ try {
               width: r.width,
               height: r.height,
               left: r.left,
-              right: r.right
+              right: r.right,
+              inScrollableTable: scrollableHost
             };
           });
         const tableWraps = [...active.querySelectorAll('.table-wrap')].map((node) => ({
@@ -226,7 +229,8 @@ try {
           localTitle,
           documentOverflow: Math.max(0, doc.scrollWidth - doc.clientWidth),
           activeOverflow: Math.max(0, active.scrollWidth - active.clientWidth),
-          controlsOutside: actionable.filter((item) => item.right > innerWidth + 1 || item.left < -1),
+          controlsOutside: actionable.filter((item) => (item.right > innerWidth + 1 || item.left < -1) && !item.inScrollableTable),
+          scrollContainedControls: actionable.filter((item) => (item.right > innerWidth + 1 || item.left < -1) && item.inScrollableTable).length,
           undersizedButtons: actionable.filter((item) => {
             if (item.tag !== 'BUTTON' || item.height <= 0) return false;
             const standardAction = String(item.className).split(/\\s+/).includes('btn');
@@ -253,7 +257,7 @@ try {
         throw new Error(`${viewport.label}/${view}: débordement horizontal actif ${state.activeOverflow}px`);
       }
       if (state.controlsOutside.length) {
-        throw new Error(`${viewport.label}/${view}: contrôle hors viewport ${JSON.stringify(state.controlsOutside)}`);
+        throw new Error(`${viewport.label}/${view}: contrôle hors viewport hors zone scrollable ${JSON.stringify(state.controlsOutside)}`);
       }
       if (state.undersizedButtons.length) {
         throw new Error(`${viewport.label}/${view}: cible bouton sous le seuil ${JSON.stringify(state.undersizedButtons)}`);
@@ -265,7 +269,7 @@ try {
       const file = `r5-global-${view}-${viewport.label}.png`;
       await shot(cdp, file);
       evidence.checks.push({ viewport: viewport.label, view, state });
-      console.log(`R5_GLOBAL_VIEWPORT_STEP ${viewport.label}/${view} ${JSON.stringify({ overflow: state.documentOverflow, pageTitle: state.pageTitle, localTitle: state.localTitle })}`);
+      console.log(`R5_GLOBAL_VIEWPORT_STEP ${viewport.label}/${view} ${JSON.stringify({ overflow: state.documentOverflow, pageTitle: state.pageTitle, localTitle: state.localTitle, scrollContainedControls: state.scrollContainedControls })}`);
     }
   }
 
