@@ -44,6 +44,8 @@
       "!design/**",
       "!quality/**",
       "!scripts/**",
+      "!artifacts/**",
+      "!package-lock.json",
       "!README.md"
     ],
     "win": {
