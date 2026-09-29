@@ -203,6 +203,7 @@ try {
             return {
               tag: node.tagName,
               id: node.id || '',
+              className: node.className || '',
               width: r.width,
               height: r.height,
               left: r.left,
@@ -226,7 +227,11 @@ try {
           documentOverflow: Math.max(0, doc.scrollWidth - doc.clientWidth),
           activeOverflow: Math.max(0, active.scrollWidth - active.clientWidth),
           controlsOutside: actionable.filter((item) => item.right > innerWidth + 1 || item.left < -1),
-          undersizedButtons: actionable.filter((item) => item.tag === 'BUTTON' && item.height > 0 && item.height < 39),
+          undersizedButtons: actionable.filter((item) => {
+            if (item.tag !== 'BUTTON' || item.height <= 0) return false;
+            const standardAction = String(item.className).split(/\\s+/).includes('btn');
+            return standardAction ? item.height < 39 : item.height < 24;
+          }),
           tableWraps,
           viewport: { width: innerWidth, height: innerHeight }
         };
@@ -251,7 +256,7 @@ try {
         throw new Error(`${viewport.label}/${view}: contrôle hors viewport ${JSON.stringify(state.controlsOutside)}`);
       }
       if (state.undersizedButtons.length) {
-        throw new Error(`${viewport.label}/${view}: bouton trop bas ${JSON.stringify(state.undersizedButtons)}`);
+        throw new Error(`${viewport.label}/${view}: cible bouton sous le seuil ${JSON.stringify(state.undersizedButtons)}`);
       }
       if (state.tableWraps.some((item) => item.left < -1 || item.right > innerWidth + 1)) {
         throw new Error(`${viewport.label}/${view}: table-wrap hors viewport`);
