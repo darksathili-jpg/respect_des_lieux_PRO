@@ -262,7 +262,7 @@ try {
       if (state.undersizedButtons.length) {
         throw new Error(`${viewport.label}/${view}: cible bouton sous le seuil ${JSON.stringify(state.undersizedButtons)}`);
       }
-      if (state.tableWraps.some((item) => item.left < -1 || item.right > innerWidth + 1)) {
+      if (state.tableWraps.some((item) => item.left < -1 || item.right > state.viewport.width + 1)) {
         throw new Error(`${viewport.label}/${view}: table-wrap hors viewport`);
       }
 
