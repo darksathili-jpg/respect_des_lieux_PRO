@@ -55,7 +55,9 @@ test('R1 : la navigation agit directement sur les vues de la shell unique', () =
 });
 
 test('R1 : les actions structurelles des vues réelles sont branchées', () => {
-  assert.match(app, /\$\('#backup-view-action'\)\.addEventListener\('click', createLocalBackup\)/);
+  assert.match(app, /async function createLocalBackup\(control\)[\s\S]*await withBusy\(control, async \(\) =>/);
+  assert.match(app, /\$\('#backup-view-action'\)\.addEventListener\('click', \(event\) => createLocalBackup\(event\.currentTarget\)\)/);
+  assert.doesNotMatch(app, /\$\('#backup-view-action'\)\.addEventListener\('click', createLocalBackup\)/);
   assert.match(app, /const container = \$\('#privacy-events'\)/);
   assert.match(app, /\$\('#open-data'\)\.addEventListener/);
   assert.match(app, /\$\('#open-backups'\)\.addEventListener/);
