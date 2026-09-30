@@ -1,4 +1,4 @@
-/* R8-P1 — Accueil. Visual fidelity pass on the frozen production shell. */
+/* R8-P2 — Accueil. Final visual fidelity pass on the frozen production shell. */
 #view-dashboard{display:none}
 #view-dashboard.active{display:block}
 
@@ -89,20 +89,31 @@
 #view-dashboard .kpi:nth-child(3)::before{background:#2d8b57}
 #view-dashboard .kpi:nth-child(4)::before{background:#c44840}
 #view-dashboard .kpi::after{
-  content:'';
   position:absolute;
   right:18px;
-  top:22px;
-  width:42px;
-  height:42px;
+  top:20px;
+  width:44px;
+  height:44px;
+  display:grid;
+  place-items:center;
   border-radius:14px;
-  border:2px solid currentColor;
-  opacity:.13
+  border:1px solid currentColor;
+  background:color-mix(in srgb,currentColor 8%,white);
+  color:currentColor;
+  font-family:"Segoe UI Symbol","Arial Unicode MS",sans-serif;
+  font-size:23px;
+  font-weight:750;
+  line-height:1;
+  opacity:.9
 }
 #view-dashboard .kpi:nth-child(1){color:#1777b4}
 #view-dashboard .kpi:nth-child(2){color:#c87822}
 #view-dashboard .kpi:nth-child(3){color:#277d50}
 #view-dashboard .kpi:nth-child(4){color:#b73f38}
+#view-dashboard .kpi:nth-child(1)::after{content:'!'}
+#view-dashboard .kpi:nth-child(2)::after{content:'◷';font-weight:500}
+#view-dashboard .kpi:nth-child(3)::after{content:'⚒';font-size:20px;font-weight:500}
+#view-dashboard .kpi:nth-child(4)::after{content:'▣';font-size:21px;font-weight:500}
 #view-dashboard .kpi span,#view-dashboard .kpi small{display:block}
 #view-dashboard .kpi span{color:#5b7083;font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.09em}
 #view-dashboard .kpi strong{display:block;margin:10px 0 2px;color:#122f4b;font-size:clamp(34px,3vw,43px);line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.045em}
@@ -129,6 +140,8 @@
 #view-dashboard .facts div{grid-template-columns:112px minmax(0,1fr)}
 #view-dashboard .facts dt{color:#688096}
 #view-dashboard .facts dd{color:#27415a}
+#view-dashboard #fact-db{font-size:0;color:transparent}
+#view-dashboard #fact-db::after{content:'Disponible sur ce PC';font-size:11px;color:#27415a;font-weight:700}
 
 @media (max-width:1220px){
   #view-dashboard .hero::after{width:54%}
