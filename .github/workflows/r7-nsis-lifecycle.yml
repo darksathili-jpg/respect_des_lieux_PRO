@@ -226,7 +226,7 @@ jobs:
           $installDir = '${{ steps.paths.outputs.install }}'
           $p = Start-Process -FilePath $installer -ArgumentList '/S', "/D=$installDir" -PassThru -Wait
           if ($p.ExitCode -ne 0) { throw "Réinstallation NSIS échouée: $($p.ExitCode)" }
-          if (-not (Test-Path (Join-Path $installDir 'Respect des Lieux PRO.exe')) { throw "EXE absent après réinstallation." }
+          if (-not (Test-Path (Join-Path $installDir 'Respect des Lieux PRO.exe'))) { throw "EXE absent après réinstallation." }
           Write-Host "R7_REINSTALL_PASS"
 
       - name: Verify business data after reinstall
