@@ -1,61 +1,158 @@
-/* R2 — Accueil. Visual reconstruction built on the single production shell. */
+/* R8-P1 — Accueil. Visual fidelity pass on the frozen production shell. */
 #view-dashboard{display:none}
 #view-dashboard.active{display:block}
-#view-dashboard .hero{min-height:250px;position:relative;isolation:isolate;display:flex;align-items:center;overflow:hidden;border:1px solid rgba(255,255,255,.08);border-radius:var(--rdl-radius-xl);padding:clamp(26px,3vw,42px);background:linear-gradient(132deg,var(--rdl-navy-950) 0%,var(--rdl-navy-800) 62%,#245a7f 100%);color:#fff;box-shadow:var(--rdl-shadow-md)}
-#view-dashboard .hero::before{content:'';position:absolute;inset:0;z-index:-2;background:radial-gradient(circle at 22% 20%,rgba(255,255,255,.10),transparent 34%),linear-gradient(110deg,rgba(255,255,255,.03),transparent 45%)}
-#view-dashboard .hero::after{content:'';position:absolute;z-index:-1;top:16px;right:16px;bottom:16px;width:min(45%,560px);border-radius:18px;background-color:#F6E7D8;background-image:url('./assets/watteau-home-hero.webp');background-repeat:no-repeat;background-size:cover;background-position:center;box-shadow:0 14px 34px rgba(4,17,29,.22);opacity:.98}
-#view-dashboard .hero>div:first-child{max-width:min(52%,650px);position:relative;z-index:1}
-#view-dashboard .hero .eyebrow{color:#bfd3e2}
-#view-dashboard .hero h2{max-width:620px;margin:8px 0 12px;font-size:clamp(29px,3.1vw,42px);line-height:1.04;letter-spacing:-.035em;color:#fff}
-#view-dashboard .hero p:not(.eyebrow){max-width:610px;margin:0;color:#dbe7ef;font-size:14px;line-height:1.7}
-#view-dashboard .hero-badge{position:absolute;right:32px;bottom:30px;z-index:2;min-width:118px;border:1px solid rgba(255,255,255,.22);border-radius:14px;padding:10px 14px;background:rgba(11,27,45,.82);backdrop-filter:blur(10px);color:#dce9f2;text-align:center;font-size:9px;font-weight:750;letter-spacing:.14em;line-height:1.35;box-shadow:0 10px 24px rgba(7,21,34,.18)}
-#view-dashboard .hero-badge strong{display:block;margin-top:2px;color:#fff;font-size:18px;letter-spacing:.06em}
 
-#view-dashboard .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:18px 0}
-#view-dashboard .kpi{position:relative;overflow:hidden;min-height:142px;background:var(--rdl-surface);border:1px solid var(--rdl-line);border-radius:var(--rdl-radius-lg);padding:18px 19px 16px;box-shadow:var(--rdl-shadow-sm)}
-#view-dashboard .kpi::before{content:'';position:absolute;left:0;right:0;top:0;height:3px;background:var(--rdl-blue-600)}
-#view-dashboard .kpi:nth-child(2)::before{background:#d18a33}
-#view-dashboard .kpi:nth-child(3)::before{background:var(--rdl-green-700)}
-#view-dashboard .kpi:nth-child(4)::before{background:var(--rdl-brick-600)}
+#view-dashboard .hero{
+  min-height:300px;
+  position:relative;
+  isolation:isolate;
+  display:flex;
+  align-items:center;
+  overflow:hidden;
+  border:1px solid #eadfd5;
+  border-radius:24px;
+  padding:clamp(30px,3.6vw,54px);
+  background:linear-gradient(110deg,#fffdf9 0%,#fffaf4 47%,#f8eee5 100%);
+  color:var(--rdl-text-strong);
+  box-shadow:0 18px 42px rgba(35,52,68,.10)
+}
+#view-dashboard .hero::before{
+  content:'';
+  position:absolute;
+  left:clamp(30px,3.6vw,54px);
+  bottom:34px;
+  z-index:2;
+  width:62px;
+  height:4px;
+  border-radius:999px;
+  background:var(--rdl-brick-600)
+}
+#view-dashboard .hero::after{
+  content:'';
+  position:absolute;
+  z-index:-1;
+  top:0;
+  right:0;
+  bottom:0;
+  width:min(58%,760px);
+  background-image:linear-gradient(90deg,#fffaf4 0%,rgba(255,250,244,.88) 10%,rgba(255,250,244,.18) 34%,rgba(255,250,244,0) 54%),url('./assets/watteau-home-hero.webp');
+  background-repeat:no-repeat;
+  background-size:cover;
+  background-position:center;
+  opacity:1
+}
+#view-dashboard .hero>div:first-child{max-width:min(48%,670px);position:relative;z-index:1;padding-bottom:18px}
+#view-dashboard .hero .eyebrow{color:var(--rdl-brick-600);font-size:11px;letter-spacing:.11em}
+#view-dashboard .hero h2{
+  max-width:640px;
+  margin:8px 0 14px;
+  font-size:clamp(34px,3.5vw,52px);
+  line-height:1.02;
+  letter-spacing:-.045em;
+  color:#0d3b63
+}
+#view-dashboard .hero p:not(.eyebrow){max-width:600px;margin:0;color:#3f5870;font-size:15px;line-height:1.68}
+#view-dashboard .hero-badge{
+  position:absolute;
+  right:26px;
+  bottom:24px;
+  z-index:2;
+  min-width:112px;
+  border:1px solid rgba(255,255,255,.58);
+  border-radius:16px;
+  padding:11px 15px;
+  background:rgba(13,46,73,.88);
+  backdrop-filter:blur(12px);
+  color:#dce9f2;
+  text-align:center;
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.14em;
+  line-height:1.35;
+  box-shadow:0 12px 28px rgba(7,31,50,.20)
+}
+#view-dashboard .hero-badge strong{display:block;margin-top:2px;color:#fff;font-size:18px;letter-spacing:.07em}
+
+#view-dashboard .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin:20px 0}
+#view-dashboard .kpi{
+  position:relative;
+  overflow:hidden;
+  min-height:150px;
+  background:linear-gradient(180deg,#fff 0%,#fffdfb 100%);
+  border:1px solid #e6e0da;
+  border-radius:18px;
+  padding:21px 20px 18px;
+  box-shadow:0 10px 25px rgba(43,58,71,.075)
+}
+#view-dashboard .kpi::before{content:'';position:absolute;left:0;right:0;top:0;height:4px;background:#1777b4}
+#view-dashboard .kpi:nth-child(2)::before{background:#df8a2d}
+#view-dashboard .kpi:nth-child(3)::before{background:#2d8b57}
+#view-dashboard .kpi:nth-child(4)::before{background:#c44840}
+#view-dashboard .kpi::after{
+  content:'';
+  position:absolute;
+  right:18px;
+  top:22px;
+  width:42px;
+  height:42px;
+  border-radius:14px;
+  border:2px solid currentColor;
+  opacity:.13
+}
+#view-dashboard .kpi:nth-child(1){color:#1777b4}
+#view-dashboard .kpi:nth-child(2){color:#c87822}
+#view-dashboard .kpi:nth-child(3){color:#277d50}
+#view-dashboard .kpi:nth-child(4){color:#b73f38}
 #view-dashboard .kpi span,#view-dashboard .kpi small{display:block}
-#view-dashboard .kpi span{color:var(--rdl-text-soft);font-size:10px;font-weight:820;text-transform:uppercase;letter-spacing:.08em}
-#view-dashboard .kpi strong{display:block;margin:8px 0 2px;color:var(--rdl-text-strong);font-size:clamp(31px,3vw,39px);line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.04em}
-#view-dashboard .kpi small{margin-top:8px;color:var(--rdl-text-faint);font-size:11px;line-height:1.4}
+#view-dashboard .kpi span{color:#5b7083;font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.09em}
+#view-dashboard .kpi strong{display:block;margin:10px 0 2px;color:#122f4b;font-size:clamp(34px,3vw,43px);line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.045em}
+#view-dashboard .kpi small{margin-top:8px;color:#75889a;font-size:11px;line-height:1.4}
 
-#view-dashboard .grid.two{grid-template-columns:minmax(0,1.25fr) minmax(300px,.75fr);align-items:start}
-#view-dashboard .panel{min-height:100%}
-#view-dashboard .panel-head{padding-bottom:2px}
-#view-dashboard .recent-item{display:grid;grid-template-columns:minmax(84px,105px) minmax(0,1fr) auto;gap:12px;align-items:center;padding:11px 2px;border-bottom:1px solid var(--rdl-line)}
+#view-dashboard .grid.two{grid-template-columns:minmax(0,1.3fr) minmax(310px,.7fr);align-items:stretch;gap:16px}
+#view-dashboard .panel{
+  min-height:100%;
+  border-color:#e6e0da;
+  border-radius:18px;
+  box-shadow:0 10px 25px rgba(43,58,71,.065)
+}
+#view-dashboard .panel-head{padding-bottom:5px}
+#view-dashboard .panel-head h3{font-size:17px;color:#123b60;letter-spacing:-.02em}
+#view-dashboard .text-btn{color:#0e5d96;font-weight:800}
+#view-dashboard .recent-item{display:grid;grid-template-columns:minmax(84px,105px) minmax(0,1fr) auto;gap:12px;align-items:center;padding:13px 2px;border-bottom:1px solid #ebe6e1}
 #view-dashboard .recent-item:last-child{border-bottom:0}
-#view-dashboard .recent-num{color:var(--rdl-blue-700);font-size:11px;font-weight:850;letter-spacing:.02em}
+#view-dashboard .recent-item:hover{background:linear-gradient(90deg,rgba(247,241,235,.72),transparent);border-radius:10px}
+#view-dashboard .recent-num{color:#0e68a5;font-size:11px;font-weight:850;letter-spacing:.02em}
 #view-dashboard .recent-main{min-width:0}
 #view-dashboard .recent-main strong,#view-dashboard .recent-main small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#view-dashboard .recent-main strong{color:var(--rdl-text-strong);font-size:13px}
-#view-dashboard .recent-main small{margin-top:2px;color:var(--rdl-text-soft);font-size:11px}
+#view-dashboard .recent-main strong{color:#17324e;font-size:13px}
+#view-dashboard .recent-main small{margin-top:3px;color:#72869a;font-size:11px}
 #view-dashboard .facts div{grid-template-columns:112px minmax(0,1fr)}
+#view-dashboard .facts dt{color:#688096}
+#view-dashboard .facts dd{color:#27415a}
 
 @media (max-width:1220px){
-  #view-dashboard .hero::after{width:41%}
-  #view-dashboard .hero>div:first-child{max-width:57%}
+  #view-dashboard .hero::after{width:54%}
+  #view-dashboard .hero>div:first-child{max-width:51%}
   #view-dashboard .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 
 @media (max-width:980px){
-  #view-dashboard .hero{min-height:275px;align-items:flex-start}
-  #view-dashboard .hero::after{top:auto;left:16px;right:16px;bottom:16px;width:auto;height:94px;background-size:cover;background-position:center 58%;opacity:.90}
-  #view-dashboard .hero>div:first-child{max-width:100%;padding-bottom:98px}
-  #view-dashboard .hero-badge{right:28px;bottom:30px}
+  #view-dashboard .hero{min-height:390px;align-items:flex-start;padding-bottom:150px}
+  #view-dashboard .hero::before{bottom:126px}
+  #view-dashboard .hero::after{top:auto;left:0;right:0;bottom:0;width:auto;height:148px;background-image:linear-gradient(180deg,#fffaf4 0%,rgba(255,250,244,.16) 28%,rgba(255,250,244,0) 55%),url('./assets/watteau-home-hero.webp');background-size:cover;background-position:center 60%}
+  #view-dashboard .hero>div:first-child{max-width:100%;padding-bottom:0}
+  #view-dashboard .hero-badge{right:22px;bottom:18px}
   #view-dashboard .grid.two{grid-template-columns:1fr}
 }
 
 @media (max-width:640px){
-  #view-dashboard .hero{padding:24px;min-height:310px}
-  #view-dashboard .hero h2{font-size:30px}
-  #view-dashboard .hero::after{height:84px;left:12px;right:12px;bottom:12px}
-  #view-dashboard .hero>div:first-child{padding-bottom:92px}
-  #view-dashboard .hero-badge{right:22px;bottom:24px;min-width:102px;padding:8px 10px}
+  #view-dashboard .hero{padding:26px 24px 142px;min-height:410px}
+  #view-dashboard .hero h2{font-size:34px}
+  #view-dashboard .hero::before{left:24px;bottom:118px}
+  #view-dashboard .hero::after{height:132px}
+  #view-dashboard .hero-badge{right:16px;bottom:14px;min-width:100px;padding:8px 10px}
   #view-dashboard .kpis{grid-template-columns:1fr}
-  #view-dashboard .kpi{min-height:120px}
+  #view-dashboard .kpi{min-height:126px}
   #view-dashboard .recent-item{grid-template-columns:1fr auto}
   #view-dashboard .recent-num{grid-column:1/-1}
 }
