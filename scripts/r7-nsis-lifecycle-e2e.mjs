@@ -160,7 +160,7 @@ try {
       const bootstrap = await window.rdl.bootstrap();
       return { list, bootstrap };
     })()`);
-    const row = (state.list || []).find((item) => item.num === ${JSON.stringify(expected.num)});
+    const row = (state.list || []).find((item) => item.num === expected.num);
     if (!row) throw new Error(`Dossier ${expected.num} introuvable après ${stage}.`);
     if (row.lieu !== expected.lieu || row.description !== expected.description) {
       throw new Error(`Dossier altéré après ${stage}: ${JSON.stringify(row)}`);
