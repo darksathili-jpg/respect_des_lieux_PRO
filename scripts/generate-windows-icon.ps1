@@ -60,5 +60,18 @@ finally {
   $generated.Dispose()
 }
 
-$hash = (Get-FileHash $output -Algorithm SHA256).Hash.ToLowerInvariant()
+$sha = [System.Security.Cryptography.SHA256]::Create()
+try {
+  $stream = [System.IO.File]::OpenRead($output)
+  try {
+    $hashBytes = $sha.ComputeHash($stream)
+  }
+  finally {
+    $stream.Dispose()
+  }
+}
+finally {
+  $sha.Dispose()
+}
+$hash = ([System.BitConverter]::ToString($hashBytes)).Replace('-', '').ToLowerInvariant()
 Write-Host "R8_WINDOWS_ICON_READY path=$output sha256=$hash"
