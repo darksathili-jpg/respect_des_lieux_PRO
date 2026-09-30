@@ -14,8 +14,9 @@
     "check": "node --check main-entry.cjs && node --check main-bootstrap.cjs && node --check main.cjs && node --check preload.cjs && node --check src/database.cjs && node --check src/storage.cjs && node --check src/portable-backup.cjs && node --check renderer/app.js && node --check renderer/detail.js && node --check scripts/ux-guardrails.mjs",
     "test": "node --test tests/*.test.mjs",
     "verify": "npm run check && node scripts/quality-contract.mjs --role all && node scripts/ux-guardrails.mjs && npm test",
-    "dist:win:dir": "electron-builder --win dir --x64 --publish never",
-    "dist:win": "electron-builder --win nsis --x64 --publish never"
+    "prepare:win-icon": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-windows-icon.ps1",
+    "dist:win:dir": "npm run prepare:win-icon && electron-builder --win dir --x64 --publish never",
+    "dist:win": "npm run prepare:win-icon && electron-builder --win nsis --x64 --publish never"
   },
   "devDependencies": {
     "electron": "44.4.0",
@@ -49,7 +50,7 @@
       "!README.md"
     ],
     "win": {
-      "icon": "renderer/assets/watteau-app-icon-256.png",
+      "icon": "artifacts/r8/watteau-windows-icon.png",
       "target": ["nsis"]
     },
     "nsis": {
