@@ -91,9 +91,9 @@ jobs:
         shell: pwsh
         run: node scripts/r6-security-prerelease.mjs source
 
-      - name: Dependency vulnerability audit
+      - name: Dependency vulnerability audit — fail closed with exact dev-only exception
         shell: pwsh
-        run: npm audit --audit-level=high
+        run: node scripts/r6-dependency-audit.mjs
 
       - name: Existing verification suite
         shell: pwsh
@@ -113,7 +113,10 @@ jobs:
           if (-not $asar) { throw "app.asar introuvable après le premier build." }
           node scripts/r6-security-prerelease.mjs package $asar.FullName
           if ($LASTEXITCODE -ne 0) { throw "Contrat ASAR R6 refusé au premier build." }
+          node scripts/r6-asar-dependency-contract.mjs $asar.FullName
+          if ($LASTEXITCODE -ne 0) { throw "Contrat dépendances ASAR R6 refusé au premier build." }
           Copy-Item artifacts/r6/package-security.json artifacts/r6/package-security-pass1.json
+          Copy-Item artifacts/r6/asar-dependency-contract.json artifacts/r6/asar-dependency-contract-pass1.json
           $hash = (Get-FileHash $asar.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
           "hash=$hash" >> $env:GITHUB_OUTPUT
           Write-Host "R6_ASAR_PASS1_SHA256 $hash"
@@ -163,7 +166,10 @@ jobs:
           if (-not $asar) { throw "app.asar introuvable après le second build." }
           node scripts/r6-security-prerelease.mjs package $asar.FullName
           if ($LASTEXITCODE -ne 0) { throw "Contrat ASAR R6 refusé au second build." }
+          node scripts/r6-asar-dependency-contract.mjs $asar.FullName
+          if ($LASTEXITCODE -ne 0) { throw "Contrat dépendances ASAR R6 refusé au second build." }
           Copy-Item artifacts/r6/package-security.json artifacts/r6/package-security-pass2.json
+          Copy-Item artifacts/r6/asar-dependency-contract.json artifacts/r6/asar-dependency-contract-pass2.json
           $hash2 = (Get-FileHash $asar.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
           $hash1 = '${{ steps.package-one.outputs.hash }}'
           @{ pass1 = $hash1; pass2 = $hash2; identical = ($hash1 -eq $hash2) } | ConvertTo-Json | Set-Content artifacts/r6/reproducibility.json -Encoding utf8
