@@ -106,4 +106,11 @@
   #view-dashboard .grid.two > .panel:nth-child(2) > * {
     visibility:hidden!important;
   }
+  #view-dashboard .grid.two > .panel:nth-child(2)::before,
+  #view-dashboard .grid.two > .panel:nth-child(2)::after,
+  #view-dashboard .grid.two > .panel:nth-child(2) *::before,
+  #view-dashboard .grid.two > .panel:nth-child(2) *::after {
+    display:none!important;
+    content:none!important;
+  }
 }
