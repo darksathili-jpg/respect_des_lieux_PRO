@@ -1,5 +1,5 @@
 /* Production stylesheet entry point.
-   Order is deliberate: tokens → components → layout → views → frozen fidelity layer.
+   Order is deliberate: tokens → components → layout → views → frozen fidelity layer → compatibility guardrails.
    No runtime CSS injection is used. */
 @import url('./tokens.css');
 @import url('./components.css');
@@ -8,3 +8,4 @@
 @import url('./signalements.css');
 @import url('./admin.css');
 @import url('./fidelity-phase-b.css');
+@import url('./phase-b-compat.css');
