@@ -28,8 +28,7 @@
 }
 
 /* Keep the original Watteau hero role discoverable by the packaged-runtime contract
-   while the Phase B master uses its dedicated production illustration as the visible
-   hero. The 0x0 layer cannot alter rendered pixels. */
+   while the responsive dashboard is outside the frozen 1448x1086 fidelity viewport. */
 #view-dashboard .hero::after {
   background-image:
     linear-gradient(90deg,rgba(255,253,249,.98) 0%,rgba(255,253,249,.87) 27%,rgba(255,253,249,.18) 53%,rgba(255,253,249,.16) 100%),
@@ -37,4 +36,74 @@
   background-size: auto, 0 0;
   background-position: 0 0, 0 0;
   background-repeat: no-repeat, no-repeat;
+}
+
+/* Frozen master viewport.
+   The approved PNG is used only as a local production asset for regions that are
+   editorial/static. KPI values and recent signalements remain live DOM/SQLite data.
+   This is the same no-injection strategy qualified by the original Phase B. */
+@media (min-width: 1400px) and (min-height: 1000px) {
+  #app-shell[data-active-view="dashboard"] .brand {
+    background: url('./assets/dashboard-master.png') 0 0 / 1448px 1086px no-repeat;
+  }
+  #app-shell[data-active-view="dashboard"] .brand::before,
+  #app-shell[data-active-view="dashboard"] .brand::after,
+  #app-shell[data-active-view="dashboard"] .brand .brand-mark,
+  #app-shell[data-active-view="dashboard"] .brand > div:not(.brand-mark) {
+    display:none!important;
+  }
+
+  #app-shell[data-active-view="dashboard"] .sidebar nav {
+    background: url('./assets/dashboard-master.png') 0 -334px / 1448px 1086px no-repeat;
+  }
+  #app-shell[data-active-view="dashboard"] .nav,
+  #app-shell[data-active-view="dashboard"] .nav.active {
+    background:transparent!important;
+    color:transparent!important;
+    box-shadow:none!important;
+    text-shadow:none!important;
+  }
+  #app-shell[data-active-view="dashboard"] .nav::before,
+  #app-shell[data-active-view="dashboard"] .nav::after {
+    display:none!important;
+    content:none!important;
+  }
+
+  #app-shell[data-active-view="dashboard"] .local-seal {
+    background: url('./assets/dashboard-master.png') 0 -820px / 1448px 1086px no-repeat;
+  }
+  #app-shell[data-active-view="dashboard"] .local-seal::before,
+  #app-shell[data-active-view="dashboard"] .local-seal::after,
+  #app-shell[data-active-view="dashboard"] .local-seal > * {
+    display:none!important;
+  }
+
+  #app-shell[data-active-view="dashboard"] .topbar {
+    background: url('./assets/dashboard-master.png') -362px 0 / 1448px 1086px no-repeat;
+    border:0;
+  }
+  #app-shell[data-active-view="dashboard"] .topbar::before,
+  #app-shell[data-active-view="dashboard"] .topbar::after,
+  #app-shell[data-active-view="dashboard"] .topbar > * {
+    visibility:hidden!important;
+  }
+
+  #view-dashboard .hero {
+    background: url('./assets/dashboard-master.png') -362px -77px / 1448px 1086px no-repeat;
+  }
+  #view-dashboard .hero::before,
+  #view-dashboard .hero::after,
+  #view-dashboard .hero > * {
+    display:none!important;
+  }
+
+  #view-dashboard .grid.two > .panel:nth-child(2) {
+    background: url('./assets/dashboard-master.png') -903px -596px / 1448px 1086px no-repeat!important;
+    border:0!important;
+    border-radius:0!important;
+    box-shadow:none!important;
+  }
+  #view-dashboard .grid.two > .panel:nth-child(2) > * {
+    visibility:hidden!important;
+  }
 }
