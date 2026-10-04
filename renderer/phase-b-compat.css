@@ -20,6 +20,13 @@
   }
 }
 
+/* The frozen lower-panel ratio is 51.2/48.8. Fractions preserve that ratio after the
+   inter-panel gap has been removed from available width; percentages plus a gap exceed
+   100% and produced a 2 px active overflow at 1280x720. */
+#view-dashboard .grid.two {
+  grid-template-columns:minmax(0,51.2fr) minmax(0,48.8fr);
+}
+
 /* Keep the original Watteau hero role discoverable by the packaged-runtime contract
    while the Phase B master uses its dedicated production illustration as the visible
    hero. The 0x0 layer cannot alter rendered pixels. */
