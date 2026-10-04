@@ -60,49 +60,6 @@ async function captureMasterSurface(session, outputPath) {
   fs.writeFileSync(outputPath, Buffer.from(shot.data, 'base64'));
 }
 
-async function stabilizeDynamicDashboard(page) {
-  await page.evaluate(() => {
-    // Only the screenshot harness fixes volatile business values. Production remains
-    // connected to the actual local SQLite database and contains no fictitious rows.
-    const kpis = [...document.querySelectorAll('#view-dashboard .kpi')];
-    const fixture = [
-      { value: '12', label: 'Signalements', detail: 'en attente' },
-      { value: '8', label: 'Interventions', detail: 'en cours' },
-      { value: '48', label: 'Résolus', detail: 'ce mois-ci' },
-      { value: '100%', label: 'Mobilisés pour un', detail: 'lycée plus propre' }
-    ];
-    kpis.forEach((card, index) => {
-      const item = fixture[index];
-      if (!item) return;
-      const strong = card.querySelector('strong');
-      const span = card.querySelector('span');
-      const small = card.querySelector('small');
-      if (strong) strong.textContent = item.value;
-      if (span) span.textContent = item.label;
-      if (small) small.textContent = item.detail;
-    });
-
-    const title = document.querySelector('#view-dashboard .grid.two > .panel:first-child .panel-head h3');
-    if (title) title.textContent = 'Signalements récents';
-
-    const recent = document.querySelector('#recent-list');
-    if (recent) {
-      recent.classList.remove('empty-state');
-      recent.innerHTML = [
-        ['B201', 'Salle B201 - Table dégradée', 'Aujourd’hui - 09:14', 'Nouveau', 'open'],
-        ['Cour', 'Cour - Éclairage défectueux', 'Aujourd’hui - 08:37', 'En cours', 'open'],
-        ['WC', 'Toilettes - Propreté', 'Hier - 16:22', 'Pris en charge', 'closed'],
-        ['Hall', 'Hall - Vitrage fissuré', 'Hier - 14:10', 'Résolu', 'closed']
-      ].map(([num, label, when, status, cls]) => `
-        <div class="recent-item">
-          <div class="recent-num">${num}</div>
-          <div class="recent-main"><strong>${label}</strong><small>${when}</small></div>
-          <span class="badge ${cls}">${status}</span>
-        </div>`).join('');
-    }
-  });
-}
-
 test('Phase B — packaged Electron fidelity against dashboard master', async ({}, testInfo) => {
   test.setTimeout(90_000);
   expect(fs.existsSync(EXECUTABLE), `Exécutable empaqueté absent: ${EXECUTABLE}`).toBe(true);
@@ -179,9 +136,6 @@ test('Phase B — packaged Electron fidelity against dashboard master', async ({
     expect(safety.scrollHeight).toBeLessThanOrEqual(safety.clientHeight + 1);
     expect(safety.giantIcons).toBe(0);
     expect(safety.legacyV51Rules).toBe(false);
-
-    await stabilizeDynamicDashboard(page);
-    await delay(100);
 
     const actualPath = testInfo.outputPath('electron-dashboard-actual.png');
     await captureMasterSurface(session, actualPath);
