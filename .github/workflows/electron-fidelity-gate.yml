@@ -50,8 +50,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: electron-fidelity-diagnostics
-          path: |
-            design/visual/test-results/
-            design/visual/playwright-report/
-          if-no-files-found: ignore
+          path: design/visual/electron-artifacts/
+          if-no-files-found: error
           retention-days: 14
