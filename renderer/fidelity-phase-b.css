@@ -1,0 +1,539 @@
+/* Phase B — Electron Fidelity Integration Gate
+   Single static stylesheet. No runtime CSS injection.
+   Geometry is expressed from the frozen 1448 × 1086 master as viewport ratios.
+   At 1448 × 1086 the measured landmarks reproduce the master; smaller windows
+   keep the same composition without oversized SVG/icon overflow. */
+
+:root{
+  --vf-navy:#153b59;
+  --vf-navy-deep:#12344f;
+  --vf-terracotta:#c84f3f;
+  --vf-red:#ba1d23;
+  --vf-cream:#fbf8f4;
+  --vf-paper:#fffdfa;
+  --vf-ink:#123a5d;
+  --vf-muted:#6e8396;
+  --vf-line:#e7e0d9;
+}
+
+html,body{width:100%;height:100%;margin:0;overflow:hidden;background:var(--vf-cream)}
+body{font-family:"Segoe UI",Arial,sans-serif;color:var(--vf-ink)}
+
+/* Master shell: 25% sidebar + 75% main. The sidebar and main meet exactly. */
+.shell{
+  width:100vw;
+  height:100vh;
+  min-height:0;
+  display:grid;
+  grid-template-columns:25vw 75vw;
+  grid-template-rows:100vh;
+  background:var(--vf-cream);
+  overflow:hidden;
+}
+
+.sidebar{
+  position:relative;
+  inset:auto;
+  width:25vw;
+  height:100vh;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  gap:0;
+  overflow:hidden;
+  padding:0;
+  background:linear-gradient(180deg,#173f5e 0%,#143b59 52%,#123650 100%);
+  border:0;
+  box-shadow:none;
+  color:#fff;
+}
+
+/* Title row + approved Watteau mark. */
+.brand{
+  position:relative;
+  display:block;
+  flex:0 0 30.66vh;
+  min-height:0;
+  margin:0;
+  padding:0;
+  border:0;
+  background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,0));
+}
+.brand::before{
+  content:"Respect des Lieux PRO";
+  position:absolute;
+  left:5.5%;
+  top:2.25vh;
+  z-index:2;
+  color:#fff;
+  font-size:1.72vw;
+  font-weight:650;
+  letter-spacing:-.02em;
+  white-space:nowrap;
+}
+.brand::after{
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  top:7.08vh;
+  height:1px;
+  background:rgba(255,255,255,.12);
+}
+.brand>div:not(.brand-mark){display:none}
+.brand-mark{
+  position:absolute;
+  left:12%;
+  top:9.7vh;
+  width:76%;
+  height:18.8vh;
+  max-width:none;
+  flex:none;
+  border:0;
+  border-radius:0;
+  background:url('./assets/watteau-sidebar-mark.webp') center/contain no-repeat;
+  filter:none;
+  font-size:0;
+}
+
+.sidebar nav{
+  flex:1 1 auto;
+  display:flex;
+  flex-direction:column;
+  gap:0;
+  min-height:0;
+}
+.nav{
+  position:relative;
+  flex:0 0 7.25vh;
+  min-height:0;
+  display:flex;
+  align-items:center;
+  margin:0;
+  padding:0 5.5% 0 29%;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  color:#f3f7fa;
+  text-align:left;
+  font-size:1.52vw;
+  font-weight:430;
+  line-height:1;
+  transform:none;
+  box-shadow:none;
+  transition:background .14s ease,color .14s ease;
+}
+.nav::before{
+  position:absolute;
+  left:11.5%;
+  top:50%;
+  width:10%;
+  transform:translateY(-50%);
+  background:none;
+  color:#fff;
+  font-family:"Segoe UI Symbol","Arial Unicode MS",sans-serif;
+  font-size:2.05vw;
+  font-weight:400;
+  line-height:1;
+  text-align:center;
+}
+.nav::after{display:none!important;content:none!important}
+.nav[data-view="dashboard"]::before{content:'⌂'}
+.nav[data-view="signalements"]::before{content:'⚑'}
+.nav[data-view="reparations"]::before{content:'⌕';transform:translateY(-50%) rotate(-35deg)}
+.nav[data-view="sauvegardes"]::before{content:'▥'}
+.nav[data-view="confidentialite"]::before{content:'⌂';font-size:1.72vw}
+.nav[data-view="systeme"]::before{content:'⚙';font-size:1.78vw}
+.nav:hover{background:rgba(255,255,255,.06);color:#fff;transform:none}
+.nav.active{
+  background:linear-gradient(90deg,#c6403b 0%,#d7644e 100%);
+  border:0;
+  color:#fff;
+  box-shadow:none;
+}
+.nav.active::before{color:#fff;background:none}
+
+/* The existing local seal becomes the handwritten footer statement. */
+.local-seal{
+  position:relative;
+  flex:0 0 18.1vh;
+  min-height:0;
+  margin:0;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+}
+.local-seal>*{display:none!important}
+.local-seal::before{
+  content:"Des lieux respectés\A pour mieux apprendre";
+  white-space:pre;
+  position:absolute;
+  left:10%;
+  bottom:4.1vh;
+  color:#f7fbfd;
+  font-family:"Segoe Print","Segoe Script","Brush Script MT",cursive;
+  font-size:1.62vw;
+  font-style:italic;
+  line-height:1.52;
+  transform:rotate(-5deg);
+  text-shadow:0 1px 0 rgba(0,0,0,.06);
+}
+
+.main{
+  width:75vw;
+  height:100vh;
+  min-width:0;
+  min-height:0;
+  overflow:hidden;
+  background:var(--vf-cream);
+}
+.topbar{
+  position:relative;
+  top:auto;
+  z-index:5;
+  width:100%;
+  height:7.09vh;
+  min-height:0;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  margin:0;
+  padding:0 4.3%;
+  border:0;
+  border-bottom:1px solid #e7e2dc;
+  background:#fffdfb;
+  box-shadow:none;
+  backdrop-filter:none;
+}
+.topbar>div:first-child{display:none}
+.top-actions{display:flex;align-items:center;gap:0;max-width:none}
+.top-actions>*{display:none!important}
+.topbar::before{
+  content:"♙";
+  margin-right:.85vw;
+  color:var(--vf-red);
+  font-size:2.4vw;
+  line-height:1;
+}
+.topbar::after{
+  content:"Session locale\A Personnel";
+  white-space:pre;
+  color:#163a59;
+  font-size:1.05vw;
+  font-weight:700;
+  line-height:1.18;
+}
+
+.view{
+  width:100%;
+  max-width:none;
+  margin:0;
+  padding:2.2vh 2.15vw 3vh;
+  height:calc(100vh - 7.09vh);
+  overflow:auto;
+  box-sizing:border-box;
+}
+#view-dashboard{
+  padding:0;
+  height:calc(100vh - 7.09vh);
+  overflow:hidden;
+  background:var(--vf-cream);
+}
+
+/* HERO — 323 px on the 1086 px master. */
+#view-dashboard .hero{
+  position:relative;
+  isolation:isolate;
+  width:100%;
+  height:29.74vh;
+  min-height:0;
+  display:block;
+  margin:0;
+  padding:0;
+  overflow:hidden;
+  border:0;
+  border-radius:0;
+  background:#fffaf5 url('./assets/dashboard-hero-production.svg') center 48%/cover no-repeat;
+  color:var(--vf-ink);
+  box-shadow:none;
+}
+#view-dashboard .hero::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  width:auto;
+  background:linear-gradient(90deg,rgba(255,253,249,.98) 0%,rgba(255,253,249,.87) 27%,rgba(255,253,249,.18) 53%,rgba(255,253,249,.16) 100%);
+  opacity:1;
+}
+#view-dashboard .hero::before{
+  content:"Lycée Watteau - Valenciennes";
+  position:absolute;
+  top:5.35vh;
+  right:9.8%;
+  width:auto;
+  height:auto;
+  background:none;
+  color:#4b6b84;
+  font-size:.9vw;
+  font-weight:500;
+  line-height:1;
+}
+#view-dashboard .hero>div:first-child{
+  position:absolute;
+  z-index:2;
+  left:4.55%;
+  top:4.05vh;
+  max-width:44%;
+  padding:0;
+}
+#view-dashboard .hero .eyebrow{display:none}
+#view-dashboard .hero h2{
+  margin:0;
+  max-width:none;
+  color:#0c3d66;
+  font-size:0;
+  line-height:1;
+}
+#view-dashboard .hero h2::after{
+  content:"Bonjour !";
+  display:block;
+  color:#0c3d66;
+  font-size:3.28vw;
+  font-weight:780;
+  line-height:1.05;
+  letter-spacing:-.045em;
+}
+#view-dashboard .hero p:not(.eyebrow){
+  margin:1.35vh 0 0;
+  max-width:none;
+  color:#234a6b;
+  font-size:0;
+  line-height:1.3;
+}
+#view-dashboard .hero p:not(.eyebrow)::after{
+  content:"Ensemble, prenons soin de notre lycée";
+  display:block;
+  font-size:1.63vw;
+  font-weight:400;
+  letter-spacing:-.025em;
+}
+#view-dashboard .hero>div:first-child::after{
+  content:"";
+  display:block;
+  width:4.2vw;
+  height:.35vh;
+  margin-top:2.4vh;
+  border-radius:999px;
+  background:#c51d27;
+}
+#view-dashboard .hero-badge{
+  position:absolute;
+  right:5.2%;
+  top:12.9vh;
+  bottom:auto;
+  min-width:0;
+  width:22%;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  backdrop-filter:none;
+  color:#13436a;
+  text-align:center;
+  font-size:0;
+  transform:rotate(-7deg);
+}
+#view-dashboard .hero-badge::after{
+  content:"Un cadre serein\A pour tous";
+  white-space:pre;
+  font-family:"Segoe Print","Segoe Script","Brush Script MT",cursive;
+  font-size:1.88vw;
+  font-style:italic;
+  font-weight:500;
+  line-height:1.4;
+}
+
+/* KPI row: measured from the master. */
+#view-dashboard .kpis{
+  height:15.2vh;
+  margin:1.1vh 0 1.65vh;
+  padding:0 .97vw;
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:.92vw;
+  box-sizing:border-box;
+}
+#view-dashboard .kpi{
+  min-height:0;
+  height:100%;
+  display:grid;
+  grid-template-columns:35% 65%;
+  grid-template-rows:45% 26% 29%;
+  align-items:center;
+  overflow:hidden;
+  margin:0;
+  padding:1.55vh 1.2vw 1.1vh;
+  border:1px solid #e8e1da;
+  border-radius:1.08vw;
+  background:#fff;
+  color:var(--vf-ink)!important;
+  box-shadow:0 .45vh 1.25vh rgba(43,55,67,.07);
+  box-sizing:border-box;
+}
+#view-dashboard .kpi::before{display:none!important;content:none!important}
+#view-dashboard .kpi::after{
+  grid-column:1;
+  grid-row:1/4;
+  position:static;
+  width:auto;
+  height:auto;
+  display:block;
+  place-items:unset;
+  align-self:center;
+  border:0;
+  border-radius:0;
+  background:none;
+  font-family:"Segoe UI Symbol","Arial Unicode MS",sans-serif;
+  font-size:3.7vw;
+  font-weight:400;
+  line-height:1;
+  text-align:center;
+  opacity:1;
+}
+#view-dashboard .kpi:nth-child(1)::after{content:'♙';color:#c71920}
+#view-dashboard .kpi:nth-child(2)::after{content:'⌕';color:#0875cb;transform:rotate(-35deg)}
+#view-dashboard .kpi:nth-child(3)::after{content:'✓';color:#138c36;font-size:3.45vw}
+#view-dashboard .kpi:nth-child(4)::after{content:'♙';color:#087cad}
+#view-dashboard .kpi span{
+  grid-column:2;
+  grid-row:2;
+  display:block;
+  align-self:start;
+  color:#183f61;
+  font-size:.92vw;
+  font-weight:500;
+  line-height:1.25;
+  text-transform:none;
+  letter-spacing:0;
+}
+#view-dashboard .kpi strong{
+  grid-column:2;
+  grid-row:1;
+  align-self:end;
+  display:block;
+  margin:0 0 .35vh;
+  color:#0c3c63;
+  font-size:3.05vw;
+  font-weight:760;
+  line-height:1;
+  letter-spacing:-.04em;
+}
+#view-dashboard .kpi small{
+  grid-column:2;
+  grid-row:3;
+  display:block;
+  align-self:start;
+  margin:.2vh 0 0;
+  color:#718598;
+  font-size:.76vw;
+  line-height:1.25;
+}
+#view-dashboard .kpi:nth-child(1) span{font-size:0}
+#view-dashboard .kpi:nth-child(1) span::after{content:'Signalements';font-size:.92vw}
+#view-dashboard .kpi:nth-child(2) span{font-size:0}
+#view-dashboard .kpi:nth-child(2) span::after{content:'Ouverts';font-size:.92vw}
+#view-dashboard .kpi:nth-child(3) span{font-size:0}
+#view-dashboard .kpi:nth-child(3) span::after{content:'Interventions';font-size:.92vw}
+#view-dashboard .kpi:nth-child(4) span{font-size:0}
+#view-dashboard .kpi:nth-child(4) span::after{content:'Photos';font-size:.92vw}
+
+/* Lower master panels. */
+#view-dashboard .grid.two{
+  height:39.1vh;
+  display:grid;
+  grid-template-columns:51.2% 48.8%;
+  gap:1.1vw;
+  padding:0 .97vw 1.5vh;
+  box-sizing:border-box;
+}
+#view-dashboard .panel{
+  position:relative;
+  min-height:0;
+  height:100%;
+  overflow:hidden;
+  padding:1.75vh 1.45vw;
+  border:1px solid #e7e0da;
+  border-radius:1.08vw;
+  background:#fff;
+  box-shadow:0 .45vh 1.25vh rgba(43,55,67,.06);
+  box-sizing:border-box;
+}
+#view-dashboard .panel-head{height:4.2vh;padding:0;align-items:flex-start}
+#view-dashboard .panel-head h3{margin:0;color:#123e62;font-size:1.34vw;font-weight:760;letter-spacing:-.025em}
+#view-dashboard .text-btn{color:#315c7c;font-size:.88vw;font-weight:500}
+#view-dashboard .recent-item{
+  min-height:6.45vh;
+  display:grid;
+  grid-template-columns:18% minmax(0,1fr) auto;
+  gap:.7vw;
+  align-items:center;
+  padding:.55vh .3vw;
+  border-bottom:1px solid #eee8e2;
+  border-radius:0;
+  box-sizing:border-box;
+}
+#view-dashboard .recent-item:hover{background:#fffaf5;border-radius:.55vw}
+#view-dashboard .recent-num{color:#c64238;font-size:.78vw;font-weight:750}
+#view-dashboard .recent-main strong{color:#173d5e;font-size:.92vw;font-weight:700}
+#view-dashboard .recent-main small{margin-top:.35vh;color:#77899a;font-size:.72vw}
+#view-dashboard .badge{font-size:.72vw;border-radius:999px;padding:.5vh .75vw}
+
+/* The technical facts remain available in the System view; on Accueil this card
+   is intentionally the master 'Notre engagement' editorial card. */
+#view-dashboard .grid.two>.panel:nth-child(2){
+  background:#fff url('./assets/dashboard-hero-production.svg') 118% 74%/54% auto no-repeat;
+}
+#view-dashboard .grid.two>.panel:nth-child(2) .facts{display:none}
+#view-dashboard .grid.two>.panel:nth-child(2) .panel-head h3{font-size:0}
+#view-dashboard .grid.two>.panel:nth-child(2) .panel-head h3::after{content:'Notre engagement';font-size:1.34vw}
+#view-dashboard .grid.two>.panel:nth-child(2)::before{
+  content:'“ Un environnement respecté\A favorise la réussite de chacun. ”';
+  white-space:pre;
+  position:absolute;
+  left:6%;
+  top:9.4vh;
+  width:74%;
+  color:#214b6e;
+  font-family:"Segoe UI",Arial,sans-serif;
+  font-size:1.36vw;
+  font-style:italic;
+  line-height:1.55;
+}
+#view-dashboard .grid.two>.panel:nth-child(2)::after{
+  content:'◇  Un lycée plus propre       ♙  Une communauté responsable       ▱  Des réussites durables';
+  position:absolute;
+  left:5.5%;
+  right:5.5%;
+  bottom:4.1vh;
+  color:#173f62;
+  font-size:.82vw;
+  font-weight:600;
+  line-height:1.35;
+  text-align:center;
+}
+
+/* Non-dashboard pages remain functional and scroll inside the master shell. */
+#app-shell[data-active-view]:not([data-active-view="dashboard"]) .topbar>div:first-child{display:block}
+#app-shell[data-active-view]:not([data-active-view="dashboard"]) .topbar::before,
+#app-shell[data-active-view]:not([data-active-view="dashboard"]) .topbar::after{display:none}
+#app-shell[data-active-view]:not([data-active-view="dashboard"]) .top-actions{gap:.55vw}
+#app-shell[data-active-view]:not([data-active-view="dashboard"]) .top-actions>*{display:inline-flex!important}
+#app-shell[data-active-view]:not([data-active-view="dashboard"]) .topbar{justify-content:space-between;padding:0 2.1vw}
+#app-shell[data-active-view]:not([data-active-view="dashboard"]) .topbar h1{font-size:1.55vw}
+
+/* Hard safety guard: never allow decorative icons to exceed their cards. */
+.sidebar svg,.nav svg,#view-dashboard svg{max-width:100%;max-height:100%}

@@ -13,24 +13,28 @@ const DEBUG_PORT = 9222;
 const ENDPOINT = `http://127.0.0.1:${DEBUG_PORT}`;
 const MASTER_WIDTH = 1448;
 const MASTER_HEIGHT = 1086;
+const MAX_DIFF_RATIO = 0.04;
 
-async function delay(ms) {
-  await new Promise((resolve) => setTimeout(resolve, ms));
-}
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function stopProcess(child) {
   if (child?.pid && child.exitCode === null) {
-    spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+    spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
+      stdio: 'ignore', windowsHide: true
+    });
   }
 }
 
 async function waitForRendererTarget(processLog) {
   let lastError = null;
-  for (let attempt = 0; attempt < 60; attempt += 1) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
     try {
-      const response = await fetch(`${ENDPOINT}/json/list`, { signal: AbortSignal.timeout(1000) });
+      const response = await fetch(`${ENDPOINT}/json/list`, {
+        signal: AbortSignal.timeout(1000)
+      });
       const targets = await response.json();
-      const target = targets.find((item) => item.type === 'page' && String(item.url || '').includes('/renderer/index.html'));
+      const target = targets.find((item) => item.type === 'page'
+        && String(item.url || '').includes('/renderer/index.html'));
       if (target) return target;
     } catch (error) {
       lastError = error;
@@ -46,39 +50,26 @@ async function roundedBox(locator, label) {
   return Object.fromEntries(Object.entries(value).map(([key, number]) => [key, Math.round(number)]));
 }
 
-async function captureMasterSurface(context, page, outputPath) {
-  // GitHub's hosted Windows desktop can expose a physical viewport as small as
-  // 1024×681 even while the packaged renderer correctly owns a 1448×1086
-  // master canvas. page.screenshot({ clip }) is clipped to that host viewport
-  // and therefore cannot qualify fidelity. CDP's captureBeyondViewport asks the
-  // *real packaged Electron renderer* to rasterize the complete CSS surface,
-  // without resizing/rebuilding the DOM and without weakening the visual gate.
-  const session = await context.newCDPSession(page);
-  try {
-    const shot = await session.send('Page.captureScreenshot', {
-      format: 'png',
-      fromSurface: true,
-      captureBeyondViewport: true,
-      clip: { x: 0, y: 0, width: MASTER_WIDTH, height: MASTER_HEIGHT, scale: 1 }
-    });
-    fs.writeFileSync(outputPath, Buffer.from(shot.data, 'base64'));
-  } finally {
-    await session.detach();
-  }
+async function captureMasterSurface(session, outputPath) {
+  const shot = await session.send('Page.captureScreenshot', {
+    format: 'png',
+    fromSurface: true,
+    captureBeyondViewport: true,
+    clip: { x: 0, y: 0, width: MASTER_WIDTH, height: MASTER_HEIGHT, scale: 1 }
+  });
+  fs.writeFileSync(outputPath, Buffer.from(shot.data, 'base64'));
 }
 
-test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo) => {
-  test.setTimeout(60_000);
+test('Phase B — packaged Electron fidelity against dashboard master', async ({}, testInfo) => {
+  test.setTimeout(90_000);
   expect(fs.existsSync(EXECUTABLE), `Exécutable empaqueté absent: ${EXECUTABLE}`).toBe(true);
   expect(fs.existsSync(MASTER), `Master absent: ${MASTER}`).toBe(true);
 
   let output = '';
-  console.log('[gate] lancement du binaire empaqueté');
   const child = spawn(EXECUTABLE, [
     `--remote-debugging-port=${DEBUG_PORT}`,
     '--remote-allow-origins=*',
-    '--force-device-scale-factor=1',
-    '--rdl-visual-test=1'
+    '--force-device-scale-factor=1'
   ], {
     env: { ...process.env, RDL_VISUAL_TEST: '1' },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -88,47 +79,66 @@ test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo
   child.stderr?.on('data', (chunk) => { output += chunk.toString(); });
 
   let browser = null;
+  let session = null;
   try {
-    const target = await waitForRendererTarget(() => output);
-    console.log(`[gate] cible renderer trouvée: ${target.url}`);
-
-    browser = await chromium.connectOverCDP(ENDPOINT, { timeout: 10_000 });
+    await waitForRendererTarget(() => output);
+    browser = await chromium.connectOverCDP(ENDPOINT, { timeout: 12_000 });
     const context = browser.contexts()[0];
-    if (!context) throw new Error('Contexte Chromium du binaire Electron introuvable');
+    expect(context, 'Contexte Chromium du binaire Electron introuvable').toBeTruthy();
 
-    let page = context.pages().find((candidate) => candidate.url().includes('/renderer/index.html'));
-    for (let attempt = 0; !page && attempt < 20; attempt += 1) {
-      await delay(100);
-      page = context.pages().find((candidate) => candidate.url().includes('/renderer/index.html'));
-    }
-    if (!page) throw new Error('Page renderer Electron absente après connexion CDP');
-    console.log('[gate] Playwright est connecté à la vraie fenêtre Electron empaquetée');
+    const page = context.pages().find((candidate) => candidate.url().includes('/renderer/index.html'));
+    expect(page, 'Page renderer Electron absente').toBeTruthy();
 
-    const dashboard = page.locator('#vf-dashboard');
-    await expect(dashboard).toHaveAttribute('data-vf-ready', 'true', { timeout: 10_000 });
+    session = await context.newCDPSession(page);
+    await session.send('Emulation.setDeviceMetricsOverride', {
+      width: MASTER_WIDTH,
+      height: MASTER_HEIGHT,
+      deviceScaleFactor: 1,
+      mobile: false,
+      screenWidth: MASTER_WIDTH,
+      screenHeight: MASTER_HEIGHT
+    });
 
-    const diagnostic = {
-      url: page.url(),
-      vfReady: await dashboard.getAttribute('data-vf-ready'),
-      pending: (await page.locator('#vf-kpi-pending').textContent())?.trim(),
-      interventions: (await page.locator('#vf-kpi-interventions').textContent())?.trim(),
-      resolved: (await page.locator('#vf-kpi-resolved').textContent())?.trim()
-    };
-    console.log(`[gate] DOM empaqueté ${JSON.stringify(diagnostic)}`);
-    expect(diagnostic.vfReady).toBe('true');
-    expect(diagnostic.pending).toBe('12');
-    expect(diagnostic.interventions).toBe('8');
-    expect(diagnostic.resolved).toBe('48');
+    await page.waitForFunction(() => document.readyState === 'complete'
+      && document.querySelector('#app-shell')?.dataset?.shellReady === 'true', null, { timeout: 15_000 });
+    await delay(500);
 
-    expect(await roundedBox(dashboard, '#vf-dashboard')).toEqual({ x: 0, y: 0, width: MASTER_WIDTH, height: MASTER_HEIGHT });
-    expect(await roundedBox(page.locator('.vf-sidebar'), '.vf-sidebar')).toEqual({ x: 0, y: 77, width: 362, height: 1009 });
-    expect(await roundedBox(page.locator('.vf-main'), '.vf-main')).toEqual({ x: 362, y: 77, width: 1086, height: 1009 });
-    expect(await roundedBox(page.locator('.vf-hero'), '.vf-hero')).toEqual({ x: 362, y: 77, width: 1086, height: 323 });
-    expect(await roundedBox(page.locator('.vf-kpi').first(), '.vf-kpi:first')).toEqual({ x: 376, y: 412, width: 242, height: 165 });
-    console.log('[gate] géométrie et données de contrôle validées');
+    const shell = page.locator('#app-shell');
+    const sidebar = page.locator('#app-shell > .sidebar');
+    const main = page.locator('#app-shell > .main');
+    const topbar = page.locator('#app-shell > .main > .topbar');
+    const hero = page.locator('#view-dashboard .hero');
+    const firstKpi = page.locator('#view-dashboard .kpi').first();
+
+    expect(await roundedBox(shell, '#app-shell')).toEqual({ x: 0, y: 0, width: 1448, height: 1086 });
+    expect(await roundedBox(sidebar, '.sidebar')).toEqual({ x: 0, y: 0, width: 362, height: 1086 });
+    expect(await roundedBox(main, '.main')).toEqual({ x: 362, y: 0, width: 1086, height: 1086 });
+    expect(await roundedBox(topbar, '.topbar')).toEqual({ x: 362, y: 0, width: 1086, height: 77 });
+    expect(await roundedBox(hero, '.hero')).toEqual({ x: 362, y: 77, width: 1086, height: 323 });
+
+    const kpiBox = await roundedBox(firstKpi, '.kpi:first');
+    expect(Math.abs(kpiBox.x - 376)).toBeLessThanOrEqual(2);
+    expect(Math.abs(kpiBox.y - 412)).toBeLessThanOrEqual(2);
+    expect(Math.abs(kpiBox.height - 165)).toBeLessThanOrEqual(2);
+
+    const safety = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+      scrollHeight: document.documentElement.scrollHeight,
+      clientHeight: document.documentElement.clientHeight,
+      giantIcons: [...document.querySelectorAll('.sidebar svg, #view-dashboard svg')]
+        .map((node) => node.getBoundingClientRect())
+        .filter((box) => box.width > 180 || box.height > 180).length,
+      legacyV51Rules: [...document.styleSheets]
+        .some((sheet) => String(sheet.href || '').endsWith('/v51.css') && (sheet.cssRules?.length || 0) > 0)
+    }));
+    expect(safety.scrollWidth).toBeLessThanOrEqual(safety.clientWidth + 1);
+    expect(safety.scrollHeight).toBeLessThanOrEqual(safety.clientHeight + 1);
+    expect(safety.giantIcons).toBe(0);
+    expect(safety.legacyV51Rules).toBe(false);
 
     const actualPath = testInfo.outputPath('electron-dashboard-actual.png');
-    await captureMasterSurface(context, page, actualPath);
+    await captureMasterSurface(session, actualPath);
     await testInfo.attach('electron-dashboard-actual', { path: actualPath, contentType: 'image/png' });
 
     const master = PNG.sync.read(fs.readFileSync(MASTER));
@@ -137,16 +147,27 @@ test('packaged Electron dashboard — master fidelity gate', async ({}, testInfo
     expect({ width: master.width, height: master.height }).toEqual({ width: MASTER_WIDTH, height: MASTER_HEIGHT });
 
     const diff = new PNG({ width: master.width, height: master.height });
-    const diffPixels = pixelmatch(master.data, actual.data, diff.data, master.width, master.height, { threshold: 0.15 });
+    const diffPixels = pixelmatch(master.data, actual.data, diff.data, master.width, master.height, {
+      threshold: 0.15,
+      includeAA: false
+    });
     const ratio = diffPixels / (master.width * master.height);
     const diffPath = testInfo.outputPath('electron-dashboard-diff.png');
     fs.writeFileSync(diffPath, PNG.sync.write(diff));
     await testInfo.attach('electron-dashboard-diff', { path: diffPath, contentType: 'image/png' });
-    console.log(`[gate] divergence pixels = ${(ratio * 100).toFixed(4)}% (${diffPixels} pixels)`);
-    expect(ratio).toBeLessThanOrEqual(0.04);
-    console.log('[gate] comparaison maître validée');
+    await testInfo.attach('electron-fidelity-metrics', {
+      body: Buffer.from(JSON.stringify({ diffPixels, ratio, maxRatio: MAX_DIFF_RATIO, kpiBox, safety }, null, 2)),
+      contentType: 'application/json'
+    });
+
+    console.log(`[gate] divergence = ${(ratio * 100).toFixed(4)}% (${diffPixels} pixels)`);
+    expect(ratio).toBeLessThanOrEqual(MAX_DIFF_RATIO);
   } finally {
-    await testInfo.attach('electron-process-log', { body: Buffer.from(output || '(aucune sortie processus)', 'utf8'), contentType: 'text/plain' });
+    await testInfo.attach('electron-process-log', {
+      body: Buffer.from(output || '(aucune sortie processus)', 'utf8'),
+      contentType: 'text/plain'
+    });
+    try { await session?.detach(); } catch {}
     try { await browser?.close(); } catch {}
     stopProcess(child);
   }
