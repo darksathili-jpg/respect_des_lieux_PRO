@@ -1,0 +1,57 @@
+name: Electron Fidelity Integration Gate
+
+on:
+  push:
+    branches:
+      - phase-b-electron-fidelity
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  packaged-electron-fidelity:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.21.0'
+          cache: npm
+
+      - name: Install application dependencies
+        run: npm ci
+
+      - name: Validate local core before packaging
+        run: npm run verify
+
+      - name: Build unpacked Windows application
+        run: npm run dist:win:dir
+
+      - name: Install visual-gate dependencies
+        working-directory: design/visual
+        run: npm install --no-audit --no-fund
+
+      - name: Install Playwright Chromium
+        working-directory: design/visual
+        run: npx playwright install chromium
+
+      - name: Run packaged Electron master comparison
+        working-directory: design/visual
+        run: npx playwright test electron-dashboard.spec.mjs --config=playwright.electron.config.mjs
+
+      - name: Upload fidelity diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-fidelity-diagnostics
+          path: |
+            design/visual/test-results/
+            design/visual/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
